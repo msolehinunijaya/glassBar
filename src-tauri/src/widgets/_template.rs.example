@@ -1,0 +1,32 @@
+// Backend half of a widget (optional). To use:
+// 1. Copy to src-tauri/src/widgets/hello.rs
+// 2. Add `pub mod hello;` to src-tauri/src/widgets/mod.rs
+// 3. Add `widgets::hello::hello_greet` to generate_handler![...] in main.rs
+// 4. Call it from Svelte: `invoke<string>('hello_greet', { name })` (add a typed wrapper in src/lib/ipc.ts)
+//
+// Rules:
+// - OS calls go through a trait in crate::platform, never `windows::` directly here.
+// - Make commands `async` when they block (COM/WinRT calls, disk, network).
+// - Return Result<T, String> so the frontend gets a readable error.
+
+use crate::platform::Res;
+
+#[tauri::command]
+pub async fn hello_greet(name: String) -> Res<String> {
+    if name.trim().is_empty() {
+        return Err("name is empty".into());
+    }
+    Ok(format!("Hello, {name}!"))
+}
+
+// Live updates: emit an event from a background thread, listen in Svelte with
+// `listen('hello:tick', e => ...)`.
+//
+// pub fn start(app: &tauri::AppHandle) {
+//     use tauri::Emitter;
+//     let app = app.clone();
+//     std::thread::spawn(move || loop {
+//         let _ = app.emit("hello:tick", 1);
+//         std::thread::sleep(std::time::Duration::from_secs(60));
+//     });
+// }
