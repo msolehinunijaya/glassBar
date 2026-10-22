@@ -1,0 +1,214 @@
+//! Top-level window list (what a taskbar shows), live updates, launch/focus, exe icons.
+use super::super::{AppWindow, Res};
+use super::wide;
+use base64::Engine;
+use image::ImageEncoder;
+use std::collections::HashMap;
+use std::sync::atomic::{AtomicIsize, Ordering};
+use std::sync::mpsc::{channel, Sender};
+use std::sync::{Mutex, OnceLock};
+use std::time::Duration;
+use windows::core::{BOOL, PCWSTR, PWSTR};
+use windows::Win32::Foundation::{CloseHandle, HWND, LPARAM, WPARAM};
+use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_CLOAKED};
+use windows::Win32::Graphics::Gdi::*;
+use windows::Win32::System::Threading::*;
+use windows::Win32::UI::Accessibility::{SetWinEventHook, HWINEVENTHOOK};
+use windows::Win32::UI::Shell::{SHDefExtractIconW, ShellExecuteW};
+use windows::Win32::UI::WindowsAndMessaging::*;
+
+/// Last foreground window that is not ours (clicking the bar steals focus).
+static LAST_FG: AtomicIsize = AtomicIsize::new(0);
+static TX: OnceLock<Sender<()>> = OnceLock::new();
+static ICONS: Mutex<Option<HashMap<String, Option<String>>>> = Mutex::new(None);
+
+fn h(id: isize) -> HWND { HWND(id as *mut _) }
+
+fn pid_of(w: HWND) -> u32 {
+    let mut pid = 0;
+    unsafe { GetWindowThreadProcessId(w, Some(&mut pid)) };
+    pid
+}
+
+pub(crate) fn exe_path(pid: u32) -> String {
+    unsafe {
+        let Ok(proc) = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) else { return String::new() };
+        let mut buf = [0u16; 1024];
+        let mut len = buf.len() as u32;
+        let ok = QueryFullProcessImageNameW(proc, PROCESS_NAME_WIN32, PWSTR(buf.as_mut_ptr()), &mut len).is_ok();
+        let _ = CloseHandle(proc);
+        if ok { String::from_utf16_lossy(&buf[..len as usize]) } else { String::new() }
+    }
+}
+
+fn class_of(w: HWND) -> String {
+    let mut buf = [0u16; 128];
+    let n = unsafe { GetClassNameW(w, &mut buf) } as usize;
+    String::from_utf16_lossy(&buf[..n])
+}
+
+fn title_of(w: HWND) -> String {
+    let mut buf = [0u16; 512];
+    let n = unsafe { GetWindowTextW(w, &mut buf) } as usize;
+    String::from_utf16_lossy(&buf[..n])
+}
+
+/// Same rules the classic taskbar uses.
+fn is_taskbar_window(w: HWND) -> bool {
+    unsafe {
+        if !IsWindowVisible(w).as_bool() { return false; }
+        let ex = GetWindowLongPtrW(w, GWL_EXSTYLE) as u32;
+        if ex & WS_EX_TOOLWINDOW.0 != 0 { return false; }
+        let owned = GetWindow(w, GW_OWNER).map(|o| !o.is_invalid()).unwrap_or(false);
+        if owned && ex & WS_EX_APPWINDOW.0 == 0 { return false; }
+        let mut cloaked = 0u32;
+        let _ = DwmGetWindowAttribute(w, DWMWA_CLOAKED, &mut cloaked as *mut _ as *mut _, 4);
+        if cloaked != 0 { return false; }
+    }
+    if title_of(w).is_empty() { return false; }
+    !matches!(class_of(w).as_str(), "Progman" | "WorkerW" | "Shell_TrayWnd" | "Shell_SecondaryTrayWnd")
+}
+
+pub fn list() -> Vec<AppWindow> {
+    unsafe extern "system" fn each(w: HWND, out: LPARAM) -> BOOL {
+        unsafe { (*(out.0 as *mut Vec<HWND>)).push(w) };
+        true.into()
+    }
+    let mut all: Vec<HWND> = Vec::new();
+    unsafe { let _ = EnumWindows(Some(each), LPARAM(&mut all as *mut _ as isize)); }
+    let me = std::process::id();
+    let fg = LAST_FG.load(Ordering::Relaxed);
+    all.into_iter()
+        .filter(|&w| is_taskbar_window(w))
+        .filter_map(|w| {
+            let pid = pid_of(w);
+            (pid != me).then(|| AppWindow {
+                id: w.0 as isize,
+                title: title_of(w),
+                // ponytail: UWP apps report ApplicationFrameHost.exe; resolve the hosted app if it matters.
+                exe: exe_path(pid),
+                active: w.0 as isize == fg,
+                minimized: unsafe { IsIconic(w).as_bool() },
+            })
+        })
+        .collect()
+}
+
+unsafe extern "system" fn on_event(_: HWINEVENTHOOK, event: u32, w: HWND, obj: i32, child: i32, _: u32, _: u32) {
+    if obj != OBJID_WINDOW.0 || child != 0 || w.is_invalid() { return; }
+    if event == EVENT_SYSTEM_FOREGROUND {
+        if pid_of(w) != std::process::id() { LAST_FG.store(w.0 as isize, Ordering::Relaxed); }
+    } else if event != EVENT_OBJECT_DESTROY && unsafe { GetAncestor(w, GA_ROOT) } != w {
+        return;
+    }
+    if let Some(tx) = TX.get() { let _ = tx.send(()); }
+}
+
+pub fn watch(on_change: Box<dyn Fn() + Send>) {
+    LAST_FG.store(unsafe { GetForegroundWindow() }.0 as isize, Ordering::Relaxed);
+    let (tx, rx) = channel();
+    let _ = TX.set(tx);
+    std::thread::spawn(move || unsafe {
+        let flags = WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS;
+        for (lo, hi) in [
+            (EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_FOREGROUND),
+            (EVENT_SYSTEM_MINIMIZESTART, EVENT_SYSTEM_MINIMIZEEND),
+            (EVENT_OBJECT_DESTROY, EVENT_OBJECT_HIDE),
+            (EVENT_OBJECT_NAMECHANGE, EVENT_OBJECT_NAMECHANGE),
+        ] {
+            SetWinEventHook(lo, hi, None, Some(on_event), 0, 0, flags);
+        }
+        let mut msg = MSG::default();
+        while GetMessageW(&mut msg, None, 0, 0).as_bool() {
+            let _ = TranslateMessage(&msg);
+            DispatchMessageW(&msg);
+        }
+    });
+    // Debounce: one update per burst, at most every 120 ms.
+    std::thread::spawn(move || {
+        while rx.recv().is_ok() {
+            std::thread::sleep(Duration::from_millis(120));
+            while rx.try_recv().is_ok() {}
+            on_change();
+        }
+    });
+}
+
+pub fn activate(id: isize) {
+    let w = h(id);
+    unsafe {
+        if IsIconic(w).as_bool() {
+            let _ = ShowWindow(w, SW_RESTORE);
+            let _ = SetForegroundWindow(w);
+        } else if LAST_FG.load(Ordering::Relaxed) == id {
+            let _ = ShowWindow(w, SW_MINIMIZE);
+        } else {
+            let _ = SetForegroundWindow(w);
+        }
+    }
+}
+
+pub fn close(id: isize) {
+    unsafe { let _ = PostMessageW(Some(h(id)), WM_CLOSE, WPARAM(0), LPARAM(0)); }
+}
+
+pub fn launch(path: &str, args: &str) -> Res<()> {
+    let (op, file, params) = (wide("open"), wide(path), wide(args));
+    let r = unsafe {
+        ShellExecuteW(None, PCWSTR(op.as_ptr()), PCWSTR(file.as_ptr()), PCWSTR(params.as_ptr()), PCWSTR::null(), SW_SHOWNORMAL)
+    };
+    if r.0 as isize > 32 { Ok(()) } else { Err(format!("could not open {path}")) }
+}
+
+pub fn exe_icon(exe: &str) -> Option<String> {
+    let key = exe.to_lowercase();
+    if let Some(hit) = ICONS.lock().unwrap().get_or_insert_with(HashMap::new).get(&key) {
+        return hit.clone();
+    }
+    let icon = extract(exe, 48);
+    ICONS.lock().unwrap().as_mut().unwrap().insert(key, icon.clone());
+    icon
+}
+
+fn extract(exe: &str, size: u32) -> Option<String> {
+    let path = wide(exe);
+    let mut icon = HICON::default();
+    unsafe {
+        SHDefExtractIconW(PCWSTR(path.as_ptr()), 0, 0, Some(&mut icon), None, size).ok().ok()?;
+        let png = icon_to_png(icon, size as i32);
+        let _ = DestroyIcon(icon);
+        png.map(|b| format!("data:image/png;base64,{}", base64::engine::general_purpose::STANDARD.encode(b)))
+    }
+}
+
+unsafe fn icon_to_png(icon: HICON, size: i32) -> Option<Vec<u8>> {
+    let mut info = ICONINFO::default();
+    unsafe { GetIconInfo(icon, &mut info).ok()? };
+    let mut bmi = BITMAPINFO {
+        bmiHeader: BITMAPINFOHEADER {
+            biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32,
+            biWidth: size, biHeight: -size, biPlanes: 1, biBitCount: 32, biCompression: BI_RGB.0,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    let mut px = vec![0u8; (size * size * 4) as usize];
+    let ok = unsafe {
+        let dc = GetDC(None);
+        let n = GetDIBits(dc, info.hbmColor, 0, size as u32, Some(px.as_mut_ptr() as *mut _), &mut bmi, DIB_RGB_COLORS);
+        ReleaseDC(None, dc);
+        let _ = DeleteObject(info.hbmColor.into());
+        let _ = DeleteObject(info.hbmMask.into());
+        n > 0
+    };
+    if !ok { return None; }
+    let has_alpha = px.chunks(4).any(|p| p[3] != 0);
+    for p in px.chunks_mut(4) {
+        p.swap(0, 2); // BGRA -> RGBA
+        if !has_alpha { p[3] = 255; }
+    }
+    let mut out = Vec::new();
+    image::codecs::png::PngEncoder::new(&mut out)
+        .write_image(&px, size as u32, size as u32, image::ExtendedColorType::Rgba8).ok()?;
+    Some(out)
+}

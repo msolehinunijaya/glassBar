@@ -1,0 +1,121 @@
+//! Platform abstraction: every OS call goes through these traits.
+//! Windows lives in `platform/windows/`; a macOS module can be added later
+//! behind `#[cfg(target_os = "macos")]` without touching widget code.
+use crate::config::{Edge, TaskbarMode};
+use serde::{Deserialize, Serialize};
+
+pub type Res<T> = Result<T, String>;
+
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub struct Rect { pub x: i32, pub y: i32, pub w: i32, pub h: i32 }
+
+#[derive(Serialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct AppWindow { pub id: isize, pub title: String, pub exe: String, pub active: bool, pub minimized: bool }
+
+#[derive(Serialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct AudioDevice { pub id: String, pub name: String, pub is_default: bool }
+
+#[derive(Serialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct AudioState { pub volume: f32, pub muted: bool, pub devices: Vec<AudioDevice> }
+
+#[derive(Serialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct AudioSession { pub pid: u32, pub name: String, pub exe: String, pub volume: f32, pub muted: bool }
+
+#[derive(Serialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct MediaInfo {
+    pub app: String, pub title: String, pub artist: String, pub album: String,
+    /// data: URL of the album art, if the player provides one.
+    pub art: Option<String>,
+    pub playing: bool,
+    pub position_ms: i64, pub duration_ms: i64,
+    /// Unix ms at which `position_ms` was true (frontend interpolates from here).
+    pub updated_at_ms: i64,
+    pub can_next: bool, pub can_prev: bool,
+}
+
+#[derive(Deserialize, Clone, Copy, Debug)]
+#[serde(rename_all = "lowercase")]
+pub enum MediaAction { Toggle, Next, Prev }
+
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum RadioKind { Wifi, Bluetooth, Other }
+
+#[derive(Serialize, Clone, Debug)]
+pub struct RadioInfo { pub kind: RadioKind, pub name: String, pub on: bool }
+
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum DisplayMode { Internal, Clone, Extend, External }
+
+/// How a window's glass is drawn.
+pub struct Glass { pub native: bool, pub dark: bool, pub opacity: f64 }
+
+pub trait Shell: Send + Sync {
+    /// Native blur + rounded corners (or plain transparent window for CSS glass).
+    fn style_window(&self, win: &tauri::WebviewWindow, glass: &Glass);
+    /// Reserve `strip` on `edge` so maximized windows stop short of the bar.
+    /// Returns the strip Windows actually granted (it may shift to avoid other bars).
+    fn appbar_set(&self, win: isize, edge: Edge, strip: Rect) -> Rect;
+    fn appbar_remove(&self, win: isize);
+    fn set_taskbar(&self, mode: TaskbarMode);
+    fn list_windows(&self) -> Vec<AppWindow>;
+    /// Calls `on_change` (debounced) whenever top-level windows change.
+    fn watch_windows(&self, on_change: Box<dyn Fn() + Send>);
+    /// Focus, restore, or minimize if it is already the active window.
+    fn activate(&self, id: isize);
+    fn close(&self, id: isize);
+    fn launch(&self, path: &str, args: &str) -> Res<()>;
+    /// PNG data: URL for an executable's icon.
+    fn exe_icon(&self, exe: &str) -> Option<String>;
+}
+
+pub trait Audio: Send + Sync {
+    fn state(&self) -> Res<AudioState>;
+    fn set_volume(&self, v: f32) -> Res<()>;
+    fn set_mute(&self, m: bool) -> Res<()>;
+    fn set_default(&self, id: &str) -> Res<()>;
+    fn sessions(&self) -> Res<Vec<AudioSession>>;
+    fn set_session_volume(&self, pid: u32, v: f32) -> Res<()>;
+    fn set_session_mute(&self, pid: u32, m: bool) -> Res<()>;
+    fn watch(&self, on_change: Box<dyn Fn(AudioState) + Send>);
+}
+
+pub trait Media: Send + Sync {
+    fn info(&self) -> Res<Option<MediaInfo>>;
+    fn control(&self, a: MediaAction) -> Res<()>;
+    fn seek(&self, position_ms: i64) -> Res<()>;
+    fn watch(&self, on_change: Box<dyn Fn(Option<MediaInfo>) + Send>);
+}
+
+pub trait Radios: Send + Sync {
+    fn list(&self) -> Res<Vec<RadioInfo>>;
+    fn set(&self, kind: Option<RadioKind>, on: bool) -> Res<()>;
+}
+
+pub trait Display: Send + Sync {
+    fn mode(&self) -> Option<DisplayMode>;
+    fn set_mode(&self, m: DisplayMode) -> Res<()>;
+    fn brightness(&self) -> Option<u32>;
+    fn set_brightness(&self, v: u32) -> Res<()>;
+}
+
+#[cfg(windows)]
+#[path = "windows/mod.rs"]
+mod win;
+
+#[cfg(windows)]
+pub fn shell() -> &'static dyn Shell { &win::WinShell }
+#[cfg(windows)]
+pub fn audio() -> &'static dyn Audio { &win::WinAudio }
+#[cfg(windows)]
+pub fn media() -> &'static dyn Media { &win::WinMedia }
+#[cfg(windows)]
+pub fn radios() -> &'static dyn Radios { &win::WinRadios }
+#[cfg(windows)]
+pub fn display() -> &'static dyn Display { &win::WinDisplay }
