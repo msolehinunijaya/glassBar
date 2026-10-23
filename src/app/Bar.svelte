@@ -28,6 +28,7 @@
 
   // ---- Auto-hide: slide in while the pointer is on the bar (or a popup/edit is open) ----
   const autoHide = $derived(bar.autoHide && !bar.floating);
+  const setBar = (f: (b: typeof bar) => void) => update((c) => f(c.profiles[c.activeProfile].bar));
   let hovering = false;
   let popupOpen = false;
   let hideTimer: ReturnType<typeof setTimeout>;
@@ -167,6 +168,13 @@
     e.preventDefault();
     await showMenu([
       { text: edit ? 'Done editing' : 'Edit widgets', action: () => ipc.setEditMode(!edit) },
+      // Dock placement right here, no Settings window needed.
+      { text: 'Position', items: (['top', 'bottom', 'left', 'right'] as const).map((e) => ({
+        text: e[0].toUpperCase() + e.slice(1), checked: !bar.floating && bar.edge === e,
+        action: () => setBar((b) => { b.edge = e; b.floating = null; }),
+      })) },
+      { text: 'Auto-hide', checked: autoHide, action: () => setBar((b) => { b.autoHide = !autoHide; b.floating = null; }) },
+      await PredefinedMenuItem.new({ item: 'Separator' }),
       { text: 'Settings…', action: () => ipc.openSettings() },
       await PredefinedMenuItem.new({ item: 'Separator' }),
       { text: 'Task Manager', action: () => ipc.appLaunch('taskmgr.exe') },
