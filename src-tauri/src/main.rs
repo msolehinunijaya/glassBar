@@ -132,6 +132,9 @@ fn main() {
             bar::build_tray(h)?;
             bar::apply(h);
             if let Some(w) = app.get_webview_window("bar") { w.show()?; }
+            // Windows settles the frameless window's frame on its first show, which changes
+            // the size placed above; place it again so a fresh start matches every other time.
+            bar::apply(h);
             widgets::start_watchers(h);
             scheduler::start(h.clone());
             widgets::ipu::start(h.clone());
