@@ -26,7 +26,7 @@ static ICONS: Mutex<Option<HashMap<String, Option<String>>>> = Mutex::new(None);
 
 fn h(id: isize) -> HWND { HWND(id as *mut _) }
 
-fn pid_of(w: HWND) -> u32 {
+pub(crate) fn pid_of(w: HWND) -> u32 {
     let mut pid = 0;
     unsafe { GetWindowThreadProcessId(w, Some(&mut pid)) };
     pid
@@ -55,14 +55,14 @@ fn class_of(w: HWND) -> String {
     String::from_utf16_lossy(&buf[..n])
 }
 
-fn title_of(w: HWND) -> String {
+pub(crate) fn title_of(w: HWND) -> String {
     let mut buf = [0u16; 512];
     let n = unsafe { GetWindowTextW(w, &mut buf) } as usize;
     String::from_utf16_lossy(&buf[..n])
 }
 
 /// Same rules the classic taskbar uses.
-fn is_taskbar_window(w: HWND) -> bool {
+pub(crate) fn is_taskbar_window(w: HWND) -> bool {
     unsafe {
         if !IsWindowVisible(w).as_bool() { return false; }
         let ex = GetWindowLongPtrW(w, GWL_EXSTYLE) as u32;

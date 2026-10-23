@@ -47,6 +47,9 @@ export type PowerMode = 'efficiency' | 'balanced' | 'performance';
 export interface PowerInfo { mode: PowerMode | null; saverOn: boolean | null }
 export interface Sample { cpu: number; mem: number; gpu: number | null; rxBps: number; txBps: number; at: number; cpuTemp: number | null }
 export interface Rates { base: string; rates: Record<string, number>; rateTime: number; fetchedAt: number; source: string; cached: boolean }
+export interface WinRect { id: number; title: string; x: number; y: number; w: number; h: number }
+export interface SnapView { img: string; purpose: 'ocr' | 'region' | 'window' | 'scroll'; windows: WinRect[] }
+export interface ShotItem { id: number; at: number; w: number; h: number; kind: 'full' | 'region' | 'window' | 'scroll'; thumb: string }
 export interface OcrItem { id: number; at: number; text: string; mode: 'text' | 'code' | 'terminal'; engine: 'windows' | 'ai' }
 export interface AiUsage { day: string; dayIn: number; dayOut: number; dayRequests: number; month: string; monthIn: number; monthOut: number }
 export interface PinTarget { path: string; args: string }
@@ -177,9 +180,15 @@ export const ipc = {
   hotspotGet: () => invoke<Hotspot>('hotspot_get'),
   hotspotSet: (on: boolean) => invoke<void>('hotspot_set', { on }),
   fxRates: (base: string, force = false) => invoke<Rates>('fx_rates', { base, force }),
-  ocrSnapStart: () => invoke<void>('ocr_snap_start'),
-  ocrShot: () => invoke<string | null>('ocr_shot'),
-  ocrSnapFinish: (x: number, y: number, w: number, h: number) => invoke<string>('ocr_snap_finish', { x, y, w, h }),
+  ocrSnapStart: (purpose: SnapView['purpose'] = 'ocr') => invoke<void>('ocr_snap_start', { purpose }),
+  ocrShot: () => invoke<SnapView | null>('ocr_shot'),
+  ocrSnapFinish: (x: number, y: number, w: number, h: number, window: number | null = null) => invoke<string>('ocr_snap_finish', { x, y, w, h, window }),
+  shotFullscreen: () => invoke<number>('shot_fullscreen'),
+  shotsList: () => invoke<ShotItem[]>('shots_list'),
+  shotsCopy: (id: number) => invoke<void>('shots_copy', { id }),
+  shotsDelete: (id: number | null) => invoke<void>('shots_delete', { id }),
+  shotsOpen: (id: number | null) => invoke<void>('shots_open', { id }),
+  recordScreen: (kind: 'area' | 'app') => invoke<void>('record_screen', { kind }),
   ocrSnapCancel: () => invoke<void>('ocr_snap_cancel'),
   ocrHistory: () => invoke<OcrItem[]>('ocr_history'),
   ocrHistoryDelete: (id: number | null) => invoke<void>('ocr_history_delete', { id }),

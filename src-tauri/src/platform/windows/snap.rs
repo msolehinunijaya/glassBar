@@ -1,6 +1,6 @@
 //! Screen capture (GDI) of the monitor under the cursor, and Windows' built-in OCR
 //! (Windows.Media.Ocr, using the user's installed languages).
-use super::super::{Res, Shot, Word};
+use super::super::{Res, Shot, WinRect, Word};
 use windows::Graphics::Imaging::{BitmapPixelFormat, SoftwareBitmap};
 use windows::Media::Ocr::OcrEngine;
 use windows::Storage::Streams::DataWriter;
@@ -16,7 +16,15 @@ pub fn capture_at_cursor() -> Option<Shot> {
         let mut mi = MONITORINFO { cbSize: std::mem::size_of::<MONITORINFO>() as u32, ..Default::default() };
         if !GetMonitorInfoW(mon, &mut mi).as_bool() { return None; }
         let r = mi.rcMonitor;
-        let (w, h) = (r.right - r.left, r.bottom - r.top);
+        capture_rect(r.left, r.top, r.right - r.left, r.bottom - r.top)
+    }
+}
+
+/// Live pixels of a desktop rectangle (physical pixels).
+pub fn capture_rect(x: i32, y: i32, w: i32, h: i32) -> Option<Shot> {
+    if w <= 0 || h <= 0 { return None; }
+    let r = windows::Win32::Foundation::RECT { left: x, top: y, right: x + w, bottom: y + h };
+    unsafe {
         let screen = GetDC(None);
         let mem = CreateCompatibleDC(Some(screen));
         let bmp = CreateCompatibleBitmap(screen, w, h);
@@ -64,4 +72,48 @@ pub fn ocr(bgra: &[u8], w: u32, h: u32) -> Res<Vec<Vec<Word>>> {
         lines.push(words);
     }
     Ok(lines)
+}
+
+/// Visible app windows overlapping `area`, front-most first, with their on-screen bounds
+/// (without the invisible resize borders). For "screenshot a window".
+pub fn window_rects(area: (i32, i32, i32, i32)) -> Vec<WinRect> {
+    use windows::Win32::Foundation::{HWND, LPARAM, RECT};
+    use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_EXTENDED_FRAME_BOUNDS};
+    use windows::Win32::UI::WindowsAndMessaging::{EnumWindows, IsIconic};
+    unsafe extern "system" fn each(w: HWND, out: LPARAM) -> windows::core::BOOL {
+        unsafe { (*(out.0 as *mut Vec<HWND>)).push(w) };
+        true.into()
+    }
+    let mut all: Vec<HWND> = Vec::new();
+    unsafe { let _ = EnumWindows(Some(each), LPARAM(&mut all as *mut _ as isize)); }
+    let me = std::process::id();
+    let (ax, ay, aw, ah) = area;
+    all.into_iter()
+        .filter(|&w| super::windows_list::is_taskbar_window(w) && super::windows_list::pid_of(w) != me && !unsafe { IsIconic(w).as_bool() })
+        .filter_map(|w| {
+            let mut r = RECT::default();
+            unsafe { DwmGetWindowAttribute(w, DWMWA_EXTENDED_FRAME_BOUNDS, &mut r as *mut _ as *mut _, std::mem::size_of::<RECT>() as u32).ok()? };
+            let (x0, y0, x1, y1) = (r.left.max(ax), r.top.max(ay), r.right.min(ax + aw), r.bottom.min(ay + ah));
+            (x1 - x0 > 40 && y1 - y0 > 40).then(|| WinRect { id: w.0 as isize, title: super::windows_list::title_of(w), x: x0, y: y0, w: x1 - x0, h: y1 - y0 })
+        })
+        .collect()
+}
+
+/// Bring a window forward and roll the mouse wheel over it (`notches` > 0 scrolls down).
+/// The mouse pointer is put back where it was.
+pub fn scroll_window(id: isize, at: (i32, i32), notches: i32, focus: bool) {
+    use windows::Win32::Foundation::HWND;
+    use windows::Win32::UI::Input::KeyboardAndMouse::*;
+    use windows::Win32::UI::WindowsAndMessaging::{SetCursorPos, SetForegroundWindow};
+    unsafe {
+        if focus { let _ = SetForegroundWindow(HWND(id as *mut _)); }
+        let mut old = POINT::default();
+        let _ = GetCursorPos(&mut old);
+        let _ = SetCursorPos(at.0, at.1);
+        let input = INPUT { r#type: INPUT_MOUSE, Anonymous: INPUT_0 { mi: MOUSEINPUT {
+            mouseData: (-120 * notches) as u32, dwFlags: MOUSEEVENTF_WHEEL, ..Default::default() } } };
+        SendInput(&[input], std::mem::size_of::<INPUT>() as i32);
+        std::thread::sleep(std::time::Duration::from_millis(30));
+        let _ = SetCursorPos(old.x, old.y);
+    }
 }

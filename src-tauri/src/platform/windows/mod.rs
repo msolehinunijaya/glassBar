@@ -55,6 +55,9 @@ impl Wireless for WinWireless {
 }
 impl Screen for WinScreen {
     fn capture_at_cursor(&self) -> Option<Shot> { snap::capture_at_cursor() }
+    fn capture_rect(&self, x: i32, y: i32, w: i32, h: i32) -> Option<Shot> { snap::capture_rect(x, y, w, h) }
+    fn window_rects(&self, area: (i32, i32, i32, i32)) -> Vec<WinRect> { snap::window_rects(area) }
+    fn scroll_window(&self, id: isize, at: (i32, i32), notches: i32, focus: bool) { snap::scroll_window(id, at, notches, focus) }
     fn ocr(&self, bgra: &[u8], w: u32, h: u32) -> Res<Vec<Vec<Word>>> { snap::ocr(bgra, w, h) }
 }
 

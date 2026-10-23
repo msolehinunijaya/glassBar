@@ -19,6 +19,8 @@ CREATE TABLE kv(key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE fired(key TEXT PRIMARY KEY, at INT NOT NULL);
 ", r"
 CREATE TABLE ocr_history(id INTEGER PRIMARY KEY, at INT NOT NULL, text TEXT NOT NULL, mode TEXT NOT NULL, engine TEXT NOT NULL);
+", r"
+CREATE TABLE screenshots(id INTEGER PRIMARY KEY, at INT NOT NULL, path TEXT NOT NULL, w INT NOT NULL, h INT NOT NULL, kind TEXT NOT NULL, thumb TEXT NOT NULL);
 "];
 
 pub fn migrate(c: &Connection) -> rusqlite::Result<()> {

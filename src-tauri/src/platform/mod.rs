@@ -167,6 +167,10 @@ pub struct Hotspot { pub on: bool, pub ssid: String, pub clients: u32, pub max_c
 /// A screenshot: BGRA pixels of one monitor at desktop position (x, y), physical pixels.
 pub struct Shot { pub x: i32, pub y: i32, pub w: i32, pub h: i32, pub bgra: Vec<u8> }
 
+/// A window on screen (absolute physical pixels), for picking one to screenshot.
+#[derive(Serialize, Clone, Debug)]
+pub struct WinRect { pub id: isize, pub title: String, pub x: i32, pub y: i32, pub w: i32, pub h: i32 }
+
 /// One recognised word: text, left edge and width in image pixels.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Word { pub text: String, pub x: f32, pub w: f32 }
@@ -174,6 +178,12 @@ pub struct Word { pub text: String, pub x: f32, pub w: f32 }
 pub trait Screen: Send + Sync {
     /// Screenshot of the monitor under the mouse.
     fn capture_at_cursor(&self) -> Option<Shot>;
+    /// Live pixels of a desktop rectangle.
+    fn capture_rect(&self, x: i32, y: i32, w: i32, h: i32) -> Option<Shot>;
+    /// Visible app windows within (x, y, w, h), front-most first.
+    fn window_rects(&self, area: (i32, i32, i32, i32)) -> Vec<WinRect>;
+    /// Scroll a window by mouse-wheel notches at screen point `at`.
+    fn scroll_window(&self, id: isize, at: (i32, i32), notches: i32, focus: bool);
     /// OCR with the OS engine: lines in reading order.
     fn ocr(&self, bgra: &[u8], w: u32, h: u32) -> Res<Vec<Vec<Word>>>;
 }

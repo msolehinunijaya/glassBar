@@ -1,19 +1,27 @@
 <script lang="ts">
-  // Fullscreen overlay over a frozen screenshot: drag a box, release to OCR it, Esc cancels.
+  // Fullscreen overlay over a frozen screenshot. OCR and Region: drag a box. Window and
+  // Scrolling: hover highlights a window, click picks it. Esc or right-click cancels.
   import { listen } from '@tauri-apps/api/event';
-  import { ipc } from '../lib/ipc';
+  import { ipc, type SnapView, type WinRect } from '../lib/ipc';
   import { profile, store } from '../lib/config.svelte';
 
-  let src = $state('');
+  let view = $state<SnapView | null>(null);
   let start = $state<{ x: number; y: number } | null>(null);
   let cur = $state<{ x: number; y: number } | null>(null);
-  let img: HTMLImageElement;
-  const mode = $derived((store.config && profile().widgets.find((w) => w.id === 'ocr')?.settings?.mode) || 'text');
-  const engine = $derived((store.config && profile().widgets.find((w) => w.id === 'ocr')?.settings?.engine) === 'ai' ? 'Claude' : 'Windows OCR');
+  let hover = $state<WinRect | null>(null);
+  let img = $state<HTMLImageElement>();
+  const ocr = $derived(store.config ? profile().widgets.find((w) => w.id === 'ocr')?.settings ?? {} : {});
+  const picking = $derived(view?.purpose === 'window' || view?.purpose === 'scroll');
+  const k = () => (img && innerWidth ? img.naturalWidth / innerWidth : devicePixelRatio); // screenshot px per CSS px
+  const hint = $derived(!view ? '' : view.purpose === 'ocr'
+    ? `Drag to grab text · ${ocr.mode ?? 'text'} · ${ocr.engine === 'ai' ? 'Claude' : 'Windows OCR'}`
+    : view.purpose === 'region' ? 'Drag to select an area'
+    : view.purpose === 'window' ? 'Click a window to capture it'
+    : 'Click a window to capture its whole scrolling page (it will scroll by itself)');
 
   async function load() {
-    start = cur = null;
-    src = (await ipc.ocrShot()) ?? '';
+    start = cur = null; hover = null;
+    view = await ipc.ocrShot();
   }
   $effect(() => {
     load();
@@ -25,42 +33,65 @@
     x: Math.min(start.x, cur.x), y: Math.min(start.y, cur.y),
     w: Math.abs(cur.x - start.x), h: Math.abs(cur.y - start.y),
   } : null);
+  // Window under the pointer, in CSS px (windows come front-most first).
+  function windowAt(x: number, y: number) {
+    const s = k();
+    return view?.windows.find((w) => x * s >= w.x && x * s < w.x + w.w && y * s >= w.y && y * s < w.y + w.h) ?? null;
+  }
+  const box = $derived(picking && hover ? { x: hover.x / k(), y: hover.y / k(), w: hover.w / k(), h: hover.h / k() } : rect);
 
-  function cancel() { src = ''; start = cur = null; ipc.ocrSnapCancel(); }
-  async function finish() {
+  function cancel() { view = null; start = cur = null; hover = null; ipc.ocrSnapCancel(); }
+  async function finishWindow(w: WinRect) {
+    view = null; hover = null;
+    await ipc.ocrSnapFinish(w.x, w.y, w.w, w.h, w.id).catch(() => {});
+  }
+  async function finishRect() {
     const r = rect;
     start = cur = null;
-    if (!r || r.w < 4 || r.h < 4 || !img) return;
-    const k = img.naturalWidth / innerWidth; // CSS px -> screenshot px
-    src = '';
-    await ipc.ocrSnapFinish(Math.round(r.x * k), Math.round(r.y * k), Math.round(r.w * k), Math.round(r.h * k)).catch(() => {});
+    if (!r || r.w < 4 || r.h < 4) return;
+    const s = k();
+    view = null;
+    await ipc.ocrSnapFinish(Math.round(r.x * s), Math.round(r.y * s), Math.round(r.w * s), Math.round(r.h * s), null).catch(() => {});
+  }
+  function down(e: PointerEvent) {
+    if (e.button === 2) return cancel();
+    if (picking) { const w = windowAt(e.clientX, e.clientY); if (w) finishWindow(w); return; }
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    start = cur = { x: e.clientX, y: e.clientY };
+  }
+  function move(e: PointerEvent) {
+    if (picking) hover = windowAt(e.clientX, e.clientY);
+    else if (start) cur = { x: e.clientX, y: e.clientY };
   }
 </script>
 
 <svelte:window onkeydown={(e) => e.key === 'Escape' && cancel()} />
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="snap" style:background-image={src ? `url(${src})` : 'none'}
-     onpointerdown={(e) => { if (e.button === 2) return cancel(); (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); start = cur = { x: e.clientX, y: e.clientY }; }}
-     onpointermove={(e) => { if (start) cur = { x: e.clientX, y: e.clientY }; }}
-     onpointerup={finish}>
-  {#if src}<img bind:this={img} {src} alt="" class="probe" />{/if}
-  {#if rect}
-    <div class="sel" style:left="{rect.x}px" style:top="{rect.y}px" style:width="{rect.w}px" style:height="{rect.h}px"
-         style:background-image="url({src})" style:background-position="{-rect.x}px {-rect.y}px"></div>
+<div class="snap" class:picking style:background-image={view ? `url(${view.img})` : 'none'}
+     onpointerdown={down} onpointermove={move} onpointerup={() => { if (!picking) finishRect(); }} oncontextmenu={(e) => e.preventDefault()}>
+  {#if view}<img bind:this={img} src={view.img} alt="" class="probe" />{/if}
+  {#if box && view}
+    <div class="sel" style:left="{box.x}px" style:top="{box.y}px" style:width="{box.w}px" style:height="{box.h}px"
+         style:background-image="url({view.img})" style:background-position="{-box.x}px {-box.y}px">
+      {#if picking && hover}<span class="tag">{hover.title}</span>{/if}
+    </div>
   {/if}
-  <div class="hint">Drag to grab text · {mode} · {engine} · Esc to cancel</div>
+  {#if view}<div class="hint">{hint} · Esc to cancel</div>{/if}
 </div>
 
 <style>
   :global(html), :global(body) { margin: 0; background: #000; overflow: hidden; }
   .snap { position: fixed; inset: 0; cursor: crosshair; background-size: 100% 100%; user-select: none; }
+  .snap.picking { cursor: pointer; }
   .snap::before { content: ''; position: absolute; inset: 0; background: rgba(0, 0, 0, 0.35); pointer-events: none; }
   .probe { display: none; }
-  .sel { position: absolute; background-size: 100vw 100vh; outline: 2px solid #0a84ff; box-shadow: 0 0 0 1px rgba(255,255,255,0.6); }
+  .sel { position: absolute; background-size: 100vw 100vh; outline: 2px solid #0a84ff; box-shadow: 0 0 0 1px rgba(255,255,255,0.6); pointer-events: none; }
+  .tag { position: absolute; left: 6px; top: 6px; max-width: 60%; padding: 3px 8px; border-radius: 8px; background: #0a84ff; color: #fff;
+         font: 500 12px Poppins, 'Segoe UI Variable', sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .hint {
     position: absolute; top: 18px; left: 50%; transform: translateX(-50%); padding: 8px 16px; border-radius: 12px;
     background: rgba(20, 20, 24, 0.75); color: #fff; font: 500 13px Poppins, 'Segoe UI Variable', sans-serif;
-    backdrop-filter: blur(12px); pointer-events: none; text-transform: none;
+    backdrop-filter: blur(12px); pointer-events: none;
   }
 </style>

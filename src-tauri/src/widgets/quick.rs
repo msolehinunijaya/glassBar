@@ -81,6 +81,17 @@ pub fn sync_tray(app: &tauri::AppHandle) {
 
 #[tauri::command]
 pub fn tray_icons() -> Vec<crate::platform::TrayIcon> { crate::platform::tray().icons() }
+/// Screen recording with Windows' own tools: "area" = Snipping Tool (Win+Shift+R),
+/// "app" = Xbox Game Bar (Win+Alt+R, records the active app).
+#[tauri::command]
+pub fn record_screen(kind: String) -> Res<()> {
+    match kind.as_str() {
+        "area" => { shell().press_keys(&[0x5B, 0x10, b'R' as u16]); Ok(()) }
+        "app" => { shell().press_keys(&[0x5B, 0x12, b'R' as u16]); Ok(()) }
+        _ => Err("unknown recording type".into()),
+    }
+}
+
 #[tauri::command]
 pub fn tray_refresh() { crate::platform::tray().refresh() }
 #[tauri::command]

@@ -16,6 +16,10 @@ use tauri_plugin_notification::NotificationExt;
 pub const DEFAULT_HOTKEY: &str = "Super+Shift+T";
 const FALLBACK_HOTKEY: &str = "Control+Alt+T";
 static SHOT: Mutex<Option<Shot>> = Mutex::new(None);
+/// What the open overlay is for: "ocr", or a screenshot of a "region", "window" or "scroll"ing window.
+static PURPOSE: Mutex<String> = Mutex::new(String::new());
+/// Windows visible in the frozen shot (absolute coords), for picking one.
+static WINDOWS: Mutex<Vec<crate::platform::WinRect>> = Mutex::new(Vec::new());
 static HOTKEY: Mutex<(String, Option<String>)> = Mutex::new((String::new(), None)); // (registered, error)
 
 struct Opts { mode: Mode, engine: String, auto_copy: bool, toast: bool }
@@ -59,7 +63,7 @@ pub fn register_hotkey(app: &AppHandle) {
 pub fn on_hotkey(app: &AppHandle) {
     let a = app.clone();
     // Never build/show windows on the event-loop thread (deadlocks on Windows).
-    tauri::async_runtime::spawn(async move { let _ = start(&a).await; });
+    tauri::async_runtime::spawn(async move { let _ = start(&a, "ocr").await; });
 }
 
 #[derive(Serialize)]
@@ -73,10 +77,17 @@ pub fn ocr_hotkey_status() -> HotkeyStatus {
 
 // ---- snap ----
 
-async fn start(app: &AppHandle) -> Result<(), String> {
-    let shot = crate::widgets::blocking(|| screen().capture_at_cursor()).await?.ok_or("couldn't capture the screen")?;
+async fn start(app: &AppHandle, purpose: &str) -> Result<(), String> {
+    let (shot, wins) = crate::widgets::blocking(|| {
+        let s = screen().capture_at_cursor();
+        let w = s.as_ref().map(|s| screen().window_rects((s.x, s.y, s.w, s.h))).unwrap_or_default();
+        (s, w)
+    }).await?;
+    let shot = shot.ok_or("couldn't capture the screen")?;
     let (x, y, w, h) = (shot.x, shot.y, shot.w, shot.h);
     *SHOT.lock().unwrap() = Some(shot);
+    *PURPOSE.lock().unwrap() = purpose.to_string();
+    *WINDOWS.lock().unwrap() = wins;
     let win = match app.get_webview_window("snap") {
         Some(w) => w,
         None => WebviewWindowBuilder::new(app, "snap", WebviewUrl::App("index.html".into()))
@@ -92,16 +103,27 @@ async fn start(app: &AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+/// purpose: "ocr" (default) | "region" | "window" | "scroll".
 #[tauri::command]
-pub async fn ocr_snap_start(app: AppHandle) -> Result<(), String> { start(&app).await }
+pub async fn ocr_snap_start(app: AppHandle, purpose: Option<String>) -> Result<(), String> {
+    let p = purpose.unwrap_or_else(|| "ocr".into());
+    if !matches!(p.as_str(), "ocr" | "region" | "window" | "scroll") { return Err("unknown capture".into()); }
+    start(&app, &p).await
+}
 
-/// The frozen screenshot as a PNG data URL, for the overlay's background.
+#[derive(Serialize)]
+pub struct SnapView { img: String, purpose: String, windows: Vec<crate::platform::WinRect> }
+
+/// The frozen screenshot (PNG data URL) for the overlay, what it's for, and the windows in
+/// it (coordinates relative to the screenshot).
 #[tauri::command]
-pub async fn ocr_shot() -> Option<String> {
+pub async fn ocr_shot() -> Option<SnapView> {
     crate::widgets::blocking(|| {
         let g = SHOT.lock().unwrap();
         let s = g.as_ref()?;
-        Some(format!("data:image/png;base64,{}", base64::engine::general_purpose::STANDARD.encode(png(&s.bgra, s.w as u32, s.h as u32)?)))
+        let img = format!("data:image/png;base64,{}", base64::engine::general_purpose::STANDARD.encode(png(&s.bgra, s.w as u32, s.h as u32)?));
+        let windows = WINDOWS.lock().unwrap().iter().map(|w| crate::platform::WinRect { x: w.x - s.x, y: w.y - s.y, ..w.clone() }).collect();
+        Some(SnapView { img, purpose: PURPOSE.lock().unwrap().clone(), windows })
     }).await.ok().flatten()
 }
 
@@ -160,10 +182,30 @@ fn recognise(app: &AppHandle, bgra: Vec<u8>, w: u32, h: u32, o: &Opts) -> Result
 #[serde(rename_all = "camelCase")]
 pub struct OcrItem { pub id: i64, pub at: i64, pub text: String, pub mode: String, pub engine: String }
 
-/// Selection in screenshot pixels. Returns the recognised text.
+/// Selection in screenshot pixels (and the picked window, for window/scroll shots).
+/// OCR returns the recognised text; screenshots return "saved".
 #[tauri::command]
-pub async fn ocr_snap_finish(app: AppHandle, x: u32, y: u32, w: u32, h: u32) -> Result<String, String> {
+pub async fn ocr_snap_finish(app: AppHandle, x: u32, y: u32, w: u32, h: u32, window: Option<isize>) -> Result<String, String> {
     hide(&app);
+    let purpose = std::mem::take(&mut *PURPOSE.lock().unwrap());
+    if purpose != "ocr" && !purpose.is_empty() {
+        let a = app.clone();
+        let r = crate::widgets::blocking(move || -> Result<String, String> {
+            let shot = SHOT.lock().unwrap().take().ok_or("no screenshot")?;
+            if purpose == "scroll" {
+                let win = WINDOWS.lock().unwrap().iter().find(|w| Some(w.id) == window).cloned().ok_or("pick a window to scroll")?;
+                std::thread::sleep(std::time::Duration::from_millis(150)); // let the overlay vanish
+                let (px, pw, ph) = super::screenshots::scroll_capture(&win)?;
+                super::screenshots::save(&a, px, pw, ph, "scroll")?;
+            } else {
+                let (px, cw, ch) = crop(&shot.bgra, shot.w as u32, shot.h as u32, x, y, w, h).ok_or("selection too small")?;
+                super::screenshots::save(&a, px, cw, ch, if purpose == "window" { "window" } else { "region" })?;
+            }
+            Ok("saved".into())
+        }).await?;
+        if let Err(e) = &r { let _ = app.notification().builder().title("Screenshot").body(e).show(); }
+        return r;
+    }
     let a = app.clone();
     let r = crate::widgets::blocking(move || -> Result<String, String> {
         let shot = SHOT.lock().unwrap().take().ok_or("no screenshot")?;
