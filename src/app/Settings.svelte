@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { deviceTone } from '../lib/sound';
   import { availableMonitors, type Monitor } from '@tauri-apps/api/window';
   import { ArrowDown, ArrowUp, ChevronDown, Copy, Trash2 } from '@lucide/svelte';
   import { profile, store, update, updateWidgetSettings } from '../lib/config.svelte';
@@ -7,7 +8,7 @@
   import { addWidget, available, settingsOf, widgets } from '../widgets/registry';
   import Updates from './Updates.svelte';
 
-  const sections = ['Bar', 'Appearance', 'Widgets', 'Profiles', 'Startup', 'Updates', 'Backup'] as const;
+  const sections = ['Bar', 'Appearance', 'Widgets', 'Sounds', 'Profiles', 'Startup', 'Updates', 'Backup'] as const;
   let section = $state<(typeof sections)[number]>('Bar');
   let monitors = $state<Monitor[]>([]);
   availableMonitors().then((m) => (monitors = m));
@@ -183,6 +184,24 @@
         <button class="btn" onclick={newProfile}><Copy size={14} /> Duplicate current</button>
       </div>
       <p class="hint">Switch profiles from here or from the tray icon menu.</p>
+
+    {:else if section === 'Sounds'}
+      <div class="group">
+        <label class="field"><span>Sound when a USB device is connected</span>
+          <input type="checkbox" checked={c.deviceSounds.connect} onchange={(e) => set((c) => (c.deviceSounds.connect = e.currentTarget.checked))} />
+        </label>
+        <label class="field"><span>Sound when a USB device is removed</span>
+          <input type="checkbox" checked={c.deviceSounds.disconnect} onchange={(e) => set((c) => (c.deviceSounds.disconnect = e.currentTarget.checked))} />
+        </label>
+        <div class="field"><span>Volume {Math.round(c.deviceSounds.volume * 100)}%</span>
+          <input type="range" min="0.05" max="1" step="0.05" value={c.deviceSounds.volume} onchange={(e) => set((c) => (c.deviceSounds.volume = +e.currentTarget.value))} />
+        </div>
+        <div class="field"><span>Preview</span>
+          <span><button class="btn" onclick={() => deviceTone(true, c.deviceSounds.volume)}>Connect</button>
+          <button class="btn" onclick={() => deviceTone(false, c.deviceSounds.volume)}>Disconnect</button></span>
+        </div>
+        <p class="hint">Uses Windows' USB device notifications (no polling); quick bursts play once. Windows also plays its own device sounds unless you turn them off in Control Panel › Sound › Sounds. Silent while Do Not Disturb is on. Independent of timer, Pomodoro and prayer sounds.</p>
+      </div>
 
     {:else if section === 'Startup'}
       <div class="group">

@@ -132,6 +132,16 @@ pub struct Config {
     /// Do Not Disturb: alerts are recorded but make no toast or sound.
     pub dnd: bool,
     pub location: LocationCfg,
+    pub device_sounds: DeviceSounds,
+}
+
+/// Sounds when a USB device is plugged in / removed. Off by default: Windows plays its own.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase", default)]
+pub struct DeviceSounds { pub connect: bool, pub disconnect: bool, /// 0..1
+    pub volume: f32 }
+impl Default for DeviceSounds {
+    fn default() -> Self { Self { connect: false, disconnect: false, volume: 0.4 } }
 }
 
 impl Default for Config {
@@ -139,7 +149,7 @@ impl Default for Config {
         Self { version: CURRENT_VERSION, active_profile: "Default".into(),
                profiles: BTreeMap::from([("Default".into(), Profile::default())]),
                theme: Theme::default(), startup: Startup::default(),
-               dnd: false, location: LocationCfg::default() }
+               dnd: false, location: LocationCfg::default(), device_sounds: DeviceSounds::default() }
     }
 }
 

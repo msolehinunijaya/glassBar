@@ -62,6 +62,8 @@ pub enum SystemEvent {
     ShellRestarted,
     /// A fullscreen app appeared (true) or left (false) on the bar's monitor.
     Fullscreen(bool),
+    /// A USB device was connected (true) or removed (false).
+    Device(bool),
     /// Plugged in / unplugged / battery level changed (instant, from Windows).
     PowerChanged,
 }
