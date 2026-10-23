@@ -144,8 +144,8 @@
           background: color-mix(in srgb, var(--c) 30%, transparent); border: 1px solid transparent; font-size: 12px; }
   .chip.sel { border-color: var(--c); }
   .paper { border-radius: 16px; background: color-mix(in srgb, var(--c) 22%, var(--pill)); padding: 10px; display: flex; flex-direction: column; gap: 8px; }
-  /* grows with the note; the panel itself scrolls only past 85 % of the screen */
-  textarea { width: 100%; min-height: 220px; field-sizing: content; resize: none; border: 0; background: none; outline: none; line-height: 1.5; }
+  /* grows with the note; only a very long note scrolls (inside the box, so the panel stays put) */
+  textarea { width: 100%; min-height: 220px; max-height: 560px; field-sizing: content; resize: none; border: 0; background: none; outline: none; line-height: 1.5; }
   .strip { display: flex; gap: 6px; overflow-x: auto; }
   .thumb { position: relative; flex: none; }
   .thumb img { height: 64px; border-radius: 8px; display: block; cursor: grab; }
