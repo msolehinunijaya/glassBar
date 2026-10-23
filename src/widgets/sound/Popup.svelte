@@ -6,6 +6,7 @@
   import OptionsPopover from '../../lib/OptionsPopover.svelte';
   import type { PopupProps } from '../types';
   import { liveAudio, pct, volumeIcon } from './audio.svelte';
+  import { volumeBlip } from '../../lib/sound';
 
   let { instance, settings }: PopupProps<SoundSettings> = $props();
   const audio = liveAudio();
@@ -26,10 +27,11 @@
     return () => clearInterval(t);
   });
 
-  function setMaster(v: number) {
+  function setMaster(v: number, final = false) {
     if (!audio.v) return;
     audio.v = { ...audio.v, volume: v };
     ipc.audioSetVolume(v);
+    volumeBlip(final);
   }
   function toggleMute() {
     if (!audio.v) return;
@@ -50,7 +52,7 @@
     <button class="icon-btn" onclick={toggleMute} aria-label={audio.v.muted ? 'Unmute' : 'Mute'}><Icon size={18} /></button>
     <input class="slider" type="range" min="0" max="1" step="0.01" value={audio.v.volume}
            style:--fill={pct(audio.v.muted ? 0 : audio.v.volume)}
-           oninput={(e) => setMaster(+e.currentTarget.value)} aria-label="Master volume" />
+           oninput={(e) => setMaster(+e.currentTarget.value)} onchange={(e) => setMaster(+e.currentTarget.value, true)} aria-label="Master volume" />
     <span class="num">{pct(audio.v.volume)}</span>
   </div>
 
@@ -90,7 +92,7 @@
 <div class="opts">
   <OptionsPopover title="On the bar" values={{ ...settings, layout: layoutOf(settings) }}
     save={(p) => updateWidgetSettings(instance, { ...p, showSlider: false })} options={[
-      { type: 'choice', key: 'layout', label: 'Volume', choices: [{ value: 'icon', label: 'Icon' }, { value: 'horizontal', label: 'Horizontal' }, { value: 'vertical', label: 'Vertical' }] },
+      { type: 'choice', key: 'layout', label: 'Volume', choices: [{ value: 'icon', label: 'Icon', hint: 'Speaker icon (click it to mute)' }, { value: 'horizontal', label: 'Horizontal', hint: 'Icon and percentage; a slider opens when you hover' }] },
       { type: 'toggle', key: 'wheel', label: 'Mouse wheel changes volume', hint: 'Off: scrolling over it never changes the volume' },
   ]} />
   {#if layoutOf(settings) === 'horizontal'}

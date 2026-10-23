@@ -15,16 +15,19 @@
      style:background={settings.colorful && wx.w ? themeOf(describe(wx.w.current.code, wx.w.current.isDay).icon, wx.w.current.isDay) : undefined}
      title={wx.w ? `${describe(wx.w.current.code, wx.w.current.isDay).label} · ${wx.w.place?.name ?? ''}` : 'Weather'}>
   {#if wx.w}
-    <WxIcon code={wx.w.current.code} isDay={wx.w.current.isDay} />
-    <span class="t">{deg(wx.w.current.temp)}</span>
-    {#if size !== 'small'}<span class="dim">{describe(wx.w.current.code, wx.w.current.isDay).label}</span>{/if}
+    <span class="stack">
+      <WxIcon code={wx.w.current.code} isDay={wx.w.current.isDay} />
+      <span class="t">{deg(wx.w.current.temp)}</span>
+    </span>
+    {#if size === 'large'}<span class="dim">{describe(wx.w.current.code, wx.w.current.isDay).label}</span>{/if}
   {:else}
     <CloudOff size={16} class="dim" />
   {/if}
 </div>
 
 <style>
-  .t { font-weight: 600; }
+  .stack { display: flex; flex-direction: column; align-items: center; line-height: 1.05; gap: 1px; }
+  .t { font-weight: 600; font-size: 11.5px; font-variant-numeric: tabular-nums; }
   .colorful { color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.25); }
   .colorful :global(.dim) { opacity: 0.85; color: #fff; }
 </style>

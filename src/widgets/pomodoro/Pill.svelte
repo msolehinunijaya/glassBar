@@ -20,12 +20,16 @@
   <span class="fill" style:width="{st?.key === 'completed' ? 100 : Math.round(p.progress * 1000) / 10}%"></span>
   {#if st?.key === 'completed'}
     <Check size={14} strokeWidth={3} />
-    <span class="t">{p.state?.pomo.completed === 'work' ? 'Work done' : 'Break done'}</span>
-    {#if size !== 'small'}<span class="dim lbl">{st.action}</span>{/if}
+    <span class="stack">
+      <span class="t">{p.state?.pomo.completed === 'work' ? 'Work done' : 'Break done'}</span>
+      {#if size !== 'small'}<span class="dim lbl">{st.action}</span>{/if}
+    </span>
   {:else}
     <span class="dot"></span>
-    <span class="t">{clock(p.remaining)}</span>
-    {#if size !== 'small' && p.state}<span class="dim lbl">{phase.name} {p.state.label}</span>{/if}
+    <span class="stack">
+      <span class="t">{clock(p.remaining)}</span>
+      {#if size !== 'small' && p.state}<span class="dim lbl">{phase.name} {p.state.label}</span>{/if}
+    </span>
   {/if}
   <button class="ctl" onclick={act(() => (p.running ? ipc.pomoPause() : ipc.pomoStart()))} onpointerdown={down}
           aria-label={st?.action ?? 'Start'} title={st?.action}>
@@ -48,7 +52,8 @@
   .pomo > :not(.fill) { position: relative; z-index: 1; }
   .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
   .t { font-variant-numeric: tabular-nums; font-weight: 600; }
-  .lbl { font-size: 11px; }
+  .stack { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
+  .lbl { font-size: 10.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 96px; }
   .ctl { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; transition: background 0.2s, transform 0.3s var(--spring); }
   .ctl:hover { background: var(--pill-hover); }
   .ctl:active { transform: scale(0.85); }

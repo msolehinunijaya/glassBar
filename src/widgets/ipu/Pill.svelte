@@ -17,9 +17,11 @@
      title={ipu.r ? `${label(ipu.r)} ${ipu.r.value} · ${band?.name} · ${ipu.r.station?.name ?? ''}` : 'Air quality'}>
   {#if ipu.r}
     <Wind size={14} />
-    <span class="v">{Math.round(ipu.r.value)}</span>
-    <span class="lbl">{label(ipu.r)}</span>
-    {#if size !== 'small'}<span class="name">{band?.name}</span>{/if}
+    <!-- Stacked: reading on top, status below. -->
+    <span class="stack">
+      <span class="row"><span class="v">{Math.round(ipu.r.value)}</span> <span class="lbl">{label(ipu.r)}</span></span>
+      <span class="name">{band?.name}</span>
+    </span>
   {:else}
     <Wind size={16} class="dim" />
   {/if}
@@ -34,5 +36,8 @@
   .ipu.coloured:hover { background: var(--c); }
   .v { font-weight: 700; font-variant-numeric: tabular-nums; }
   .lbl { font-size: 10px; opacity: 0.8; }
-  .name { font-size: 12px; font-weight: 500; }
+  .ipu { gap: 6px; }
+  .stack { display: flex; flex-direction: column; line-height: 1.15; }
+  .row { white-space: nowrap; }
+  .name { font-size: 10.5px; font-weight: 500; opacity: 0.9; white-space: nowrap; }
 </style>

@@ -24,6 +24,17 @@ export async function shutter() {
   idle = setTimeout(() => ctx?.suspend(), 1500);
 }
 
+/** Volume feedback: a short soft pop, like Windows' volume ding. It plays through the
+ *  speakers at the volume just set, so it sounds exactly as loud as that level. Throttled
+ *  while dragging; `final` (slider released) always plays. */
+let lastBlip = 0;
+export function volumeBlip(final = false) {
+  const now = performance.now();
+  if (!final && now - lastBlip < 120) return;
+  lastBlip = now;
+  tones([[880, 0]], 0.28, 0.14);
+}
+
 /** OCR done: a soft high tick. */
 export const tick = () => tones([[1568, 0]], 0.12, 0.12);
 

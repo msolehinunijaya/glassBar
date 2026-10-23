@@ -1,9 +1,10 @@
 <script lang="ts">
-  // Volume on the bar. The mouse wheel does NOT change volume unless enabled in the
-  // widget options (scrolling then just scrolls the dock). Layouts: icon only,
-  // horizontal slider, or a compact vertical slider. With a slider shown, the speaker
-  // icon toggles mute; otherwise a click opens the full sound panel.
+  // Volume on the bar: the speaker icon mutes/unmutes, the rest of the pill opens the sound
+  // panel. "Horizontal": icon + percentage; hovering slides a volume slider open. The mouse
+  // wheel only changes volume when enabled in the options. Every change plays a soft tick at
+  // the new volume, so you hear how loud it is.
   import { ipc } from '../../lib/ipc';
+  import { volumeBlip } from '../../lib/sound';
   import type { PillProps } from '../types';
   import { liveAudio, pct, volumeIcon } from './audio.svelte';
   import { layoutOf, type SoundSettings } from './index';
@@ -11,22 +12,26 @@
   let { size, settings, vertical }: PillProps<SoundSettings> = $props();
   const audio = liveAudio();
   const Icon = $derived(volumeIcon(audio.v));
-  // On a left/right dock a horizontal slider has no room: use the vertical one there.
-  const layout = $derived(vertical && layoutOf(settings) === 'horizontal' ? 'vertical' : layoutOf(settings));
+  // Side docks have no room for a sideways slider: icon + percentage only there.
+  const slider = $derived(layoutOf(settings) === 'horizontal' && !vertical);
+  const showPct = $derived(slider || size !== 'small' || vertical);
   let el: HTMLDivElement;
+  let open = $state(false);
 
-  function setVolume(volume: number) {
+  function setVolume(volume: number, final = false) {
     if (!audio.v) return;
     const wasMuted = audio.v.muted;
     audio.v = { ...audio.v, volume, muted: false };
     ipc.audioSetVolume(volume);
     if (wasMuted) ipc.audioSetMute(false);
+    volumeBlip(final);
   }
   function toggleMute(e: Event) {
     e.stopPropagation();
     if (!audio.v) return;
     audio.v = { ...audio.v, muted: !audio.v.muted };
     ipc.audioSetMute(audio.v.muted);
+    if (!audio.v.muted) volumeBlip(true);
   }
 
   // Only when the user turned it on: wheel over the pill changes volume.
@@ -42,40 +47,38 @@
     return () => el.removeEventListener('wheel', onWheel);
   });
 
-  const stop = (e: Event) => e.stopPropagation(); // slider use must not open the popup or start edit mode
+  const stop = (e: Event) => e.stopPropagation(); // slider/mute use must not open the panel or start edit mode
   const level = $derived(audio.v ? (audio.v.muted ? 0 : audio.v.volume) : 0);
 </script>
 
-<div class="pill" class:vertical-layout={layout === 'vertical'} bind:this={el} title={audio.v ? `Volume ${pct(audio.v.volume)}${audio.v.muted ? ' (muted)' : ''}` : 'Sound'}>
-  {#if layout !== 'icon' && audio.v}
-    <button class="mute" onclick={toggleMute} onpointerdown={stop} aria-label={audio.v.muted ? 'Unmute' : 'Mute'}><Icon size={16} /></button>
-    {#if layout === 'horizontal'}
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div class="pill snd" class:vertical bind:this={el} onpointerenter={() => (open = slider)} onpointerleave={() => (open = false)}
+     title={audio.v ? `Volume ${pct(audio.v.volume)}${audio.v.muted ? ' (muted)' : ''} · click the speaker to mute` : 'Sound'}>
+  <button class="mute" onclick={toggleMute} onpointerdown={stop} aria-label={audio.v?.muted ? 'Unmute' : 'Mute'}><Icon size={16} /></button>
+  {#if slider && audio.v}
+    <span class="reveal" class:open style:--w="{settings.sliderWidth}px">
       <input class="slider h" style:width="{settings.sliderWidth}px" type="range" min="0" max="1" step="0.01" value={level} style:--fill={pct(level)}
-             aria-label="Volume" oninput={(e) => setVolume(+e.currentTarget.value)} onpointerdown={stop} onclick={stop} />
-    {:else}
-      <input class="v" type="range" min="0" max="1" step="0.01" value={level} style:--fill={pct(level)}
-             aria-label="Volume" oninput={(e) => setVolume(+e.currentTarget.value)} onpointerdown={stop} onclick={stop} />
-    {/if}
-    <span class="num">{Math.round(level * 100)}</span>
-  {:else}
-    <Icon size={17} />
-    {#if size !== 'small' && audio.v}<span class="num">{pct(audio.v.volume)}</span>{/if}
+             aria-label="Volume" tabindex={open ? 0 : -1}
+             oninput={(e) => setVolume(+e.currentTarget.value)} onchange={(e) => setVolume(+e.currentTarget.value, true)}
+             onpointerdown={stop} onclick={stop} />
+    </span>
   {/if}
+  {#if showPct && audio.v}<span class="num">{Math.round(level * 100)}%</span>{/if}
 </div>
 
 <style>
-  .num { font-variant-numeric: tabular-nums; min-width: 2.5ch; font-size: 12px; }
-  .mute { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; transition: background 0.2s; }
+  .snd { gap: 2px; padding: 0 8px 0 4px; }
+  .vertical { flex-direction: column; padding: 4px 0; gap: 0; }
+  .num { font-variant-numeric: tabular-nums; min-width: 3.5ch; font-size: 12px; text-align: right; }
+  .vertical .num { font-size: 10.5px; text-align: center; }
+  .mute { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; transition: background 0.2s, transform 0.25s var(--spring); }
   .mute:hover { background: var(--pill-hover); }
-  .h { width: 90px; height: 14px; }
+  .mute:active { transform: scale(0.85); }
+  /* Slider slides open on hover (width 0 → its set length). */
+  .reveal { display: inline-flex; align-items: center; width: 0; overflow: hidden; opacity: 0;
+            transition: width 0.28s var(--ease), opacity 0.2s, margin 0.28s var(--ease); }
+  .reveal.open { width: calc(var(--w) + 4px); opacity: 1; margin: 0 4px; }
+  .h { height: 14px; flex: none; }
   .h::-webkit-slider-runnable-track { height: 6px !important; border-radius: 3px !important; }
   .h::-webkit-slider-thumb { width: 14px !important; height: 14px !important; margin-top: -4px; }
-  /* vertical: a narrow column that fits the bar's height */
-  .vertical-layout { gap: 4px; padding: 0 6px; }
-  .v {
-    -webkit-appearance: none; appearance: none; writing-mode: vertical-lr; direction: rtl;
-    width: 8px; height: 100%; max-height: 34px; margin: 0; border-radius: 4px;
-    background: linear-gradient(to top, var(--accent) var(--fill), var(--track) var(--fill));
-  }
-  .v::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.35); }
 </style>
