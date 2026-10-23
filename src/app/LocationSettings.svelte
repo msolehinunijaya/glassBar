@@ -61,7 +61,7 @@
   </div>
   {#if p}
     <b class="place">{p.name || coords(p)}</b>
-    {#if !p.name && p.source === 'windows'}<span class="hint m0">Windows couldn't name this place; showing coordinates.</span>{/if}
+    {#if !p.name && p.source === 'windows'}<span class="hint m0">No place name found for these coordinates (OpenStreetMap didn't answer).</span>{/if}
     {#if p.note}<span class="hint m0 warn">{p.note}.</span>{/if}
     <dl>
       <dt>Coordinates</dt><dd>{coords(p)}</dd>
@@ -122,7 +122,7 @@
   <p class="hint m0 pad">
     Coordinates (rounded to about 11 m) go only to the services that need them: Open-Meteo for weather and sunrise/sunset,
     waktusolat.app, JAKIM e-Solat or Aladhan for prayer times, and the DOE (APIMS) station list or Open-Meteo for air quality.
-    Windows Location may ask Microsoft's map service for the place name. IP mode asks ipwho.is (or ipapi.co) where your internet
+    For a Windows Location fix, OpenStreetMap (Nominatim) is asked for the town name, only when you have moved more than 1 km. IP mode asks ipwho.is (or ipapi.co) where your internet
     address is. City search sends only what you type to Open-Meteo. "Open in Maps" opens OpenStreetMap only when you click it.
     The last known location is kept on this PC only.
   </p>

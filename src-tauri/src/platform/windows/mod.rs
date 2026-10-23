@@ -181,7 +181,6 @@ impl Display for WinDisplay {
 
 impl Location for WinLocation {
     fn locate(&self) -> Res<Fix> { location::locate() }
-    fn place_name(&self, lat: f64, lon: f64) -> Res<String> { location::place_name(lat, lon) }
 }
 
 impl Power for WinPower {

@@ -120,8 +120,31 @@ fn ip_lookup() -> Result<Place, String> {
 }
 
 fn windows_lookup() -> Result<Place, String> {
-    let f = crate::platform::location().locate()?;
-    Ok(from_fix(f, crate::platform::location().place_name(f.lat, f.lon).ok()))
+    crate::platform::location().locate().map(|f| from_fix(f, None))
+}
+
+/// OpenStreetMap (Nominatim) address -> "Town, State, Country".
+pub fn parse_osm(v: &Value) -> Option<String> {
+    let a = &v["address"];
+    let town = ["city", "town", "village", "suburb", "municipality", "district", "county"].iter().find_map(|k| a[k].as_str());
+    let parts: Vec<&str> = [town, a["state"].as_str(), a["country"].as_str()].into_iter().flatten().filter(|s| !s.is_empty()).collect();
+    (!parts.is_empty()).then(|| parts.join(", "))
+}
+
+/// City-level name for a Windows fix (Windows gives coordinates only).
+fn osm_name(lat: f64, lon: f64) -> Option<String> {
+    let url = format!("https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=14&accept-language=en&lat={lat}&lon={lon}");
+    get_json(&url).ok().as_ref().and_then(parse_osm)
+}
+
+/// Give an unnamed place a name: the previous one when it is within 1 km (no lookup),
+/// else `lookup`. Left empty when nothing answers; never guessed.
+pub fn name_place(p: &mut Place, prev: Option<&Place>, lookup: impl FnOnce(f64, f64) -> Option<String>) {
+    if !p.name.is_empty() { return; }
+    match prev.filter(|q| !q.name.is_empty() && super::ipu::km(q.lat, q.lon, p.lat, p.lon) <= 1.0) {
+        Some(q) => p.name = q.name.clone(),
+        None => p.name = lookup(p.lat, p.lon).unwrap_or_default(),
+    }
 }
 
 fn read(app: &AppHandle) -> Option<Status> {
@@ -149,7 +172,11 @@ pub fn status(app: &AppHandle, force: bool) -> Status {
     let cfg = app.state::<crate::AppState>().config.lock().unwrap().location.clone();
     let old = read(app);
     if let Some(s) = old.as_ref().filter(|s| !force && fresh(s, &cfg, now_ms())) { return s.clone(); }
-    let r = resolve(&cfg, windows_lookup, ip_lookup);
+    let mut r = resolve(&cfg, windows_lookup, ip_lookup);
+    if let Ok(p) = r.as_mut() {
+        let prev = old.as_ref().and_then(|o| o.place.as_ref().or(o.last_known.as_ref()));
+        name_place(p, prev, osm_name);
+    }
     let last_known = r.as_ref().ok().cloned().or_else(|| old.as_ref().and_then(|o| o.place.clone().or(o.last_known.clone())));
     let new = Status { mode: cfg.mode.clone(), reason: r.as_ref().err().cloned(), place: r.ok(), last_known, at: now_ms() };
     {
@@ -315,11 +342,38 @@ mod tests {
         assert!(parse_ip(&serde_json::json!({"success": false})).is_none());
     }
 
-    /// Live check of Windows' map service: `cargo test place_name_live -- --ignored`.
+    /// Live check of the OpenStreetMap lookup: `cargo test osm_name_live -- --ignored --nocapture`.
     #[test]
     #[ignore]
-    fn place_name_live() {
-        println!("{:?}", crate::platform::location().place_name(3.1478, 101.6953));
+    fn osm_name_live() {
+        println!("{:?}", osm_name(3.216, 101.4362));
+    }
+
+    #[test]
+    fn naming_reuses_a_nearby_name_and_never_guesses() {
+        let prev = Place { lat: 3.2160, lon: 101.4362, name: "Kuang, Selangor, Malaysia".into(), ..Default::default() };
+        let mut p = win().unwrap();
+        p.name.clear();
+        p.lat = 3.2190; // ~330 m away
+        p.lon = 101.4362;
+        name_place(&mut p, Some(&prev), |_, _| panic!("no lookup within 1 km"));
+        assert_eq!(p.name, "Kuang, Selangor, Malaysia");
+        let mut far = Place { lat: 3.30, ..p.clone() };
+        far.name.clear();
+        name_place(&mut far, Some(&prev), |_, _| Some("Rawang, Selangor, Malaysia".into()));
+        assert_eq!(far.name, "Rawang, Selangor, Malaysia");
+        let mut none = Place { lat: 4.0, name: String::new(), ..p };
+        name_place(&mut none, None, |_, _| None);
+        assert_eq!(none.name, "", "nothing answered: no name, not a guess");
+    }
+
+    #[test]
+    fn parse_osm_address() {
+        let v = serde_json::json!({"address": {"village": "Kuang", "state": "Selangor", "country": "Malaysia", "postcode": "48050"}});
+        assert_eq!(parse_osm(&v).as_deref(), Some("Kuang, Selangor, Malaysia"));
+        let v = serde_json::json!({"address": {"district": "Kuala Selangor", "state": "Selangor", "country": "Malaysia"}});
+        assert_eq!(parse_osm(&v).as_deref(), Some("Kuala Selangor, Selangor, Malaysia"));
+        assert_eq!(parse_osm(&serde_json::json!({"error": "Unable to geocode"})), None);
     }
 
     #[test]
