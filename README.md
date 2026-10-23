@@ -33,6 +33,7 @@ The bar can dock to any edge or float. You can drag it, resize it, and edit it i
 - **IPU (Air Quality):** live Air Pollutant Index from the nearest JAS/DOE station, with haze alerts.
 
 **OCR & AI**
+- **Capture** (Screenshot | Recording | OCR Snap): screenshots of the full screen, an area, a window, or a whole scrolling page (it scrolls the window and stitches the page), copied to the clipboard automatically and kept in a history (copy, open, discard) that cleans itself after 1–30 days. Recording starts Windows' own recorders (Snipping Tool for an area, Game Bar for an app).
 - **OCR Snap:** press **Win+Shift+T** (changeable), drag a box over anything on screen, and the text is on your clipboard. The screen is frozen while you select, so video text can't move. Modes: Text, Code (keeps indentation) and Terminal (drops shell prompts). Engine: Windows OCR (offline, default) or Claude (sends the selection to Anthropic). Keeps the last 200 captures.
 - **AI Usage:** ask Claude a quick question from the bar, and see tokens used today and this month (as reported by Anthropic). Your API key is stored in Windows Credential Manager, never in GlassBar's files.
 
@@ -42,6 +43,7 @@ The bar can dock to any edge or float. You can drag it, resize it, and edit it i
 - One shared location for every location-based widget: Windows location (with its accuracy), approximate IP location, or a city you pick; refresh and reset in Settings.
 
 ### Known limitations
+- **Scrolling screenshots** work in windows that scroll with the mouse wheel (browsers, documents, lists). The pointer briefly sits over the window while it scrolls; content that sticks while scrolling (e.g. a site's floating header) can appear more than once.
 - **Store apps** (WhatsApp, Spotify, Settings…) are started through their app identity, as the Start menu does; Windows doesn't allow starting them from their .exe.
 - **Sound visualizer** shows the real output level (Windows' peak meter, the one in the volume mixer); it is not a per-frequency spectrum, which would need capturing the audio stream.
 - **CPU temperature** comes from Windows' ACPI thermal zones. It's close to the CPU package on most laptops but isn't a per-core sensor. PCs that expose no thermal zone show **N/A**; nothing is estimated.
