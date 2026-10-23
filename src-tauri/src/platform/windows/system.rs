@@ -15,6 +15,9 @@ use windows::Win32::UI::WindowsAndMessaging::*;
 static HWND_SYS: AtomicIsize = AtomicIsize::new(0);
 static TASKBAR_CREATED: AtomicU32 = AtomicU32::new(0);
 static TX: OnceLock<Sender<SystemEvent>> = OnceLock::new();
+static IGNORE_CREATED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// GlassBar's tray host broadcasts TaskbarCreated so apps re-add icons; that isn't an Explorer restart.
+pub fn ignore_next_taskbar_created() { IGNORE_CREATED.store(true, Ordering::Relaxed); }
 
 pub fn hwnd() -> isize { HWND_SYS.load(Ordering::Relaxed) }
 
@@ -35,6 +38,7 @@ unsafe extern "system" fn proc(h: HWND, msg: u32, wp: WPARAM, lp: LPARAM) -> LRE
             appbar::set_taskbar(TaskbarMode::Show);
             None
         }
+        m if m != 0 && m == TASKBAR_CREATED.load(Ordering::Relaxed) && IGNORE_CREATED.swap(false, Ordering::Relaxed) => None,
         m if m != 0 && m == TASKBAR_CREATED.load(Ordering::Relaxed) => {
             appbar::reset();
             Some(SystemEvent::ShellRestarted)

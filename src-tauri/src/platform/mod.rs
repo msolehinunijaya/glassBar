@@ -190,6 +190,21 @@ pub trait Wireless: Send + Sync {
     fn watch_network(&self, f: Box<dyn Fn() + Send + Sync>);
 }
 
+/// A notification-area icon hosted by GlassBar (see platform/windows/tray.rs).
+#[derive(Serialize, Clone, Debug)]
+pub struct TrayIcon { pub id: String, pub tip: String, pub icon: Option<String>, pub exe: String,
+    /// Windows 11 "always show" for this program (Settings › Personalization › Taskbar).
+    pub promoted: bool, pub rev: u64 }
+
+pub trait Tray: Send + Sync {
+    fn start(&self, on_change: Box<dyn Fn() + Send>);
+    fn stop(&self);
+    fn running(&self) -> bool;
+    fn icons(&self) -> Vec<TrayIcon>;
+    /// "left" | "right" | "double"; forwarded to the owning app as Explorer would.
+    fn click(&self, id: &str, button: &str) -> bool;
+}
+
 /// An installed keyboard input language. `id` is the Windows HKL.
 #[derive(Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -259,3 +274,5 @@ pub fn gpu() -> &'static dyn Gpu { &win::WinGpu }
 pub fn screen() -> &'static dyn Screen { &win::WinScreen }
 #[cfg(windows)]
 pub fn wireless() -> &'static dyn Wireless { &win::WinWireless }
+#[cfg(windows)]
+pub fn tray() -> &'static dyn Tray { &win::WinTray }

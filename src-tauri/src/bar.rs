@@ -142,7 +142,8 @@ pub fn apply(app: &AppHandle) {
 }
 
 /// Undo everything that outlives the process: reserved space and hidden taskbar.
-pub fn cleanup(app: &AppHandle) {
+pub fn cleanup(_app: &AppHandle) {
+    crate::platform::tray().stop();
     shell().appbar_remove();
     shell().set_taskbar(TaskbarMode::Show);
 }

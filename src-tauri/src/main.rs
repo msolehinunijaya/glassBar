@@ -41,6 +41,7 @@ pub fn commit(app: &AppHandle, cfg: Config) -> Result<(), String> {
     bar::apply(app);
     bar::refresh_tray(app);
     widgets::ocr::register_hotkey(app);
+    widgets::quick::sync_tray(app);
     let al = app.autolaunch();
     if al.is_enabled().unwrap_or(false) != cfg.startup.launch_at_login {
         let _ = if cfg.startup.launch_at_login { al.enable() } else { al.disable() };
@@ -124,6 +125,7 @@ fn main() {
                 }
             }));
             widgets::ocr::register_hotkey(h);
+            widgets::quick::sync_tray(h);
             let n = h.clone();
             platform::wireless().watch_network(Box::new(move || { let _ = n.emit("wifi:changed", ()); }));
             bar::build_tray(h)?;
@@ -194,6 +196,7 @@ fn main() {
             widgets::ocr::ocr_snap_finish, widgets::ocr::ocr_history, widgets::ocr::ocr_history_delete, widgets::ocr::ocr_copy,
             widgets::quick::wifi_list, widgets::quick::wifi_connect, widgets::quick::wifi_disconnect,
             widgets::quick::bt_list, widgets::quick::bt_pair, widgets::quick::bt_unpair, widgets::quick::open_settings_uri,
+            widgets::quick::tray_icons, widgets::quick::tray_click,
             widgets::quick::lang_list, widgets::quick::lang_set, widgets::quick::tray_overflow,
             widgets::quick::tray_settings, widgets::quick::windows_notifications,
         ])

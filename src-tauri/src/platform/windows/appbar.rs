@@ -108,8 +108,7 @@ fn taskbars() -> Vec<HWND> {
     }
     let mut v = Vec::new();
     unsafe {
-        let cls = wide("Shell_TrayWnd");
-        if let Ok(h) = FindWindowW(PCWSTR(cls.as_ptr()), PCWSTR::null()) { v.push(h); }
+        if let Some(h) = super::tray::real_tray() { v.push(h); }
         let _ = EnumWindows(Some(collect), LPARAM(&mut v as *mut _ as isize));
     }
     v

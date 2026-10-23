@@ -71,3 +71,27 @@ pub async fn brightness_set(value: u32) -> Res<()> { blocking(move || display().
 pub async fn hotspot_get() -> Res<Hotspot> { blocking(move || radios().hotspot()).await? }
 #[tauri::command]
 pub async fn hotspot_set(on: bool) -> Res<()> { blocking(move || radios().set_hotspot(on)).await? }
+
+// ---- Tray icons on the dock (opt-in) ----
+
+/// Host tray icons only while the Tray widget is placed with "Show tray icons on the dock" on.
+pub fn sync_tray(app: &tauri::AppHandle) {
+    use tauri::{Emitter, Manager};
+    let want = {
+        let st = app.state::<crate::AppState>();
+        let c = st.config.lock().unwrap();
+        c.uses("tray") && c.widget_settings("tray")["native"] == true
+    };
+    let t = crate::platform::tray();
+    if want && !t.running() {
+        let a = app.clone();
+        t.start(Box::new(move || { let _ = a.emit("tray:changed", ()); }));
+    } else if !want && t.running() {
+        t.stop();
+    }
+}
+
+#[tauri::command]
+pub fn tray_icons() -> Vec<crate::platform::TrayIcon> { crate::platform::tray().icons() }
+#[tauri::command]
+pub fn tray_click(id: String, button: String) -> bool { crate::platform::tray().click(&id, &button) }

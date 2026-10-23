@@ -53,6 +53,7 @@ export interface PinTarget { path: string; args: string }
 export interface InstalledApp { name: string; path: string; args: string }
 export interface WifiNetwork { ssid: string; bars: number; secured: boolean; security: string; connected: boolean; saved: boolean }
 export interface BtDevice { id: string; name: string; kind: string; paired: boolean; connected: boolean }
+export interface TrayIcon { id: string; tip: string; icon: string | null; exe: string; promoted: boolean; rev: number }
 export interface KeyboardLayout { id: number; code: string; name: string; locale: string; active: boolean }
 export interface DiskInfo { mount: string; label: string; total: number; available: number; removable: boolean; fs: string }
 export interface ScreenToday { total: number; apps: { exe: string; name: string; seconds: number }[] }
@@ -200,6 +201,8 @@ export const ipc = {
   btPair: (id: string) => invoke<void>('bt_pair', { id }),
   btUnpair: (id: string) => invoke<void>('bt_unpair', { id }),
   openSettingsUri: (uri: string) => invoke<void>('open_settings_uri', { uri }),
+  trayIcons: () => invoke<TrayIcon[]>('tray_icons'),
+  trayClick: (id: string, button: 'left' | 'right' | 'double') => invoke<boolean>('tray_click', { id, button }),
   langList: () => invoke<KeyboardLayout[]>('lang_list'),
   langSet: (id: number) => invoke<void>('lang_set', { id }),
   trayOverflow: (nativeVisible: boolean) => invoke<void>('tray_overflow', { nativeVisible }),

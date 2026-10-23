@@ -277,3 +277,8 @@ unsafe fn bitmap_to_png(hbm: HBITMAP) -> Option<Vec<u8>> {
         .write_image(&px, w as u32, ht as u32, image::ExtendedColorType::Rgba8).ok()?;
     Some(out)
 }
+
+/// A (copied) HICON as a PNG data URL, for tray icons.
+pub(crate) fn hicon_data_url(icon: isize) -> Option<String> {
+    unsafe { icon_to_png(HICON(icon as *mut _)) }.map(data_url)
+}

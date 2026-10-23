@@ -7,6 +7,7 @@ mod hotspot;
 mod lang;
 mod power;
 mod powermode;
+mod promoted;
 mod location;
 mod media;
 mod radios;
@@ -16,6 +17,7 @@ mod snap;
 mod system;
 mod thermal;
 mod thumbs;
+pub(crate) mod tray;
 mod windows_list;
 mod wireless;
 
@@ -31,6 +33,14 @@ pub struct WinLocation;
 pub struct WinPower;
 pub struct WinGpu;
 pub struct WinScreen;
+pub struct WinTray;
+impl Tray for WinTray {
+    fn start(&self, on_change: Box<dyn Fn() + Send>) { tray::start(on_change) }
+    fn stop(&self) { tray::stop() }
+    fn running(&self) -> bool { tray::running() }
+    fn icons(&self) -> Vec<TrayIcon> { let p = promoted::load(); tray::icons(&|exe| promoted::is_promoted(&p, exe)) }
+    fn click(&self, id: &str, button: &str) -> bool { tray::click(id, button) }
+}
 pub struct WinWireless;
 impl Wireless for WinWireless {
     fn wifi_list(&self, scan: bool) -> Res<(Option<String>, Vec<WifiNetwork>)> { wireless::wifi_list(scan) }
