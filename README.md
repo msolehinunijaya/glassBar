@@ -8,24 +8,23 @@ The bar can dock to any edge or float. You can drag it, resize it, and edit it i
 
 **Desktop**
 - **App Launcher:** pinned and running apps grouped by program. Drag icons to reorder (saved); right-click to pin/unpin, move, or pin another app; pin from installed apps or by browsing in its settings. Missing programs show greyed out. Right-click also shows recent files.
-- **Music:** Spotify, browsers, and any media app. The Mini style is just Play/Pause and Next; the panel keeps everything else.
+- **Music:** Spotify, browsers, and any media app. The Player design shows art, title and artist, Previous / Play-Pause / Next, progress with times, volume, and a live sound visualizer (length adjustable) driven by Windows' output level meter. Classic and Mini (Play/Pause + Next) designs remain.
 - **Sound:** volume, output device, and per-app volume.
 - **Quick Settings:** Wi-Fi (list networks, connect with password, disconnect), Bluetooth (paired and nearby devices, pair, remove), hotspot, airplane mode, display mode, brightness, keyboard language and tray buttons (each section can be hidden).
 - **Clock & Date:** with a calendar.
 - **Battery:** charge, a plug icon whenever it's on mains, time left, and Windows power mode. Updates the moment you plug in or unplug.
-- **System Monitor:** CPU (with temperature), RAM, GPU, and network with live graphs.
-- **Disk Storage:** used/free space per drive, with orange/red thresholds.
+- **System Monitor:** CPU (with temperature), RAM, network and disk storage (used of total, %, per drive, orange/red thresholds) with live graphs. The old separate Disk widget was merged in automatically.
 - **Keyboard Language:** the input language (EN, MS…) of the app you're using; click to switch.
-- **System Tray:** real tray icons of background apps on the dock (opt-in): always-shown ones inline, the rest in an overflow panel; click, double-click and right-click reach the app as in Windows. Off: opens Windows' hidden-icons flyout.
+- **System Tray:** click it for a panel of every real tray icon with its app name; real tray icons of background apps on the dock (opt-in): always-shown ones inline, the rest in an overflow panel; click, double-click and right-click reach the app as in Windows. Off: opens Windows' hidden-icons flyout.
 
 **Productivity**
-- **To-Do:** quick tasks with due-date reminders.
-- **Quick Note:** sticky notes with pasted text and images. You can drag images out into other apps.
+- **To-Do:** quick tasks with due-date reminders; scroll through every task right on the dock (green 3D icon).
+- **Quick Note:** (yellow 3D icon) sticky notes with pasted text and images. You can drag images out into other apps.
 - **Pomodoro:** focus sessions with short and long breaks.
 - **Timer & Stopwatch:** presets, several timers at once, and laps.
 - **Screen Time:** today's usage, top apps, and a 7-day graph. It records only while the widget is on your bar.
 - **Notifications:** GlassBar's alert history and Do Not Disturb, plus a Windows tab that opens Windows Notification Center.
-- **Time Progress:** how much of the day, month or year has passed.
+- **Time Progress:** dot-grid cards for the month, day and year (52 week-dots for the year), with the percentage passed.
 
 **Location**
 - **Weather:** colourful pill; dashboard with feels-like, humidity, wind, rain chance, a sunrise/sunset arc, hourly and 3-day forecast (Open-Meteo).
@@ -39,10 +38,12 @@ The bar can dock to any edge or float. You can drag it, resize it, and edit it i
 
 **Dock and sounds**
 - Works on all four screen edges; on the left/right every widget stacks in a column, text wraps instead of rotating.
-- Optional sounds when a USB device is connected or removed (Settings › Sounds).
+- Optional sounds when a USB device is connected or removed, and distinct sounds when the charger is plugged in or unplugged (Settings › Sounds).
 - One shared location for every location-based widget: Windows location (with its accuracy), approximate IP location, or a city you pick; refresh and reset in Settings.
 
 ### Known limitations
+- **Store apps** (WhatsApp, Spotify, Settings…) are started through their app identity, as the Start menu does; Windows doesn't allow starting them from their .exe.
+- **Sound visualizer** shows the real output level (Windows' peak meter, the one in the volume mixer); it is not a per-frequency spectrum, which would need capturing the audio stream.
 - **CPU temperature** comes from Windows' ACPI thermal zones. It's close to the CPU package on most laptops but isn't a per-core sensor. PCs that expose no thermal zone show **N/A**; nothing is estimated.
 - **Tray icons:** Windows 11 doesn't let other programs draw its tray icons. GlassBar opens Windows' own hidden-icons flyout, which only works while the Windows taskbar is shown; otherwise it opens tray settings.
 - **Windows notifications:** only packaged (MSIX/Store) apps may read other apps' notifications, so the Windows tab opens Notification Center instead of listing them. A combined Dock + Windows list isn't possible for the same reason.

@@ -34,8 +34,8 @@
 <style>
   h3 { margin: 0 0 10px; font-size: 14px; font-weight: 600; display: flex; gap: 6px; align-items: baseline; }
   .n { font-size: 12px; font-weight: 400; }
-  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; max-height: 250px; overflow-y: auto; scrollbar-width: thin; }
-  .item { position: relative; display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 9px 4px 7px; border-radius: 12px; transition: background 0.15s, transform 0.2s var(--spring); }
+  .grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; max-height: 250px; overflow-x: hidden; overflow-y: auto; scrollbar-width: thin; }
+  .item { position: relative; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 9px 4px 7px; border-radius: 12px; transition: background 0.15s, transform 0.2s var(--spring); }
   .item:hover { background: var(--pill-hover); }
   .item:active { transform: scale(0.94); }
   .nm { font-size: 10.5px; line-height: 1.2; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

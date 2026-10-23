@@ -15,6 +15,6 @@ export default defineWidget<TraySettings>({
   defaultSize: 'small',
   defaults: { native: true, showPromoted: true, showOverflow: true, compact: false },
   Pill,
-  Popup: { component: Popup, width: 340, height: 360 },
+  Popup: { component: Popup, width: 340, height: 300 },
   SettingsForm,
 });
