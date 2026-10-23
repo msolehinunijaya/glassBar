@@ -50,6 +50,7 @@
   { type: 'choice', key: 'layout', label: 'Both as', choices: [{ value: 'inline', label: 'Side by side' }, { value: 'stacked', label: 'Stacked' }] },
   { type: 'choice', key: 'timeSide', label: settings.layout === 'stacked' ? 'Time on' : 'Time on the', choices: settings.layout === 'stacked'
     ? [{ value: 'left', label: 'Top' }, { value: 'right', label: 'Bottom' }] : [{ value: 'left', label: 'Left' }, { value: 'right', label: 'Right' }] },
+  ...(settings.layout === 'stacked' ? [{ type: 'choice' as const, key: 'stackAlign', label: 'Align', choices: [{ value: 'left', label: 'Left' }, { value: 'center', label: 'Center' }, { value: 'right', label: 'Right' }] }] : []),
   { type: 'choice', key: 'appearance', label: 'Appearance', menu: true, choices: [
     { value: 'standard', label: 'Standard' }, { value: 'prominent', label: 'Prominent', hint: 'Bigger, bolder time on an accent panel' },
     { value: 'popup', label: 'Popup', hint: 'Hover the clock to see a large clock and world clocks' }] },

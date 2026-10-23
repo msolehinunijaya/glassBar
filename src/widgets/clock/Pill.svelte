@@ -30,6 +30,7 @@
 
 <div class="pill clock {settings.appearance}" class:vertical class:stacked={show === 'both' && settings.layout === 'stacked'}
      class:date-first={show === 'both' && settings.timeSide === 'right'}
+     data-align={settings.stackAlign}
      onpointerenter={enter} onpointerleave={leave} role="timer" title={day}>
   {#if show !== 'date'}
     <span class="time" class:big={settings.appearance === 'prominent' && !vertical}><Time now={clock.now} {settings} /></span>
@@ -55,6 +56,9 @@
   /* stacked: time above the date */
   .stacked { flex-direction: column; justify-content: center; gap: 0; line-height: 1.15; }
   .stacked .date { font-size: 11px; }
+  .stacked[data-align='left'] { align-items: flex-start; text-align: left; }
+  .stacked[data-align='center'] { align-items: center; text-align: center; }
+  .stacked[data-align='right'] { align-items: flex-end; text-align: right; }
   /* prominent: larger, bolder time on an accent-tinted panel, still within the bar height */
   .prominent {
     background: color-mix(in srgb, var(--accent) 30%, var(--pill));
