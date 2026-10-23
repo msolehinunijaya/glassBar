@@ -11,4 +11,5 @@
     <option value="c">°C</option><option value="f">°F</option>
   </select>
 </label>
+<label class="row"><input type="checkbox" checked={settings.colorful} onchange={(e) => save({ colorful: e.currentTarget.checked })} /> Colourful pill (by condition)</label>
 <LocationPicker />
