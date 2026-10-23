@@ -27,7 +27,7 @@ export interface PomoCfg { workMin: number; shortMin: number; longMin: number; e
 export interface PomoState { pomo: { phase: Phase; done: number; endsAt: number | null; pausedMs: number | null }; cfg: PomoCfg; label: string }
 export interface Timer { id: number; label: string; durationMs: number; endsAt: number | null; remainingMs: number | null }
 export interface Stopwatch { startedAt: number | null; accMs: number; laps: number[] }
-export interface Place { lat: number; lon: number; name: string; source: 'windows' | 'ip' | 'manual' }
+export interface Place { lat: number; lon: number; name: string; source: 'windows' | 'ip' | 'manual'; tz?: string }
 export interface Weather {
   fetchedAt: number; unit: 'c' | 'f'; place: Place | null; offline: boolean;
   current: { temp: number; code: number; isDay: boolean };

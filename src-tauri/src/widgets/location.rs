@@ -16,17 +16,20 @@ pub struct Place {
     pub name: String,
     /// "windows" | "ip" | "manual"
     pub source: String,
+    /// IANA time zone, when known (city search results include it).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tz: Option<String>,
 }
 
 pub fn resolve_location(cfg: &LocationCfg, windows: Option<(f64, f64)>, ip: Option<Place>) -> Option<Place> {
     if !cfg.auto {
         return match (cfg.lat, cfg.lon) {
-            (Some(lat), Some(lon)) => Some(Place { lat, lon, name: cfg.name.clone(), source: "manual".into() }),
+            (Some(lat), Some(lon)) => Some(Place { lat, lon, name: cfg.name.clone(), source: "manual".into(), tz: None }),
             _ => None,
         };
     }
     match windows {
-        Some((lat, lon)) => Some(Place { lat, lon, name: "Current location".into(), source: "windows".into() }),
+        Some((lat, lon)) => Some(Place { lat, lon, name: "Current location".into(), source: "windows".into(), tz: None }),
         None => ip,
     }
 }
@@ -39,7 +42,7 @@ pub fn parse_ip(v: &Value) -> Option<Place> {
     let city = v["city"].as_str().unwrap_or_default();
     let region = v["region"].as_str().unwrap_or_default();
     let name = [city, region].iter().filter(|s| !s.is_empty()).cloned().collect::<Vec<_>>().join(", ");
-    Some(Place { lat, lon, name, source: "ip".into() })
+    Some(Place { lat, lon, name, source: "ip".into(), tz: None })
 }
 
 fn ip_lookup() -> Option<Place> {
@@ -87,7 +90,8 @@ pub async fn location_search(query: String) -> Result<Vec<Place>, String> {
         Ok(v["results"].as_array().map(|a| a.iter().filter_map(|r| {
             let name = [r["name"].as_str(), r["admin1"].as_str(), r["country"].as_str()]
                 .iter().flatten().cloned().collect::<Vec<_>>().join(", ");
-            Some(Place { lat: r["latitude"].as_f64()?, lon: r["longitude"].as_f64()?, name, source: "manual".into() })
+            Some(Place { lat: r["latitude"].as_f64()?, lon: r["longitude"].as_f64()?, name, source: "manual".into(),
+                         tz: r["timezone"].as_str().map(String::from) })
         }).collect()).unwrap_or_default())
     }).await?
 }
@@ -96,7 +100,7 @@ pub async fn location_search(query: String) -> Result<Vec<Place>, String> {
 mod tests {
     use super::*;
 
-    fn ip() -> Place { Place { lat: 3.08, lon: 101.58, name: "Petaling".into(), source: "ip".into() } }
+    fn ip() -> Place { Place { lat: 3.08, lon: 101.58, name: "Petaling".into(), source: "ip".into(), tz: None } }
 
     #[test]
     fn resolve_prefers_manual_when_auto_off() {

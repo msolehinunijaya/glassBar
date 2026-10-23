@@ -3,18 +3,28 @@ import { defineWidget } from '../types';
 import Pill from './Pill.svelte';
 import Popup from './Popup.svelte';
 import SettingsForm from './SettingsForm.svelte';
+import type { Zone } from './zones';
 
-export interface ClockSettings { hour12: boolean; showSeconds: boolean; secondTz: string }
+export interface ClockSettings {
+  hour12: boolean;
+  showSeconds: boolean;
+  /** standard pill · prominent (bigger, bolder, accent panel) · popup (hover shows a large clock) */
+  appearance: 'standard' | 'prominent' | 'popup';
+  /** World clocks, in the user's order. */
+  zones: Zone[];
+  /** Older single "second time zone" setting; folded into `zones` when read. */
+  secondTz: string;
+}
 
 export default defineWidget<ClockSettings>({
   id: 'clock',
   name: 'Clock & Date',
-  description: 'Time, date, calendar, optional second time zone',
+  description: 'Time and date, calendar, world clocks',
   icon: Clock,
   sizes: ['small', 'medium', 'large'],
   defaultSize: 'medium',
-  defaults: { hour12: false, showSeconds: false, secondTz: '' },
+  defaults: { hour12: false, showSeconds: false, appearance: 'standard', zones: [], secondTz: '' },
   Pill,
-  Popup: { component: Popup, width: 320, height: 380 },
+  Popup: { component: Popup, width: 340, height: 560 },
   SettingsForm,
 });

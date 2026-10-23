@@ -10,11 +10,14 @@
   // Which widget's panel is showing. Cleared when Rust hides the popup, so hidden
   // panels stop their timers. (Rust sends hide before the next show, so no race.)
   let instance = $state<string | null>(null);
-  const w = $derived(instance ? profile().widgets.find((x) => x.instance === instance) : undefined);
-  const m = $derived(w ? widgets[w.id] : undefined);
   const close = () => ipc.popupHide();
   const WINDOWS = '__windows:';
-  const hover = $derived(instance?.startsWith(WINDOWS) ?? false);
+  /** "__hover:<instance>" = that widget's panel opened by hovering (closes on mouse-out). */
+  const HOVER = '__hover:';
+  const hover = $derived(!!instance && (instance.startsWith(WINDOWS) || instance.startsWith(HOVER)));
+  const target = $derived(instance?.startsWith(HOVER) ? instance.slice(HOVER.length) : instance);
+  const w = $derived(target ? profile().widgets.find((x) => x.instance === target) : undefined);
+  const m = $derived(w ? widgets[w.id] : undefined);
 
   // Hover popups close shortly after the pointer leaves both the icon and the popup.
   let leaveTimer: ReturnType<typeof setTimeout>;
@@ -35,7 +38,7 @@
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="surface popup" class:hover onpointerenter={stay} onpointerleave={leaveSoon}>
-  {#if hover && instance}
+  {#if instance?.startsWith(WINDOWS)}
     {#key instance}<WindowPreviews appKey={instance.slice(WINDOWS.length)} {close} />{/key}
   {:else if instance === GALLERY}
     <Gallery {close} />
