@@ -78,6 +78,8 @@ export const ipc = {
   popupOpen: (instance: string, anchor: DOMRect, width: number, height: number, focus = true) =>
     invoke<void>('popup_open', { instance, x: anchor.x, y: anchor.y, w: anchor.width, h: anchor.height, width, height, focus }),
   popupLeave: () => invoke<void>('popup_leave'),
+  thumbsShow: (items: { id: number; x: number; y: number; w: number; h: number }[]) => invoke<number[]>('thumbs_show', { items }),
+  thumbsClear: () => invoke<void>('thumbs_clear'),
   barReveal: (show: boolean) => invoke<void>('bar_reveal', { show }),
   popupHide: () => invoke<void>('popup_hide'),
   // alerts
@@ -134,6 +136,9 @@ export const ipc = {
   // screen time
   screentimeToday: () => invoke<ScreenToday>('screentime_today'),
   screentimeWeek: () => invoke<[string, number][]>('screentime_week'),
+  // start + search
+  startMenu: () => invoke<void>('start_menu'),
+  windowsSearch: () => invoke<void>('windows_search'),
   // apps
   appsList: () => invoke<AppWindow[]>('apps_list'),
   appIcon: (exe: string, window: number | null = null) => invoke<string | null>('app_icon', { exe, window }),

@@ -84,6 +84,13 @@ pub trait Shell: Send + Sync {
     fn appbar_remove(&self);
     /// No-op when the mode is unchanged. Restores the user's original state on `Show`.
     fn set_taskbar(&self, mode: TaskbarMode);
+    /// Live thumbnails of windows drawn into `dest` (client pixels). Returns the windows
+    /// that got one; the caller shows a fallback for the rest.
+    fn thumbs_show(&self, dest: isize, items: &[(isize, Rect)]) -> Vec<isize>;
+    /// Remove every thumbnail (must run whenever the preview hides).
+    fn thumbs_clear(&self);
+    /// Press keys together (in order) and release them: e.g. [LWIN] opens Start.
+    fn press_keys(&self, keys: &[u16]);
     /// Is the left mouse button down right now (used to detect the end of a window drag)?
     fn mouse_down(&self) -> bool;
     /// Milliseconds since the last keyboard/mouse input.

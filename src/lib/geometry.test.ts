@@ -56,3 +56,12 @@ describe('snap: drag past the edge to auto-hide', () => {
     expect(snap({ x: 400, y: 1010, w: 1000, h: 60 }, one, 24)).toEqual({ monitor: 0, edge: 'bottom', hide: false });
   });
 });
+
+describe('insertIndex (free drag)', () => {
+  it('counts the other widgets whose centre is before the pointer', async () => {
+    const { insertIndex } = await import('./geometry');
+    expect(insertIndex([50, 150, 250], 10)).toBe(0);
+    expect(insertIndex([50, 150, 250], 120)).toBe(1);
+    expect(insertIndex([50, 150, 250], 999)).toBe(3);
+  });
+});

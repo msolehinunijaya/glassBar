@@ -5,7 +5,7 @@
   import { Check, Maximize2, Plus, X } from '@lucide/svelte';
   import { profile, store, update } from '../lib/config.svelte';
   import { events, ipc, type WidgetInst, type WidgetSize } from '../lib/ipc';
-  import { indexAt, reorder, snap } from '../lib/geometry';
+  import { insertIndex, snap } from '../lib/geometry';
   import { GALLERY, openPopup } from '../lib/popup';
   import { chime, playFile } from '../lib/sound';
   import { showMenu } from '../lib/menu';
@@ -184,30 +184,76 @@
     el.addEventListener('pointermove', moved);
   }
 
-  // Edit-mode reorder: press a widget, slide it, release.
+  // ---- Edit mode: free drag ----
+  // Hold ~250 ms (or start moving) to pick a widget up. It follows the pointer as a
+  // floating copy; a placeholder marks where it will land and the others slide aside
+  // (FLIP via animate:flip). Drop anywhere; Esc puts it back. The new order is saved on drop.
+  let dragId = $state<string | null>(null);
+  let ghost = $state<{ x: number; y: number; w: number; h: number } | null>(null);
+
   function onSlotDown(e: PointerEvent, instance: string) {
     startHold(e);
     if (!edit || e.button !== 0 || (e.target as HTMLElement).closest('.badge')) return;
     const el = e.currentTarget as HTMLElement;
     el.setPointerCapture(e.pointerId);
-    order = placed.map((w) => w.instance);
-    const move = (ev: PointerEvent) => {
-      const slots = [...scroller.querySelectorAll<HTMLElement>('.slot')];
-      const centers = slots.map((s) => { const r = s.getBoundingClientRect(); return vertical ? r.top + r.height / 2 : r.left + r.width / 2; });
-      const to = indexAt(centers, vertical ? ev.clientY : ev.clientX);
-      const from = order!.indexOf(instance);
-      if (to !== from) order = reorder(order!, from, to);
+    const start = { x: e.clientX, y: e.clientY };
+    const before = placed.map((w) => w.instance).join();
+    let grab = { dx: 0, dy: 0 };
+    let last = e;
+    let raf = 0;
+    let picked = false;
+
+    const pick = () => {
+      if (picked) return;
+      picked = true;
+      const r = el.getBoundingClientRect();
+      grab = { dx: start.x - r.left, dy: start.y - r.top };
+      ghost = { x: r.left, y: r.top, w: r.width, h: r.height };
+      dragId = instance;
+      order = placed.map((w) => w.instance);
     };
-    const before = order.join();
-    const up = async () => {
+    const pickTimer = setTimeout(pick, 250);
+
+    const frame = () => {
+      raf = 0;
+      if (!ghost || !order) return;
+      ghost = { ...ghost, x: last.clientX - grab.dx, y: vertical ? last.clientY - grab.dy : ghost.y };
+      const others = [...scroller.querySelectorAll<HTMLElement>('.slot:not(.placeholder)')]
+        .map((s) => { const r = s.getBoundingClientRect(); return vertical ? r.top + r.height / 2 : r.left + r.width / 2; });
+      const to = insertIndex(others, vertical ? last.clientY : last.clientX);
+      const rest = order.filter((id) => id !== instance);
+      const next = [...rest.slice(0, to), instance, ...rest.slice(to)];
+      if (next.join() !== order.join()) order = next;
+    };
+    const move = (ev: PointerEvent) => {
+      last = ev;
+      if (!picked && Math.hypot(ev.clientX - start.x, ev.clientY - start.y) > 6) { clearTimeout(pickTimer); pick(); }
+      if (picked && !raf) raf = requestAnimationFrame(frame);
+    };
+    const reset = () => {
+      clearTimeout(pickTimer);
+      cancelAnimationFrame(raf);
       el.removeEventListener('pointermove', move);
       el.removeEventListener('lostpointercapture', up);
-      const final = order!;
+      removeEventListener('keydown', onKey);
+      dragId = null;
+      ghost = null;
+    };
+    const onKey = (k: KeyboardEvent) => {
+      if (k.key !== 'Escape') return;
+      order = null; // back to where it was
+      reset();
+      el.releasePointerCapture(e.pointerId);
+    };
+    const up = async () => {
+      const final = order;
+      reset();
       try {
-        if (final.join() !== before) {
+        if (picked && final && final.join() !== before) {
           await update((c) => {
             const p = c.profiles[c.activeProfile];
-            p.widgets = final.map((id) => p.widgets.find((w) => w.instance === id)!).concat(p.widgets.filter((w) => !final.includes(w.instance)));
+            p.widgets = final.map((id) => p.widgets.find((w) => w.instance === id)!).filter(Boolean)
+              .concat(p.widgets.filter((w) => !final.includes(w.instance)));
           });
         }
       } finally {
@@ -215,7 +261,8 @@
       }
     };
     el.addEventListener('pointermove', move);
-    el.addEventListener('lostpointercapture', up);
+    el.addEventListener('lostpointercapture', up); // pointerup and pointercancel
+    addEventListener('keydown', onKey);
   }
 </script>
 
@@ -230,6 +277,7 @@
       <!-- svelte-ignore a11y_click_events_have_key_events -->
       <div
         class="slot"
+        class:placeholder={dragId === w.instance}
         role="button"
         tabindex="-1"
         animate:flip={{ duration: 280 }}
@@ -250,6 +298,16 @@
       <span class="dim empty">Right-click → Edit widgets</span>
     {/if}
   </div>
+
+  {#if ghost && dragId}
+    {@const w = placed.find((x) => x.instance === dragId)}
+    {#if w}
+      {@const m = widgets[w.id]}
+      <div class="ghost" style:width="{ghost.w}px" style:height="{ghost.h}px" style:transform="translate({ghost.x}px, {ghost.y}px) scale(1.06)">
+        <m.Pill instance={w.instance} size={vertical ? 'small' : w.size} settings={settingsOf(m, w)} {vertical} />
+      </div>
+    {/if}
+  {/if}
 
   {#if edit}
     <div class="edit-tools">
@@ -287,6 +345,14 @@
   .vertical .scroller { flex-direction: column; }
 
   .slot { position: relative; flex: none; display: flex; }
+  /* where the dragged widget will land */
+  .slot.placeholder { animation: none !important; border-radius: var(--radius-pill); outline: 2px dashed color-mix(in srgb, var(--accent) 70%, transparent); outline-offset: -2px; }
+  .slot.placeholder > :global(*) { opacity: 0; }
+  .ghost {
+    position: fixed; left: 0; top: 0; z-index: 10; pointer-events: none; display: flex;
+    border-radius: var(--radius-pill); box-shadow: 0 10px 26px rgba(0, 0, 0, 0.35);
+    transition: transform 40ms linear; will-change: transform;
+  }
   .vertical .slot { justify-content: center; }
   .edit .slot { animation: jiggle 0.28s ease-in-out infinite; }
   .edit .slot:nth-child(2n) { animation-delay: -0.14s; }

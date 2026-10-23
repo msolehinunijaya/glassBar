@@ -76,7 +76,7 @@ impl Default for Profile {
             id: id.into(), instance: format!("{id}-1"), size: size.into(), settings: serde_json::Value::Null,
         };
         Self { bar: BarCfg::default(), widgets: vec![
-            w("apps", "large"), w("music", "medium"), w("sound", "small"),
+            w("start", "small"), w("apps", "large"), w("music", "medium"), w("sound", "small"),
             w("quicksettings", "small"), w("clock", "medium"),
         ] }
     }
@@ -134,16 +134,28 @@ pub struct Config {
 
 impl Default for Config {
     fn default() -> Self {
-        Self { version: 1, active_profile: "Default".into(),
+        Self { version: CURRENT_VERSION, active_profile: "Default".into(),
                profiles: BTreeMap::from([("Default".into(), Profile::default())]),
                theme: Theme::default(), startup: Startup::default(),
                dnd: false, location: LocationCfg::default() }
     }
 }
 
+/// v2 added the Start/Search button widget.
+pub const CURRENT_VERSION: u32 = 2;
+
 impl Config {
-    /// Repair values a hand-edited or imported file can get wrong.
+    /// Repair values a hand-edited or imported file can get wrong, and upgrade old versions.
     pub fn normalized(mut self) -> Self {
+        if self.version < 2 {
+            // Put the new Start/Search button at the far left, once.
+            for p in self.profiles.values_mut() {
+                if !p.widgets.iter().any(|w| w.id == "start") {
+                    p.widgets.insert(0, WidgetInst { id: "start".into(), instance: "start-1".into(), size: "small".into(), settings: serde_json::Value::Null });
+                }
+            }
+        }
+        self.version = CURRENT_VERSION;
         if self.profiles.is_empty() {
             self.profiles.insert("Default".into(), Profile::default());
         }
@@ -330,6 +342,26 @@ mod tests {
         assert_eq!(Config::default().profile().bar.monitor, None);
         let c = import(r#"{"profiles":{"P":{"bar":{"monitor":1}}},"activeProfile":"P"}"#).unwrap();
         assert_eq!(c.profile().bar.monitor, Some(1));
+    }
+
+    #[test]
+    fn v1_configs_get_the_start_button_first_once() {
+        let v1 = r#"{"version":1,"activeProfile":"A","profiles":{"A":{"widgets":[{"id":"apps","instance":"apps-1"}]},"B":{"widgets":[]}}}"#;
+        let c = import(v1).unwrap();
+        assert_eq!(c.version, CURRENT_VERSION);
+        assert_eq!(c.profiles["A"].widgets[0].id, "start");
+        assert_eq!(c.profiles["A"].widgets[1].id, "apps");
+        assert_eq!(c.profiles["B"].widgets[0].id, "start");
+        // Already migrated (user removed it on purpose): not added back.
+        let mut again = c.clone();
+        again.profiles.get_mut("A").unwrap().widgets.remove(0);
+        let again = import(&export(&again)).unwrap();
+        assert_eq!(again.profiles["A"].widgets[0].id, "apps");
+    }
+
+    #[test]
+    fn default_profile_starts_with_the_start_button() {
+        assert_eq!(Config::default().profile().widgets[0].id, "start");
     }
 
     #[test]

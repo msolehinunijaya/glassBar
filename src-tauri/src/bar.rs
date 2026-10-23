@@ -185,6 +185,7 @@ pub fn mouse_down() -> bool { shell().mouse_down() }
 pub struct PopupState { pub instance: Option<String>, pub hidden_at: Option<Instant> }
 
 pub fn popup_hidden(app: &AppHandle) {
+    shell().thumbs_clear(); // never leave live thumbnails behind
     if let Some(p) = app.get_webview_window("popup") { let _ = p.hide(); }
     app.state::<AppState>().popup.lock().unwrap().hidden_at = Some(Instant::now());
     let _ = app.emit("popup:hide", ());
@@ -235,6 +236,24 @@ pub fn popup_open(app: AppHandle, instance: String, x: f64, y: f64, w: f64, h: f
 
 #[tauri::command]
 pub fn popup_hide(app: AppHandle) { popup_hidden(&app) }
+
+#[derive(serde::Deserialize)]
+pub struct ThumbArea { pub id: isize, pub x: f64, pub y: f64, pub w: f64, pub h: f64 }
+
+/// Draw live previews of windows into the popup at the given CSS-pixel areas.
+#[tauri::command]
+pub fn thumbs_show(app: AppHandle, items: Vec<ThumbArea>) -> Vec<isize> {
+    let Some(p) = app.get_webview_window("popup") else { return vec![] };
+    let (Ok(h), Ok(s)) = (p.hwnd(), p.scale_factor()) else { return vec![] };
+    let px = |v: f64| (v * s).round() as i32;
+    let items: Vec<(isize, Rect)> = items.iter()
+        .map(|a| (a.id, Rect { x: px(a.x), y: px(a.y), w: px(a.w), h: px(a.h) }))
+        .collect();
+    shell().thumbs_show(h.0 as isize, &items)
+}
+
+#[tauri::command]
+pub fn thumbs_clear() { shell().thumbs_clear() }
 
 /// The pointer left the widget that opened a hover popup; the popup closes soon
 /// unless the pointer moves into it.

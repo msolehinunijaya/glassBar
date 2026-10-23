@@ -10,6 +10,7 @@ mod media;
 mod radios;
 mod recent;
 mod system;
+mod thumbs;
 mod windows_list;
 
 use super::*;
@@ -45,6 +46,17 @@ impl Shell for WinShell {
     }
     fn appbar_set(&self, edge: Edge, strip: Rect) -> Rect { appbar::set(edge, strip) }
     fn appbar_remove(&self) { appbar::remove() }
+    fn thumbs_show(&self, dest: isize, items: &[(isize, Rect)]) -> Vec<isize> { thumbs::show(dest, items) }
+    fn thumbs_clear(&self) { thumbs::clear() }
+    fn press_keys(&self, keys: &[u16]) {
+        use windows::Win32::UI::Input::KeyboardAndMouse::*;
+        let key = |vk: u16, up: bool| INPUT {
+            r#type: INPUT_KEYBOARD,
+            Anonymous: INPUT_0 { ki: KEYBDINPUT { wVk: VIRTUAL_KEY(vk), dwFlags: if up { KEYEVENTF_KEYUP } else { KEYBD_EVENT_FLAGS(0) }, ..Default::default() } },
+        };
+        let inputs: Vec<INPUT> = keys.iter().map(|&k| key(k, false)).chain(keys.iter().rev().map(|&k| key(k, true))).collect();
+        unsafe { SendInput(&inputs, std::mem::size_of::<INPUT>() as i32); }
+    }
     fn idle_ms(&self) -> u64 {
         use windows::Win32::System::SystemInformation::GetTickCount;
         use windows::Win32::UI::Input::KeyboardAndMouse::{GetLastInputInfo, LASTINPUTINFO};

@@ -41,3 +41,9 @@ export function indexAt(centers: number[], p: number): number {
   centers.forEach((c, i) => { if (Math.abs(c - p) < Math.abs(centers[best] - p)) best = i; });
   return best;
 }
+
+/** Free drag: where the dragged widget lands = how many of the *other* widgets'
+ *  centres lie before the pointer. */
+export function insertIndex(otherCenters: number[], p: number): number {
+  return otherCenters.filter((c) => c < p).length;
+}

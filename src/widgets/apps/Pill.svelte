@@ -37,15 +37,18 @@
     }
   });
 
-  // Hovering an app with 2+ windows opens a chooser (without taking keyboard focus).
+  // Hovering a running app shows live previews of its windows (without taking keyboard focus).
   let hoverTimer: ReturnType<typeof setTimeout>;
+  let previewOpen = false;
   function onHover(e: PointerEvent, g: Group) {
     clearTimeout(hoverTimer);
-    if (g.windows.length < 2) return;
+    if (!g.windows.length) return;
     const el = e.currentTarget as HTMLElement;
+    const n = Math.min(g.windows.length, 6);
     hoverTimer = setTimeout(() => {
-      ipc.popupOpen(`__windows:${g.key}`, el.getBoundingClientRect(), 300, Math.min(420, 48 + g.windows.length * 38), false);
-    }, 350);
+      previewOpen = true;
+      ipc.popupOpen(`__windows:${g.key}`, el.getBoundingClientRect(), 16 + n * 216, 172, false);
+    }, 300);
   }
   function onUnhover() {
     clearTimeout(hoverTimer);
@@ -53,6 +56,9 @@
   }
 
   function open(g: Group) {
+    // A click always closes the hover preview first (no box left behind).
+    clearTimeout(hoverTimer);
+    if (previewOpen) { previewOpen = false; ipc.popupHide(); }
     const w = nextWindow(g);
     if (w) ipc.appActivate(w.id);
     else ipc.appLaunch(g.path, g.pin?.args ?? '');
