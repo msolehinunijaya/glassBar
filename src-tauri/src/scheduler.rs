@@ -63,9 +63,12 @@ fn handle(app: &AppHandle, d: &Due, missed: bool) {
 
 /// Daily cleanup. Later tasks add note expiry and screen-time retention.
 fn housekeeping(app: &AppHandle) {
-    let c = app.state::<Db>();
-    let c = c.0.lock().unwrap();
-    let _ = c.execute("DELETE FROM fired WHERE at < ?1", [now_ms() - 30 * 86_400_000]);
+    {
+        let c = app.state::<Db>();
+        let c = c.0.lock().unwrap();
+        let _ = c.execute("DELETE FROM fired WHERE at < ?1", [now_ms() - 30 * 86_400_000]);
+    }
+    crate::widgets::notes::housekeeping(app);
 }
 
 pub fn start(app: AppHandle) {

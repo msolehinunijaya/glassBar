@@ -21,6 +21,7 @@ export interface Config {
 
 export interface Alert { id: number; source: string; title: string; body: string; at: number; missed: boolean; read: boolean }
 export interface Todo { id: number; text: string; done: boolean; dueAt: number | null; createdAt: number }
+export interface Note { id: number; text: string; color: string; pinned: boolean; images: string[]; updatedAt: number; deletedAt: number | null }
 export type Sound = { kind: 'chime' } | { kind: 'azan'; src: string };
 
 export interface AppWindow { id: number; title: string; exe: string; active: boolean; minimized: boolean }
@@ -63,6 +64,16 @@ export const ipc = {
   todoUpdate: (t: Todo) => invoke<void>('todo_update', { id: t.id, text: t.text, done: t.done, dueAt: t.dueAt }),
   todoDelete: (id: number) => invoke<void>('todo_delete', { id }),
   todoClearDone: () => invoke<void>('todo_clear_done'),
+  // notes
+  notesList: (trash = false) => invoke<Note[]>('notes_list', { trash }),
+  noteCreate: () => invoke<Note>('note_create'),
+  noteUpdate: (n: Note) => invoke<void>('note_update', { id: n.id, text: n.text, color: n.color, pinned: n.pinned }),
+  noteDelete: (id: number) => invoke<void>('note_delete', { id }),
+  noteRestore: (id: number) => invoke<void>('note_restore', { id }),
+  noteAddImage: (id: number, data: string) => invoke<string>('note_add_image', { id, data }),
+  noteRemoveImage: (id: number, name: string) => invoke<void>('note_remove_image', { id, name }),
+  noteImage: (name: string) => invoke<string>('note_image', { name }),
+  noteDragImage: (name: string) => invoke<void>('note_drag_image', { name }),
   // apps
   appsList: () => invoke<AppWindow[]>('apps_list'),
   appIcon: (exe: string) => invoke<string | null>('app_icon', { exe }),

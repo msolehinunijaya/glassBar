@@ -24,7 +24,7 @@ pub struct AppState {
     pub dragging: AtomicBool,
 }
 
-fn data_dir() -> PathBuf {
+pub fn data_dir() -> PathBuf {
     std::env::var_os("APPDATA").map(PathBuf::from).unwrap_or_else(std::env::temp_dir).join("GlassBar")
 }
 
@@ -124,6 +124,9 @@ fn main() {
             bar::bar_preview, bar::bar_drag, bar::mouse_down,
             widgets::todo::todo_list, widgets::todo::todo_add, widgets::todo::todo_update,
             widgets::todo::todo_delete, widgets::todo::todo_clear_done,
+            widgets::notes::notes_list, widgets::notes::note_create, widgets::notes::note_update,
+            widgets::notes::note_delete, widgets::notes::note_restore, widgets::notes::note_add_image,
+            widgets::notes::note_remove_image, widgets::notes::note_image, widgets::notes::note_drag_image,
             alerts::alerts_list, alerts::alerts_mark_read, alerts::alerts_dismiss, alerts::alerts_clear,
             widgets::apps::apps_list, widgets::apps::app_icon, widgets::apps::app_activate,
             widgets::apps::app_close, widgets::apps::app_launch,
