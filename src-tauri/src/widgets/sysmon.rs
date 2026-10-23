@@ -60,19 +60,25 @@ pub async fn battery_get() -> Option<crate::platform::Battery> {
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct PowerInfo { pub mode: Option<crate::platform::PowerMode>, pub saver_on: Option<bool> }
+pub struct PowerInfo { pub mode: Option<crate::platform::PowerMode>, pub saver_on: Option<bool>, pub other_plan: Option<String> }
 
 #[tauri::command]
 pub async fn power_get() -> PowerInfo {
     crate::widgets::blocking(|| {
         let p = crate::platform::power();
-        PowerInfo { mode: p.power_mode(), saver_on: p.saver_on() }
-    }).await.unwrap_or(PowerInfo { mode: None, saver_on: None })
+        PowerInfo { mode: p.power_mode(), saver_on: p.saver_on(), other_plan: p.other_plan() }
+    }).await.unwrap_or(PowerInfo { mode: None, saver_on: None, other_plan: None })
 }
 
 #[tauri::command]
 pub async fn power_set_mode(mode: crate::platform::PowerMode) -> crate::platform::Res<()> {
     crate::widgets::blocking(move || crate::platform::power().set_power_mode(mode)).await?
+}
+
+/// The user asked for Windows' Balanced plan so power modes work.
+#[tauri::command]
+pub async fn power_use_balanced() -> crate::platform::Res<()> {
+    crate::widgets::blocking(|| crate::platform::power().use_balanced_plan()).await?
 }
 
 pub fn start(app: AppHandle) {

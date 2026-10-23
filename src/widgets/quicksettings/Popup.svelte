@@ -8,7 +8,6 @@
   import LangList from '../lang/LangList.svelte';
   import { updateWidgetSettings } from '../../lib/config.svelte';
   import TraySection from './TraySection.svelte';
-  import BatterySection from '../battery/BatterySection.svelte';
 
   let { instance, settings }: PopupProps<QuickSettings> = $props();
   let view = $state<'main' | 'wifi' | 'bluetooth'>('main');
@@ -104,9 +103,6 @@
   <p class="dim small">This monitor does not support brightness control (DDC/CI off or not available).</p>
 {/if}
 
-{#if settings.showBattery}
-  <BatterySection {instance} style={settings.batteryStyle} onDock={settings.batteryOnDock} />
-{/if}
 {#if settings.showLanguage}
   <div class="lhead">
     <h4 class="dim">Keyboard language</h4>

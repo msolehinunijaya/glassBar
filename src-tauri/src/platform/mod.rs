@@ -260,6 +260,11 @@ pub trait Power: Send + Sync {
     fn set_power_mode(&self, m: PowerMode) -> Res<()>;
     /// Battery/energy saver on? None if unknown.
     fn saver_on(&self) -> Option<bool>;
+    /// Name of the active power plan when it is NOT Balanced (power modes only work on
+    /// Balanced), e.g. "High performance". None when Balanced or unknown.
+    fn other_plan(&self) -> Option<String> { None }
+    /// Switch to Windows' Balanced power plan (so power modes work again).
+    fn use_balanced_plan(&self) -> Res<()> { Err("Not supported".into()) }
 }
 
 pub trait Gpu: Send + Sync {

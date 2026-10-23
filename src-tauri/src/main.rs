@@ -185,7 +185,7 @@ fn main() {
             widgets::solat::solat_days, widgets::solat::solat_zones, widgets::solat::solat_test_sound,
             widgets::ipu::ipu_get,
             widgets::sysmon::sysmon_history, widgets::sysmon::battery_get, widgets::sysmon::disks_list,
-            widgets::sysmon::power_get, widgets::sysmon::power_set_mode,
+            widgets::sysmon::power_get, widgets::sysmon::power_set_mode, widgets::sysmon::power_use_balanced,
             widgets::screentime::screentime_today, widgets::screentime::screentime_week,
             widgets::jumplist::jumplist,
             alerts::alerts_list, alerts::alerts_mark_read, alerts::alerts_dismiss, alerts::alerts_clear,

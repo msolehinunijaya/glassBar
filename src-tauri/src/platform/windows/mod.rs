@@ -187,6 +187,8 @@ impl Power for WinPower {
     fn power_mode(&self) -> Option<PowerMode> { powermode::mode() }
     fn set_power_mode(&self, m: PowerMode) -> Res<()> { powermode::set_mode(m) }
     fn saver_on(&self) -> Option<bool> { powermode::saver_on() }
+    fn other_plan(&self) -> Option<String> { powermode::other_plan() }
+    fn use_balanced_plan(&self) -> Res<()> { powermode::use_balanced_plan() }
 }
 
 impl Gpu for WinGpu {

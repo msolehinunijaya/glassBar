@@ -7,7 +7,8 @@
   import Gallery from './Gallery.svelte';
   import WeatherPanel from '../widgets/weather/Popup.svelte';
   import SoundPanel from '../widgets/sound/SoundPanel.svelte';
-  import { SOUND_PANEL, soundOf } from '../widgets/sound/settings';
+  import { BATTERY_PANEL, SOUND_PANEL, soundOf } from '../widgets/sound/settings';
+  import BatterySection from '../widgets/battery/BatterySection.svelte';
   import { updateWidgetSettings } from '../lib/config.svelte';
   import WindowPreviews from './WindowPreviews.svelte';
   import Feedback from '../widgets/ocr/Feedback.svelte';
@@ -75,6 +76,11 @@
     {#key instance}<WindowPreviews appKey={instance.slice(WINDOWS.length)} {close} />{/key}
   {:else if instance === FEEDBACK && feedback}
     {#key feedback}<Feedback data={feedback} {close} />{/key}
+  {:else if instance?.startsWith(BATTERY_PANEL)}
+    {@const qs = profile().widgets.find((x) => x.instance === instance!.slice(BATTERY_PANEL.length))}
+    {#if qs}
+      <div class="solo"><BatterySection instance={qs.instance} style={(qs.settings as { batteryStyle?: 'classic' | 'liquid' })?.batteryStyle ?? 'classic'} /></div>
+    {/if}
   {:else if instance?.startsWith(SOUND_PANEL)}
     {@const qs = profile().widgets.find((x) => x.instance === instance!.slice(SOUND_PANEL.length))}
     {#if qs}
@@ -98,4 +104,6 @@
   /* flow-root: a last child's bottom margin stays inside, so the measured height is exact */
   .content { display: flow-root; }
   .popup.hover { padding: 8px; }
+  /* A section shown as its own panel: no gap above its heading. */
+  .solo :global(.bhead) { margin-top: 0; }
 </style>

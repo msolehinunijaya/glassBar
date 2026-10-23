@@ -12,7 +12,7 @@
   import BatteryIcon from '../battery/BatteryIcon.svelte';
   import LiquidBattery from '../battery/LiquidBattery.svelte';
   import SoundPart from '../sound/SoundPart.svelte';
-  import { soundOf } from '../sound/settings';
+  import { BATTERY_PANEL, soundOf } from '../sound/settings';
 
   let { instance, size, settings, vertical }: PillProps<QuickSettings> = $props();
   // Tray icons on the dock (switch in the panel), collapsed behind a chevron by default.
@@ -87,8 +87,10 @@
   {/if}
 </div>
 {#if settings.soundOnDock}<SoundPart {instance} {size} settings={soundOf(settings)} {vertical} />{/if}
-{#if settings.batteryOnDock && bat.v}
-  <div class="pill bat" class:vertical title="{bat.v.percent}% · {batWord}">
+{#if bat.v}
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <div class="pill bat" class:vertical title="{bat.v.percent}% · {batWord}" role="button" tabindex="-1" onpointerdown={(e) => e.stopPropagation()}
+       onclick={(e) => { e.stopPropagation(); ipc.popupOpen(BATTERY_PANEL + instance, e.currentTarget.getBoundingClientRect(), 320, 420); }}>
     {#if settings.batteryStyle === 'liquid'}<LiquidBattery b={bat.v} />{:else}<BatteryIcon b={bat.v} size={16} />{/if}
     {#if bat.v.onAc}<span class="plug"><Plug size={12} strokeWidth={2.2} /></span>{/if}
   </div>

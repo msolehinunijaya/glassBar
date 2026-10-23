@@ -44,7 +44,8 @@ export interface IpuReading {
 }
 export interface Battery { percent: number; charging: boolean; onAc: boolean; secsLeft: number | null }
 export type PowerMode = 'efficiency' | 'balanced' | 'performance';
-export interface PowerInfo { mode: PowerMode | null; saverOn: boolean | null }
+/** otherPlan: set when the PC isn't on the Balanced plan (power modes then do nothing). */
+export interface PowerInfo { mode: PowerMode | null; saverOn: boolean | null; otherPlan: string | null }
 export interface Sample { cpu: number; mem: number; gpu: number | null; rxBps: number; txBps: number; at: number; cpuTemp: number | null }
 export interface Rates { base: string; rates: Record<string, number>; rateTime: number; fetchedAt: number; source: string; cached: boolean }
 export interface WinRect { id: number; title: string; x: number; y: number; w: number; h: number }
@@ -155,6 +156,7 @@ export const ipc = {
   disksList: () => invoke<DiskInfo[]>('disks_list'),
   powerGet: () => invoke<PowerInfo>('power_get'),
   powerSetMode: (mode: PowerMode) => invoke<void>('power_set_mode', { mode }),
+  powerUseBalanced: () => invoke<void>('power_use_balanced'),
   // screen time
   screentimeToday: () => invoke<ScreenToday>('screentime_today'),
   screentimeWeek: () => invoke<[string, number][]>('screentime_week'),

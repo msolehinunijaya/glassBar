@@ -16,3 +16,5 @@ export const layoutOf = (s: SoundSettings): 'icon' | 'horizontal' => (s.layout =
 
 /** Popup id of the sound panel, opened from the volume segment of Quick Settings `qs`. */
 export const SOUND_PANEL = '__sound:';
+/** Popup id of the battery panel, opened from the battery segment of Quick Settings. */
+export const BATTERY_PANEL = '__battery:';
