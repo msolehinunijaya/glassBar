@@ -11,7 +11,7 @@ The bar can dock to any edge or float. You can drag it, resize it, and edit it i
 - **Music:** Spotify, browsers, and any media app. The Player design shows art, title and artist, Previous / Play-Pause / Next, progress with times, volume, and a live sound visualizer (length adjustable) driven by Windows' output level meter. Classic and Mini (Play/Pause + Next) designs remain.
 - **Sound:** volume, output device, and per-app volume.
 - **Quick Settings:** Wi-Fi (list networks, connect with password, disconnect), Bluetooth (paired and nearby devices, pair, remove), hotspot, airplane mode, display mode, brightness, keyboard language and tray buttons (each section can be hidden).
-- **Clock & Date:** with a calendar.
+- **Clock & Date:** your time format (12/24-hour following Windows by default, AM/PM style and size, leading zero, seconds), date style (presets, separator, weekday, or a custom pattern), what the bar shows (time, date or both, side by side or stacked), a calendar, and world clocks with a day/night icon from offline sunrise/sunset.
 - **Battery:** charge, a plug icon whenever it's on mains, time left, and Windows power mode. Updates the moment you plug in or unplug.
 - **System Monitor:** CPU (with temperature), RAM, network and disk storage (used of total, %, per drive, orange/red thresholds) with live graphs. The old separate Disk widget was merged in automatically.
 - **Keyboard Language:** the input language (EN, MS…) of the app you're using; click to switch.
