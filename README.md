@@ -7,16 +7,16 @@ The bar can dock to any edge or float. You can drag it, resize it, and edit it i
 ## Widgets
 
 **Desktop**
-- **App Launcher:** pinned and running apps grouped by program. Right-click shows recent files.
-- **Music:** Spotify, browsers, and any media app.
+- **App Launcher:** pinned and running apps grouped by program. Drag icons to reorder (saved); right-click to pin/unpin, move, or pin another app; pin from installed apps or by browsing in its settings. Missing programs show greyed out. Right-click also shows recent files.
+- **Music:** Spotify, browsers, and any media app. The Mini style is just Play/Pause and Next; the panel keeps everything else.
 - **Sound:** volume, output device, and per-app volume.
-- **Quick Settings:** Wi-Fi, Bluetooth, hotspot, airplane mode, display mode, brightness, keyboard language and tray buttons (each section can be hidden).
+- **Quick Settings:** Wi-Fi (list networks, connect with password, disconnect), Bluetooth (paired and nearby devices, pair, remove), hotspot, airplane mode, display mode, brightness, keyboard language and tray buttons (each section can be hidden).
 - **Clock & Date:** with a calendar.
 - **Battery:** charge, a plug icon whenever it's on mains, time left, and Windows power mode. Updates the moment you plug in or unplug.
 - **System Monitor:** CPU (with temperature), RAM, GPU, and network with live graphs.
 - **Disk Storage:** used/free space per drive, with orange/red thresholds.
 - **Keyboard Language:** the input language (EN, MS…) of the app you're using; click to switch.
-- **System Tray:** opens Windows' hidden tray icons.
+- **System Tray:** real tray icons of background apps on the dock (opt-in): always-shown ones inline, the rest in an overflow panel; click, double-click and right-click reach the app as in Windows. Off: opens Windows' hidden-icons flyout.
 
 **Productivity**
 - **To-Do:** quick tasks with due-date reminders.
@@ -37,6 +37,11 @@ The bar can dock to any edge or float. You can drag it, resize it, and edit it i
 - **OCR Snap:** press **Win+Shift+T** (changeable), drag a box over anything on screen, and the text is on your clipboard. The screen is frozen while you select, so video text can't move. Modes: Text, Code (keeps indentation) and Terminal (drops shell prompts). Engine: Windows OCR (offline, default) or Claude (sends the selection to Anthropic). Keeps the last 200 captures.
 - **AI Usage:** ask Claude a quick question from the bar, and see tokens used today and this month (as reported by Anthropic). Your API key is stored in Windows Credential Manager, never in GlassBar's files.
 
+**Dock and sounds**
+- Works on all four screen edges; on the left/right every widget stacks in a column, text wraps instead of rotating.
+- Optional sounds when a USB device is connected or removed (Settings › Sounds).
+- One shared location for every location-based widget: Windows location (with its accuracy), approximate IP location, or a city you pick; refresh and reset in Settings.
+
 ### Known limitations
 - **CPU temperature** comes from Windows' ACPI thermal zones. It's close to the CPU package on most laptops but isn't a per-core sensor. PCs that expose no thermal zone show **N/A**; nothing is estimated.
 - **Tray icons:** Windows 11 doesn't let other programs draw its tray icons. GlassBar opens Windows' own hidden-icons flyout, which only works while the Windows taskbar is shown; otherwise it opens tray settings.
@@ -45,6 +50,11 @@ The bar can dock to any edge or float. You can drag it, resize it, and edit it i
 - **OCR quality** depends on the Windows language packs installed (Settings › Time & language). Tesseract isn't bundled; Windows OCR covers the same languages without a 30 MB+ install.
 - **AI token counts** only cover GlassBar's own requests; no cost is shown because prices change. Check console.anthropic.com for billing.
 - **Hotkeys** that Windows reserves can't be used; GlassBar shows when registering fails.
+- **Tray icons on the dock** work by receiving the notification-icon messages apps send to the taskbar (as RetroBar and Cairo do) and forwarding every one to Explorer, so Windows' own tray is unaffected. Icons appear as apps add or update them (GlassBar asks them all to re-add when it starts). Rich pop-up tooltips and balloon notifications are not shown on the dock. "Always show" grouping follows Windows 11's per-app setting.
+- **Bluetooth connect/disconnect** of an already paired device has no public Windows API for apps, so those buttons open Windows Bluetooth settings. Pairing (with Windows' own PIN/confirm dialog) and removing work in the dock.
+- **Wi-Fi** listing needs "Let desktop apps access your location" on Windows 11 (Windows' rule for network scans). Hidden networks and enterprise (802.1X) sign-in use Windows settings.
+- **Location:** when the Windows location service is off, location comes from the IP address and is approximate (often several km off); the panel says so. Positions are rounded to about 100 m.
+- **Device sounds** cover USB devices (Windows' USB device notifications). Windows plays its own device sounds too unless you turn them off in the Sound control panel.
 - **Keyboard language** switches the app you were last using; a few elevated (admin) apps ignore the request from a normal-privilege program.
 
 To-dos, notes, timers, screen time, and alert history are stored on this PC in `%APPDATA%\GlassBar\glassbar.db`. Settings live in `config.json` in the same folder.

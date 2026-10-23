@@ -361,7 +361,19 @@
     border-radius: var(--radius-pill); box-shadow: 0 10px 26px rgba(0, 0, 0, 0.35);
     transition: transform 40ms linear; will-change: transform;
   }
-  .vertical .slot { justify-content: center; }
+  .vertical .slot { justify-content: center; width: 100%; }
+  /* Left/right dock: every widget stacks its parts in a column that fits the bar's width.
+     Text wraps instead of being clipped; nothing is rotated. */
+  .vertical .slot > :global(.pill) {
+    width: 100%; height: auto; min-height: 34px; box-sizing: border-box;
+    flex-direction: column; justify-content: center; align-items: center;
+    padding: 6px 2px; gap: 3px; text-align: center; font-size: 11px; line-height: 1.15;
+  }
+  .vertical .slot > :global(.pill *) { min-width: 0 !important; }
+  .vertical .slot > :global(.pill > *) { max-width: 100%; flex-wrap: wrap; justify-content: center; text-align: center; }
+  .vertical .slot > :global(.pill svg), .vertical .slot > :global(.pill img) { flex: none; }
+  .vertical .slot > :global(.pill .b) { height: 34px; } /* Start/Search buttons */
+  .vertical .slot > :global(.apps) { gap: 2px; padding: 4px 2px; }
   .edit .slot { animation: jiggle 0.28s ease-in-out infinite; }
   .edit .slot:nth-child(2n) { animation-delay: -0.14s; }
 

@@ -8,10 +8,11 @@
   import { liveAudio, pct, volumeIcon } from './audio.svelte';
   import { layoutOf, type SoundSettings } from './index';
 
-  let { size, settings }: PillProps<SoundSettings> = $props();
+  let { size, settings, vertical }: PillProps<SoundSettings> = $props();
   const audio = liveAudio();
   const Icon = $derived(volumeIcon(audio.v));
-  const layout = $derived(layoutOf(settings));
+  // On a left/right dock a horizontal slider has no room: use the vertical one there.
+  const layout = $derived(vertical && layoutOf(settings) === 'horizontal' ? 'vertical' : layoutOf(settings));
   let el: HTMLDivElement;
 
   function setVolume(volume: number) {
