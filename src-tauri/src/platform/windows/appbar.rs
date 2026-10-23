@@ -16,6 +16,23 @@ use windows::Win32::UI::WindowsAndMessaging::*;
 static REGISTERED: Mutex<bool> = Mutex::new(false);
 /// Last taskbar mode applied, so unchanged config saves don't touch Explorer.
 static LAST_MODE: Mutex<Option<TaskbarMode>> = Mutex::new(None);
+/// True while the user wants the Windows taskbar hidden. Explorer re-shows its taskbar on
+/// some events (layout changes, edge hover, restarts); the window watcher hides it again.
+pub static KEEP_HIDDEN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Is `h` one of the Windows taskbars (main or secondary monitor)?
+pub fn is_taskbar(h: HWND) -> bool {
+    let mut buf = [0u16; 64];
+    let n = unsafe { GetClassNameW(h, &mut buf) } as usize;
+    matches!(String::from_utf16_lossy(&buf[..n]).as_str(), "Shell_TrayWnd" | "Shell_SecondaryTrayWnd")
+}
+
+/// Hide `h` again if it is a taskbar that the user asked to keep hidden.
+pub fn rehide_if_taskbar(h: HWND) {
+    if KEEP_HIDDEN.load(std::sync::atomic::Ordering::Relaxed) && is_taskbar(h) {
+        unsafe { let _ = ShowWindow(h, SW_HIDE); }
+    }
+}
 /// File holding the taskbar state from before we first changed it. On disk because
 /// Windows persists auto-hide itself, so a crash would otherwise lose the real state.
 static STATE_FILE: OnceLock<PathBuf> = OnceLock::new();
@@ -140,6 +157,7 @@ pub(crate) fn taskbar_plan(mode: TaskbarMode, saved: Option<u32>, current: u32) 
 }
 
 pub fn set_taskbar(mode: TaskbarMode) {
+    KEEP_HIDDEN.store(mode == TaskbarMode::Hidden, std::sync::atomic::Ordering::Relaxed);
     let mut last = LAST_MODE.lock().unwrap();
     if *last == Some(mode) { return; }
     *last = Some(mode);

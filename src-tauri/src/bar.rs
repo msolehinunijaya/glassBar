@@ -127,7 +127,14 @@ pub fn apply(app: &AppHandle) {
             set_rect(&win, r);
         }
     }
-    shell().set_taskbar(bar.native_taskbar);
+    // While GlassBar auto-hides, the Windows taskbar must stay fully hidden: in its own
+    // auto-hide mode it would pop up from the same edge whenever GlassBar is revealed.
+    let native = if bar.auto_hide && bar.floating.is_none() && bar.native_taskbar == TaskbarMode::Autohide {
+        TaskbarMode::Hidden
+    } else {
+        bar.native_taskbar
+    };
+    shell().set_taskbar(native);
     let glass = Glass { native: cfg.theme.native_blur, dark: is_dark(app, &cfg), opacity: cfg.theme.opacity };
     for label in ["bar", "popup"] {
         if let Some(w) = app.get_webview_window(label) { shell().style_window(&w, &glass); }

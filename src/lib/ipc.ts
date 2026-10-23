@@ -23,8 +23,8 @@ export interface Alert { id: number; source: string; title: string; body: string
 export interface Todo { id: number; text: string; done: boolean; dueAt: number | null; createdAt: number }
 export interface Note { id: number; text: string; color: string; pinned: boolean; images: string[]; updatedAt: number; deletedAt: number | null }
 export type Phase = 'work' | 'short' | 'long';
-export interface PomoCfg { workMin: number; shortMin: number; longMin: number; every: number; autoStart: boolean }
-export interface PomoState { pomo: { phase: Phase; done: number; endsAt: number | null; pausedMs: number | null }; cfg: PomoCfg; label: string }
+export interface PomoCfg { workMin: number; shortMin: number; longMin: number; every: number }
+export interface PomoState { pomo: { phase: Phase; done: number; endsAt: number | null; pausedMs: number | null; completed: Phase | null }; cfg: PomoCfg; label: string }
 export interface Timer { id: number; label: string; durationMs: number; endsAt: number | null; remainingMs: number | null }
 export interface Stopwatch { startedAt: number | null; accMs: number; laps: number[] }
 export interface Place { lat: number; lon: number; name: string; source: 'windows' | 'ip' | 'manual'; tz?: string }

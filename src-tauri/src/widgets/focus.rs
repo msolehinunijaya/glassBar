@@ -14,22 +14,25 @@ const MIN: i64 = 60_000;
 #[serde(rename_all = "lowercase")]
 pub enum Phase { #[default] Work, Short, Long }
 
-/// Idle when both `ends_at` and `paused_ms` are None.
+/// States: idle/ready (no ends_at, no paused_ms), running (ends_at), paused (paused_ms).
+/// Phases never start on their own: when one ends the timer stops, `completed` says which
+/// phase just finished ("Work session complete"), and `phase` is the one waiting for a click.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", default)]
 pub struct Pomo {
     pub phase: Phase,
     /// Work sessions completed in the current set.
     pub done: u32,
     pub ends_at: Option<i64>,
     pub paused_ms: Option<i64>,
+    pub completed: Option<Phase>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase", default)]
-pub struct PomoCfg { pub work_min: u32, pub short_min: u32, pub long_min: u32, pub every: u32, pub auto_start: bool }
+pub struct PomoCfg { pub work_min: u32, pub short_min: u32, pub long_min: u32, pub every: u32 }
 impl Default for PomoCfg {
-    fn default() -> Self { Self { work_min: 25, short_min: 5, long_min: 15, every: 4, auto_start: true } }
+    fn default() -> Self { Self { work_min: 25, short_min: 5, long_min: 15, every: 4 } }
 }
 
 impl Pomo {
@@ -39,6 +42,7 @@ impl Pomo {
     }
     pub fn start(&mut self, now: i64, c: &PomoCfg) {
         if self.ends_at.is_some() { return; }
+        self.completed = None;
         self.ends_at = Some(now + self.paused_ms.take().unwrap_or_else(|| self.duration(c)));
     }
     pub fn pause(&mut self, now: i64) {
@@ -54,20 +58,15 @@ impl Pomo {
             Phase::Short => (Phase::Work, self.done),
             Phase::Long => (Phase::Work, 0),
         };
-        Pomo { phase, done, ends_at: None, paused_ms: None }
+        Pomo { phase, done, ends_at: None, paused_ms: None, completed: None }
     }
-    /// A phase ran out: move on, and keep going if auto-start is on.
-    pub fn finish(&self, now: i64, c: &PomoCfg) -> Pomo {
-        let mut p = self.next(c, true);
-        if c.auto_start { p.start(now, c); }
-        p
+    /// A phase ran out: stop, remember what finished, and wait for the user to start the next.
+    pub fn finish(&self, _now: i64, c: &PomoCfg) -> Pomo {
+        Pomo { completed: Some(self.phase), ..self.next(c, true) }
     }
-    /// Skip to the next phase without counting the work session; keeps running if it was.
-    pub fn skip(&self, now: i64, c: &PomoCfg) -> Pomo {
-        let running = self.ends_at.is_some();
-        let mut p = self.next(c, false);
-        if running { p.start(now, c); }
-        p
+    /// Skip to the next phase (explicit click) without counting the work session; it waits idle.
+    pub fn skip(&self, _now: i64, c: &PomoCfg) -> Pomo {
+        self.next(c, false)
     }
     /// "3/4" = third work session of four (breaks show the sessions done).
     pub fn label(&self, c: &PomoCfg) -> String {
@@ -229,8 +228,8 @@ pub fn due_items(app: &AppHandle) -> Vec<Due> {
     let p = load_pomo(app);
     if let Some(at) = p.ends_at {
         let (title, body) = match p.phase {
-            Phase::Work => ("Focus session complete", "Time for a break."),
-            _ => ("Break is over", "Back to focus."),
+            Phase::Work => ("Work session complete", "Click Start Break when you're ready."),
+            _ => ("Break complete", "Click Start Work Session when you're ready."),
         };
         v.push(Due { key: format!("pomo:{at}"), at, source: "pomodoro", title: title.into(), body: body.into(), sound: None });
     }
@@ -253,15 +252,28 @@ mod tests {
     fn work_to_short_then_long_on_fourth() {
         let c = cfg();
         let mut p = Pomo::default();
-        p.start(0, &c);
         let mut seen = vec![];
         for i in 1..=8 {
-            p = p.finish(i * 100 * MIN, &c);
+            p.start(i * 100 * MIN, &c); // every phase needs a click
+            p = p.finish(i * 100 * MIN + 30 * MIN, &c);
             seen.push((p.phase, p.done));
         }
         use Phase::*;
         assert_eq!(seen, vec![(Short, 1), (Work, 1), (Short, 2), (Work, 2), (Short, 3), (Work, 3), (Long, 4), (Work, 0)]);
-        assert_eq!(p.ends_at, Some(800 * MIN + 25 * MIN), "auto-start runs the next phase");
+    }
+
+    #[test]
+    fn finish_stops_and_waits_for_a_click() {
+        let c = cfg();
+        let mut p = Pomo::default();
+        p.start(0, &c);
+        let p = p.finish(25 * MIN, &c);
+        assert_eq!((p.phase, p.ends_at, p.paused_ms, p.completed), (Phase::Short, None, None, Some(Phase::Work)));
+        let mut p = p;
+        p.start(30 * MIN, &c);
+        assert_eq!((p.ends_at, p.completed), (Some(35 * MIN), None), "starting clears the 'complete' state");
+        let p = p.finish(35 * MIN, &c);
+        assert_eq!((p.phase, p.ends_at, p.completed), (Phase::Work, None, Some(Phase::Short)));
     }
 
     #[test]
@@ -276,12 +288,12 @@ mod tests {
     }
 
     #[test]
-    fn skip_advances_without_counting_work() {
+    fn skip_advances_without_counting_work_and_does_not_start() {
         let c = cfg();
         let mut p = Pomo::default();
         p.start(0, &c);
         p = p.skip(MIN, &c);
-        assert_eq!((p.phase, p.done), (Phase::Short, 0));
+        assert_eq!((p.phase, p.done, p.ends_at), (Phase::Short, 0, None));
     }
 
     #[test]
@@ -289,8 +301,7 @@ mod tests {
         let c = cfg();
         let mut p = Pomo::default();
         assert_eq!(p.label(&c), "1/4");
-        p.start(0, &c);
-        for i in 1..=4 { p = p.finish(i * MIN, &c); } // work, short, work, short
+        for i in 1..=4 { p.start(i * MIN, &c); p = p.finish(i * MIN + 1, &c); } // work, short, work, short
         assert_eq!((p.phase, p.label(&c)), (Phase::Work, "3/4".to_string()));
     }
 
@@ -298,14 +309,5 @@ mod tests {
     fn timer_id_from_due_key() {
         assert_eq!(timer_id("timer:42:1792744673748"), Some(42));
         assert_eq!(timer_id("pomo:1"), None);
-    }
-
-    #[test]
-    fn no_auto_start_waits() {
-        let c = PomoCfg { auto_start: false, ..cfg() };
-        let mut p = Pomo::default();
-        p.start(0, &c);
-        p = p.finish(25 * MIN, &c);
-        assert_eq!((p.phase, p.ends_at, p.paused_ms), (Phase::Short, None, None));
     }
 }
