@@ -163,6 +163,8 @@ pub trait Power: Send + Sync {
 pub trait Gpu: Send + Sync {
     /// GPU utilization 0..100, None if counters are unavailable.
     fn usage(&self) -> Option<f32>;
+    /// CPU/thermal-zone temperature in °C; None when the PC exposes no sensor.
+    fn cpu_temp_c(&self) -> Option<f32>;
 }
 
 pub trait Location: Send + Sync {

@@ -160,7 +160,7 @@ fn main() {
             widgets::location::location_get, widgets::location::location_search, widgets::weather::weather_get,
             widgets::solat::solat_days, widgets::solat::solat_zones, widgets::solat::solat_test_sound,
             widgets::ipu::ipu_get,
-            widgets::sysmon::sysmon_history, widgets::sysmon::battery_get,
+            widgets::sysmon::sysmon_history, widgets::sysmon::battery_get, widgets::sysmon::disks_list,
             widgets::sysmon::power_get, widgets::sysmon::power_set_mode,
             widgets::screentime::screentime_today, widgets::screentime::screentime_week,
             widgets::jumplist::jumplist,

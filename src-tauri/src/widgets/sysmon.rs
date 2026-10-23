@@ -10,12 +10,48 @@ const HISTORY: usize = 60;
 
 #[derive(Serialize, Clone, Debug, Default)]
 #[serde(rename_all = "camelCase")]
-pub struct Sample { pub cpu: f32, pub mem: f32, pub gpu: Option<f32>, pub rx_bps: u64, pub tx_bps: u64, pub at: i64 }
+pub struct Sample { pub cpu: f32, pub mem: f32, pub gpu: Option<f32>, pub rx_bps: u64, pub tx_bps: u64, pub at: i64,
+    /// °C from the thermal-zone sensor; None = not available on this PC (shown as N/A).
+    pub cpu_temp: Option<f32> }
 
 static HIST: Mutex<VecDeque<Sample>> = Mutex::new(VecDeque::new());
 
 #[tauri::command]
 pub fn sysmon_history() -> Vec<Sample> { HIST.lock().unwrap().iter().cloned().collect() }
+
+#[derive(Serialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct DiskInfo {
+    /// e.g. "C:\\"
+    pub mount: String,
+    /// Volume label ("Local Disk" when empty).
+    pub label: String,
+    pub total: u64,
+    pub available: u64,
+    pub removable: bool,
+    pub fs: String,
+}
+
+/// Real drives from Windows (fixed and removable). Drives that can't be read are skipped.
+#[tauri::command]
+pub async fn disks_list() -> Vec<DiskInfo> {
+    crate::widgets::blocking(|| {
+        let disks = sysinfo::Disks::new_with_refreshed_list();
+        let mut v: Vec<DiskInfo> = disks.list().iter()
+            .filter(|d| d.total_space() > 0)
+            .map(|d| DiskInfo {
+                mount: d.mount_point().to_string_lossy().into_owned(),
+                label: { let n = d.name().to_string_lossy().into_owned(); if n.is_empty() { "Local Disk".into() } else { n } },
+                total: d.total_space(),
+                available: d.available_space(),
+                removable: d.is_removable(),
+                fs: d.file_system().to_string_lossy().into_owned(),
+            })
+            .collect();
+        v.sort_by(|a, b| a.mount.cmp(&b.mount));
+        v
+    }).await.unwrap_or_default()
+}
 
 #[tauri::command]
 pub async fn battery_get() -> Option<crate::platform::Battery> {
@@ -51,6 +87,7 @@ pub fn start(app: AppHandle) {
             let (on, gpu_on) = {
                 let cfg = a.state::<crate::AppState>().config.lock().unwrap().clone();
                 (cfg.uses("sysmon"), cfg.widget_settings("sysmon")["gpu"] == true)
+                // (temperature is cheap: one counter read per sample)
             };
             if !on {
                 HIST.lock().unwrap().clear();
@@ -68,6 +105,7 @@ pub fn start(app: AppHandle) {
                 rx_bps: rx / period.as_secs(),
                 tx_bps: tx / period.as_secs(),
                 at: crate::db::now_ms(),
+                cpu_temp: crate::platform::gpu().cpu_temp_c(),
             };
             {
                 let mut h = HIST.lock().unwrap();

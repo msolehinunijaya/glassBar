@@ -45,7 +45,8 @@ export interface IpuReading {
 export interface Battery { percent: number; charging: boolean; onAc: boolean; secsLeft: number | null }
 export type PowerMode = 'efficiency' | 'balanced' | 'performance';
 export interface PowerInfo { mode: PowerMode | null; saverOn: boolean | null }
-export interface Sample { cpu: number; mem: number; gpu: number | null; rxBps: number; txBps: number; at: number }
+export interface Sample { cpu: number; mem: number; gpu: number | null; rxBps: number; txBps: number; at: number; cpuTemp: number | null }
+export interface DiskInfo { mount: string; label: string; total: number; available: number; removable: boolean; fs: string }
 export interface ScreenToday { total: number; apps: { exe: string; name: string; seconds: number }[] }
 export type Sound = { kind: 'chime' } | { kind: 'azan'; src: string };
 
@@ -132,6 +133,7 @@ export const ipc = {
   // battery + system monitor
   batteryGet: () => invoke<Battery | null>('battery_get'),
   sysmonHistory: () => invoke<Sample[]>('sysmon_history'),
+  disksList: () => invoke<DiskInfo[]>('disks_list'),
   powerGet: () => invoke<PowerInfo>('power_get'),
   powerSetMode: (mode: PowerMode) => invoke<void>('power_set_mode', { mode }),
   // screen time

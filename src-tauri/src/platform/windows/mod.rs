@@ -11,6 +11,7 @@ mod media;
 mod radios;
 mod recent;
 mod system;
+mod thermal;
 mod thumbs;
 mod windows_list;
 
@@ -128,4 +129,5 @@ impl Power for WinPower {
 
 impl Gpu for WinGpu {
     fn usage(&self) -> Option<f32> { gpu::usage() }
+    fn cpu_temp_c(&self) -> Option<f32> { thermal::cpu_temp_c() }
 }
