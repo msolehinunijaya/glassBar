@@ -1,6 +1,33 @@
 use super::blocking;
 use crate::platform::{display, radios, shell, DisplayMode, Hotspot, KeyboardLayout, RadioInfo, RadioKind, Res};
 
+#[derive(serde::Serialize)]
+pub struct WifiList { current: Option<String>, networks: Vec<crate::platform::WifiNetwork> }
+
+#[tauri::command]
+pub async fn wifi_list(scan: bool) -> Res<WifiList> {
+    blocking(move || crate::platform::wireless().wifi_list(scan).map(|(current, networks)| WifiList { current, networks })).await?
+}
+/// The password goes straight to Windows; GlassBar doesn't store it.
+#[tauri::command]
+pub async fn wifi_connect(ssid: String, password: Option<String>) -> Res<()> {
+    blocking(move || crate::platform::wireless().wifi_connect(&ssid, password.as_deref())).await?
+}
+#[tauri::command]
+pub async fn wifi_disconnect() -> Res<()> { blocking(|| crate::platform::wireless().wifi_disconnect()).await? }
+#[tauri::command]
+pub async fn bt_list(discover: bool) -> Res<Vec<crate::platform::BtDevice>> { blocking(move || crate::platform::wireless().bt_list(discover)).await? }
+#[tauri::command]
+pub async fn bt_pair(id: String) -> Res<()> { blocking(move || crate::platform::wireless().bt_pair(&id)).await? }
+#[tauri::command]
+pub async fn bt_unpair(id: String) -> Res<()> { blocking(move || crate::platform::wireless().bt_unpair(&id)).await? }
+/// Native fallbacks: the Windows network flyout / Bluetooth settings.
+#[tauri::command]
+pub fn open_settings_uri(uri: String) -> Res<()> {
+    if !uri.starts_with("ms-settings:") && !uri.starts_with("ms-availablenetworks:") { return Err("not a settings link".into()); }
+    shell().launch(&uri, "")
+}
+
 #[tauri::command]
 pub fn lang_list() -> Vec<KeyboardLayout> { shell().keyboard_layouts() }
 /// Falls back to Win+Space (Windows' own switcher) when there's no app window to switch.

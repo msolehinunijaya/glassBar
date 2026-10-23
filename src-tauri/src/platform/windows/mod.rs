@@ -17,6 +17,7 @@ mod system;
 mod thermal;
 mod thumbs;
 mod windows_list;
+mod wireless;
 
 use super::*;
 use windows::Win32::System::Com::{CoInitializeEx, COINIT_MULTITHREADED};
@@ -30,6 +31,16 @@ pub struct WinLocation;
 pub struct WinPower;
 pub struct WinGpu;
 pub struct WinScreen;
+pub struct WinWireless;
+impl Wireless for WinWireless {
+    fn wifi_list(&self, scan: bool) -> Res<(Option<String>, Vec<WifiNetwork>)> { wireless::wifi_list(scan) }
+    fn wifi_connect(&self, ssid: &str, password: Option<&str>) -> Res<()> { wireless::wifi_connect(ssid, password) }
+    fn wifi_disconnect(&self) -> Res<()> { wireless::wifi_disconnect() }
+    fn bt_list(&self, discover: bool) -> Res<Vec<BtDevice>> { wireless::bt_list(discover) }
+    fn bt_pair(&self, id: &str) -> Res<()> { wireless::bt_pair(id) }
+    fn bt_unpair(&self, id: &str) -> Res<()> { wireless::bt_unpair(id) }
+    fn watch_network(&self, f: Box<dyn Fn() + Send + Sync>) { wireless::watch_network(f) }
+}
 impl Screen for WinScreen {
     fn capture_at_cursor(&self) -> Option<Shot> { snap::capture_at_cursor() }
     fn ocr(&self, bgra: &[u8], w: u32, h: u32) -> Res<Vec<Vec<Word>>> { snap::ocr(bgra, w, h) }

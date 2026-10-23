@@ -1,5 +1,7 @@
 <script lang="ts">
-  import { Bluetooth, Monitor, Plane, RadioTower, Sun, Wifi } from '@lucide/svelte';
+  import { Bluetooth, ChevronRight, Monitor, Plane, RadioTower, Sun, Wifi } from '@lucide/svelte';
+  import WifiPanel from './WifiPanel.svelte';
+  import BtPanel from './BtPanel.svelte';
   import { ipc, type DisplayMode, type Hotspot, type RadioInfo } from '../../lib/ipc';
   import type { PopupProps } from '../types';
   import type { QuickSettings } from './index';
@@ -7,6 +9,7 @@
   import TrayButtons from '../tray/TrayButtons.svelte';
 
   let { settings }: PopupProps<QuickSettings> = $props();
+  let view = $state<'main' | 'wifi' | 'bluetooth'>('main');
   let radios = $state<RadioInfo[]>([]);
   let mode = $state<DisplayMode | null>(null);
   let brightness = $state<number | null>(null);
@@ -46,15 +49,24 @@
   }
 </script>
 
+{#if view === 'wifi'}
+  <WifiPanel back={() => (view = 'main')} />
+{:else if view === 'bluetooth'}
+  <BtPanel back={() => (view = 'main')} radio={find('bluetooth')} toggle={() => run(() => ipc.setRadio('bluetooth', !find('bluetooth')!.on))} />
+{:else}
 <h3>Quick settings</h3>
 <div class="tiles">
   {#each [['wifi', 'Wi-Fi', Wifi], ['bluetooth', 'Bluetooth', Bluetooth]] as const as [kind, label, Icon] (kind)}
     {@const r = find(kind)}
-    <button class="tile" class:on={r?.on} disabled={!r || busy} onclick={() => run(() => ipc.setRadio(kind, !r!.on))}>
-      <Icon size={18} />
-      <span>{label}</span>
-      <span class="state">{!r ? 'Not available' : r.on ? 'On' : 'Off'}</span>
-    </button>
+    <div class="tilewrap">
+      <button class="tile" class:on={r?.on} disabled={!r || busy} onclick={() => run(() => ipc.setRadio(kind, !r!.on))}>
+        <Icon size={18} />
+        <span>{label}</span>
+        <span class="state">{!r ? 'Not available' : r.on ? 'On' : 'Off'}</span>
+      </button>
+      <button class="more" aria-label="{label} networks and devices" title={kind === 'wifi' ? 'Networks' : 'Devices'}
+              onclick={() => (view = kind)}><ChevronRight size={16} /></button>
+    </div>
   {/each}
   <button class="tile" class:on={airplane} disabled={!radios.length || busy} onclick={() => run(() => ipc.setAirplane(!airplane))}
           title="Turns all wireless radios off">
@@ -98,12 +110,17 @@
 
 {#if hotspotWhy}<p class="dim small">Hotspot: {hotspotWhy}</p>{/if}
 {#if error}<p class="err">{error}</p>{/if}
+{/if}
 
 <style>
   h3 { margin: 0 0 10px; font-size: 15px; font-weight: 600; }
   h4 { display: flex; align-items: center; gap: 6px; margin: 14px 2px 6px; font-size: 12px; font-weight: 500; }
   .tiles { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
   .tile span { font-size: 12px; font-weight: 500; }
+  .tilewrap { position: relative; display: grid; }
+  .tilewrap .tile { padding-right: 34px; }
+  .more { position: absolute; top: 0; right: 0; bottom: 0; width: 30px; display: grid; place-items: center; border-radius: 0 14px 14px 0; opacity: 0.75; }
+  .more:hover { opacity: 1; background: var(--pill-hover); }
   .tile .state { font-size: 10px; font-weight: 400; opacity: 0.75; }
   .seg { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; padding: 3px; border-radius: 12px; background: var(--pill); }
   .seg button { padding: 7px 2px; border-radius: 9px; font-size: 11px; }

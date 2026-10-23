@@ -124,6 +124,8 @@ fn main() {
                 }
             }));
             widgets::ocr::register_hotkey(h);
+            let n = h.clone();
+            platform::wireless().watch_network(Box::new(move || { let _ = n.emit("wifi:changed", ()); }));
             bar::build_tray(h)?;
             bar::apply(h);
             if let Some(w) = app.get_webview_window("bar") { w.show()?; }
@@ -190,6 +192,8 @@ fn main() {
             widgets::ai::ai_key_status, widgets::ai::ai_key_set, widgets::ai::ai_key_clear, widgets::ai::ai_usage, widgets::ai::ai_ask,
             widgets::ocr::ocr_hotkey_status, widgets::ocr::ocr_snap_start, widgets::ocr::ocr_shot, widgets::ocr::ocr_snap_cancel,
             widgets::ocr::ocr_snap_finish, widgets::ocr::ocr_history, widgets::ocr::ocr_history_delete, widgets::ocr::ocr_copy,
+            widgets::quick::wifi_list, widgets::quick::wifi_connect, widgets::quick::wifi_disconnect,
+            widgets::quick::bt_list, widgets::quick::bt_pair, widgets::quick::bt_unpair, widgets::quick::open_settings_uri,
             widgets::quick::lang_list, widgets::quick::lang_set, widgets::quick::tray_overflow,
             widgets::quick::tray_settings, widgets::quick::windows_notifications,
         ])

@@ -172,6 +172,24 @@ pub trait Screen: Send + Sync {
 #[derive(Serialize, Clone, Debug)]
 pub struct InstalledApp { pub name: String, pub path: String, pub args: String }
 
+#[derive(Serialize, Clone, Debug)]
+pub struct WifiNetwork { pub ssid: String, pub bars: u8, pub secured: bool, pub security: String, pub connected: bool, pub saved: bool }
+
+#[derive(Serialize, Clone, Debug)]
+pub struct BtDevice { pub id: String, pub name: String, pub kind: String, pub paired: bool, pub connected: bool }
+
+pub trait Wireless: Send + Sync {
+    /// (connected SSID, networks). `scan` asks the adapter for a fresh scan first.
+    fn wifi_list(&self, scan: bool) -> Res<(Option<String>, Vec<WifiNetwork>)>;
+    fn wifi_connect(&self, ssid: &str, password: Option<&str>) -> Res<()>;
+    fn wifi_disconnect(&self) -> Res<()>;
+    fn bt_list(&self, discover: bool) -> Res<Vec<BtDevice>>;
+    fn bt_pair(&self, id: &str) -> Res<()>;
+    fn bt_unpair(&self, id: &str) -> Res<()>;
+    /// Call `f` whenever Windows' network status changes (connect, disconnect, new network).
+    fn watch_network(&self, f: Box<dyn Fn() + Send + Sync>);
+}
+
 /// An installed keyboard input language. `id` is the Windows HKL.
 #[derive(Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -239,3 +257,5 @@ pub fn power() -> &'static dyn Power { &win::WinPower }
 pub fn gpu() -> &'static dyn Gpu { &win::WinGpu }
 #[cfg(windows)]
 pub fn screen() -> &'static dyn Screen { &win::WinScreen }
+#[cfg(windows)]
+pub fn wireless() -> &'static dyn Wireless { &win::WinWireless }
