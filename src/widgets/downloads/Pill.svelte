@@ -46,9 +46,11 @@
   {:else if size !== 'small' && !vertical}
     <span class="dim empty">{st.v?.error ? 'Folder unavailable' : 'No downloads'}</span>
   {/if}
+  <span class="acts" class:always={size === 'small' || vertical || !latest}>
   <button class="act" onpointerdown={down} title={latest ? 'Show in folder' : 'Open the Downloads folder'} aria-label="Show in folder"
           onclick={(e) => run(e, () => (latest ? ipc.downloadsReveal(latest.path) : ipc.downloadsOpenFolder()))}><FolderOpen size={15} /></button>
   {#if size !== 'small' && !vertical}<span class="act" title="Recent downloads"><List size={14} /></span>{/if}
+  </span>
 </div>
 
 <style>
@@ -62,14 +64,18 @@
   .nm { font-size: 12px; font-weight: 500; white-space: nowrap; }
   .sub { font-size: 10.5px; white-space: nowrap; }
   .empty { font-size: 12px; padding: 0 6px; }
-  /* Ghost icon buttons (not the global filled .btn). They keep their place but only show on
-     hover or keyboard focus, so the resting pill is just the file. Small size: the folder
-     button is the only action, so it stays visible. */
-  .act { display: grid; place-items: center; width: 26px; height: 26px; border-radius: var(--r-inner); color: var(--fg-dim);
-         opacity: 0; transition: background 0.15s, opacity 0.15s, color 0.15s; }
-  .dl:hover .act, .dl:focus-within .act, .dl.vertical .act, .dl:not(:has(.col)) .act { opacity: 1; }
+  /* Ghost icon buttons (not the global filled .btn). At rest they take no space: the pill is
+     just the file, and it slides open to show them on hover or keyboard focus. Small size,
+     a side dock and the empty state keep them shown (the folder is the only action there). */
+  .acts { display: flex; align-items: center; gap: 2px; max-width: 0; opacity: 0; overflow: hidden;
+          transition: max-width 0.22s var(--ease), opacity 0.15s; }
+  .dl:hover .acts, .dl:focus-within .acts, .acts.always { max-width: 60px; opacity: 1; }
+  .dl.vertical .acts { flex-direction: column; }
+  .act { display: grid; place-items: center; flex: none; width: 26px; height: 26px; border-radius: var(--r-inner); color: var(--fg-dim);
+         transition: background 0.15s, color 0.15s; }
   .act:hover { background: var(--pill-hover); color: var(--fg); }
-  .act:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; opacity: 1; }
+  .act:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  @media (prefers-reduced-motion: reduce) { .acts { transition: none; } }
   /* A new download: a short accent pulse. */
   .pulse { animation: dlpulse 0.8s ease-in-out 2; }
   @keyframes dlpulse { 50% { box-shadow: 0 0 0 2px var(--accent), 0 0 14px color-mix(in srgb, var(--accent) 60%, transparent); } }
