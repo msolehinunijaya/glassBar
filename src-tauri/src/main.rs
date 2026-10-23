@@ -177,6 +177,7 @@ fn main() {
             widgets::quick::display_mode, widgets::quick::display_set_mode,
             widgets::quick::brightness_get, widgets::quick::brightness_set,
             widgets::quick::hotspot_get, widgets::quick::hotspot_set,
+            widgets::currency::fx_rates,
             widgets::quick::lang_list, widgets::quick::lang_set, widgets::quick::tray_overflow,
             widgets::quick::tray_settings, widgets::quick::windows_notifications,
         ])

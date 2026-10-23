@@ -1,5 +1,6 @@
 //! Backend command modules, one per widget. Each only calls `crate::platform` traits.
 pub mod apps;
+pub mod currency;
 pub mod focus;
 pub mod ipu;
 pub mod jumplist;
