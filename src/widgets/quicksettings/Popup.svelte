@@ -6,6 +6,7 @@
   import type { PopupProps } from '../types';
   import type { QuickSettings } from './index';
   import LangList from '../lang/LangList.svelte';
+  import { updateWidgetSettings } from '../../lib/config.svelte';
   import TraySection from './TraySection.svelte';
 
   let { instance, settings }: PopupProps<QuickSettings> = $props();
@@ -100,7 +101,12 @@
 {/if}
 
 {#if settings.showLanguage}
-  <h4 class="dim">Keyboard language</h4>
+  <div class="lhead">
+    <h4 class="dim">Keyboard language</h4>
+    <label class="dim lsw">Show on dock
+      <input type="checkbox" class="switch" checked={settings.langOnDock} onchange={(e) => updateWidgetSettings(instance, { langOnDock: e.currentTarget.checked })} />
+    </label>
+  </div>
   <LangList />
 {/if}
 {#if settings.showTray}
@@ -113,6 +119,9 @@
 
 <style>
   h3 { margin: 0 0 10px; font-size: 15px; font-weight: 600; }
+  .lhead { display: flex; align-items: center; justify-content: space-between; margin: 14px 2px 6px; }
+  .lhead h4 { margin: 0; }
+  .lsw { display: flex; align-items: center; gap: 6px; font-size: 11px; }
   h4 { display: flex; align-items: center; gap: 6px; margin: 14px 2px 6px; font-size: 12px; font-weight: 500; }
   .tiles { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
   .tile span { font-size: 12px; font-weight: 500; }

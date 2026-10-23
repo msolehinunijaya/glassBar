@@ -26,6 +26,16 @@
   const Open = $derived(vertical ? ChevronDown : ChevronLeft);
   const Close = $derived(vertical ? ChevronUp : ChevronRight);
   const t = $derived({ axis: (vertical ? 'y' : 'x') as 'x' | 'y', duration: 220 });
+  // Keyboard language code on the dock (switch in the panel).
+  // ponytail: 2 s poll; Windows has no cheap cross-process "layout changed" event.
+  let lang = $state<{ code: string; name: string } | null>(null);
+  $effect(() => {
+    if (!settings.langOnDock) { lang = null; return; }
+    const load = () => ipc.langList().then((l) => { const a = l.find((x) => x.active) ?? l[0]; lang = a ? { code: a.code, name: a.name } : null; }).catch(() => {});
+    load();
+    const t = setInterval(load, 2000);
+    return () => clearInterval(t);
+  });
   let radios = $state<RadioInfo[]>([]);
   const has = (k: RadioInfo['kind']) => radios.some((r) => r.kind === k);
   const on = (k: RadioInfo['kind']) => radios.some((r) => r.kind === k && r.on);
@@ -55,6 +65,7 @@
     </span>
     <span class="sep"></span>
   {/if}
+  {#if lang}<b class="lang" title={lang.name}>{lang.code}</b>{/if}
   {#if airplane}
     <Plane size={16} />
   {:else}
@@ -70,6 +81,7 @@
   .vertical .tray, .vertical .icons { flex-direction: column; }
   .chev { display: flex; align-items: center; gap: 2px; padding: 3px 4px; border-radius: 8px; transition: background 0.15s; }
   .chev:hover, .chev.open { background: var(--pill-hover); }
+  .lang { font-size: 11.5px; letter-spacing: 0.04em; min-width: 18px; text-align: center; }
   .count { font-size: 10px; font-variant-numeric: tabular-nums; opacity: 0.75; }
   .icons { overflow: hidden; }
   .sep { width: 1px; align-self: stretch; margin: 9px 2px; background: var(--line-soft); }

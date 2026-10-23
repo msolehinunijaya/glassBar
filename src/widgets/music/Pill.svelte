@@ -31,7 +31,8 @@
   {/if}
 
   {#if settings.style === 'mini'}
-    <!-- Compact mini player: Play/Pause and Next only. Track info lives in the tooltip and the panel. -->
+    <!-- Compact mini player: album art (when the app gives one), Play/Pause and Next. Track info lives in the tooltip and the panel. -->
+    {#if media.m?.art}<img class="art mini-art" src={media.m.art} alt="" draggable="false" />{/if}
     <span class="ctls">
       <button class="ctl" disabled={!media.m} onpointerdown={down} onclick={stop(() => media.m && toggle(media))} aria-label={media.m?.playing ? 'Pause' : 'Play'}>
         {#if media.m?.playing}<Pause size={14} />{:else}<Play size={14} />{/if}
@@ -91,4 +92,5 @@
   .ctls { display: flex; gap: 0; }
   .vertical .ctls { flex-direction: column; }
   .mini .ctl { width: 22px; height: 22px; }
+  .mini-art { width: 22px; height: 22px; border-radius: 6px; margin: 0 2px; }
 </style>
