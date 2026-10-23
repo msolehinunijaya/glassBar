@@ -109,6 +109,13 @@ pub fn apply(app: &AppHandle) {
     let cfg = app.state::<AppState>().config.lock().unwrap().clone();
     let Some(win) = app.get_webview_window("bar") else { return };
     let bar = &cfg.profile().bar;
+    // Style first: turning the window shadow on/off adds/removes Windows' frame, and the
+    // size set below must be measured without it (else the first placement after a
+    // start is a frame's worth too big: 16 px wider, 39 px taller).
+    let glass = Glass { native: cfg.theme.native_blur, dark: is_dark(app, &cfg), opacity: cfg.theme.opacity };
+    for label in ["bar", "popup"] {
+        if let Some(w) = app.get_webview_window(label) { shell().style_window(&w, &glass); }
+    }
     if let Some((mut r, strip)) = bar_rect(app, bar, bar.length) {
         if bar.auto_hide && bar.floating.is_none() {
             // Auto-hide never reserves space: windows use the whole screen.
@@ -135,10 +142,6 @@ pub fn apply(app: &AppHandle) {
         bar.native_taskbar
     };
     shell().set_taskbar(native);
-    let glass = Glass { native: cfg.theme.native_blur, dark: is_dark(app, &cfg), opacity: cfg.theme.opacity };
-    for label in ["bar", "popup"] {
-        if let Some(w) = app.get_webview_window(label) { shell().style_window(&w, &glass); }
-    }
 }
 
 /// Undo everything that outlives the process: reserved space and hidden taskbar.
