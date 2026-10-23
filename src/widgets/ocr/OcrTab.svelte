@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { fade } from './look';
   import { Copy, ScanText, Trash2 } from '@lucide/svelte';
   import { updateWidgetSettings } from '../../lib/config.svelte';
   import { ipc, type OcrItem } from '../../lib/ipc';
@@ -45,8 +46,8 @@
 <div class="grp hist">
 <div class="head"><h4 class="dim">History</h4>{#if hist.v.length}<button class="link" onclick={() => ipc.ocrHistoryDelete(null)}>Clear</button>{/if}</div>
 <div class="list">
-  {#each hist.v as i (i.id)}
-    <div class="card item">
+  {#each hist.v as i, n (i.id)}
+    <div class="card item" style:--fade={fade(n)}>
       <pre>{i.text}</pre>
       <div class="meta dim small">
         <span>{relTime(i.at)} · {i.mode} · {i.engine === 'ai' ? 'Claude' : 'Windows'}</span>
@@ -71,7 +72,8 @@
   h4 { margin: 0; font-size: 12px; font-weight: 500; }
   .link { color: var(--accent); font-size: 12px; }
   .list { display: flex; flex-direction: column; gap: 6px; }
-  .item { padding: 8px 10px; }
+  .item { padding: 8px 10px; opacity: var(--fade, 1); transition: opacity 0.15s; }
+  .item:hover { opacity: 1; }
   pre { margin: 0; max-height: 72px; overflow: hidden; white-space: pre-wrap; word-break: break-word; font: 12px/1.4 'Cascadia Code', Consolas, monospace; }
   .meta { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
   .meta span { flex: 1; }

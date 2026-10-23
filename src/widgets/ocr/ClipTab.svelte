@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { fade } from './look';
   // Clipboard history: copied text and images, newest first. Click to copy again.
   // Things apps mark as private (password managers) are never recorded.
   import { Copy, Search, Trash2 } from '@lucide/svelte';
@@ -36,8 +37,8 @@
 <div class="grp hist">
 <div class="head"><h4 class="dim">Recent copies</h4>{#if items.length}<button class="link" onclick={() => ipc.clipDelete(null)}>Clear</button>{/if}</div>
 <div class="list">
-  {#each items as c (c.id)}
-    <div class="item">
+  {#each items as c, n (c.id)}
+    <div class="item" style:--fade={fade(n)}>
       <button class="body" onclick={() => copy(c)} title="Copy again">
         {#if c.kind === 'image' && c.thumb}<img src={c.thumb} alt="Copied image" />{:else}<span class="txt">{c.text}</span>{/if}
       </button>
@@ -65,7 +66,8 @@
   h4 { margin: 0; font-size: 12px; font-weight: 500; }
   .link { color: var(--accent); font-size: 12px; }
   .list { display: flex; flex-direction: column; gap: 6px; }
-  .item { border-radius: 12px; background: var(--pill); overflow: hidden; }
+  .item { border-radius: 12px; background: var(--pill); overflow: hidden; opacity: var(--fade, 1); transition: opacity 0.15s; }
+  .item:hover { opacity: 1; }
   .body { display: block; width: 100%; text-align: left; padding: 8px 10px 4px; }
   .body:hover { background: var(--pill-hover); }
   .body img { max-width: 100%; max-height: 90px; border-radius: 6px; display: block; }

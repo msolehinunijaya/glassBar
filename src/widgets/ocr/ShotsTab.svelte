@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { fade } from './look';
   // Screenshot: full screen, an area, a window, or a whole scrolling page. Every shot is
   // copied right away and kept in the history below for the chosen number of days.
   import { AppWindow, Copy, ExternalLink, FolderOpen, Monitor, ScrollText, SquareDashed, Trash2 } from '@lucide/svelte';
@@ -56,8 +57,8 @@
   </span>
 </div>
 <div class="grid">
-  {#each shots.v as s (s.id)}
-    <div class="shot">
+  {#each shots.v as s, n (s.id)}
+    <div class="shot" style:--fade={fade(n)}>
       <button class="thumb" title="Open" onclick={() => ipc.shotsOpen(s.id)}><img src={s.thumb} alt="" /></button>
       <div class="meta dim">
         <span>{relTime(s.at)} · {s.w}×{s.h}</span>
@@ -85,7 +86,8 @@
   h4 { margin: 0; font-size: 12px; font-weight: 500; }
   .link { display: inline-flex; align-items: center; gap: 3px; color: var(--accent); font-size: 12px; margin-left: 8px; }
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .shot { border-radius: 12px; background: var(--pill); overflow: hidden; }
+  .shot { border-radius: 12px; background: var(--pill); overflow: hidden; opacity: var(--fade, 1); transition: opacity 0.15s; }
+  .shot:hover { opacity: 1; }
   .thumb { display: block; width: 100%; height: 86px; background: #0002; }
   .thumb img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; }
   .meta { display: flex; align-items: center; justify-content: space-between; padding: 4px 6px; font-size: 10px; }
