@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod scheduler;
+mod updates;
 mod alerts;
 mod bar;
 mod config;
@@ -84,6 +85,8 @@ fn main() {
         .plugin(tauri_plugin_single_instance::init(|app, _, _| { let _ = bar::open_settings(app); }))
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, None))
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .setup(|app| {
             let path = data_dir().join("config.json");
             let database = db::open(&data_dir().join("glassbar.db")).map_err(|e| format!("database: {e}"))?;
@@ -113,6 +116,7 @@ fn main() {
             widgets::ipu::start(h.clone());
             widgets::sysmon::start(h.clone());
             widgets::screentime::start(h.clone());
+            updates::start(h.clone());
             Ok(())
         })
         .on_window_event(|w, e| match (w.label(), e) {

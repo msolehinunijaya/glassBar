@@ -5,8 +5,9 @@
   import { ipc, type Config } from '../lib/ipc';
   import { reorder } from '../lib/geometry';
   import { addWidget, settingsOf, widgets } from '../widgets/registry';
+  import Updates from './Updates.svelte';
 
-  const sections = ['Bar', 'Appearance', 'Widgets', 'Profiles', 'Startup', 'Backup'] as const;
+  const sections = ['Bar', 'Appearance', 'Widgets', 'Profiles', 'Startup', 'Updates', 'Backup'] as const;
   let section = $state<(typeof sections)[number]>('Bar');
   let monitors = $state<Monitor[]>([]);
   availableMonitors().then((m) => (monitors = m));
@@ -184,6 +185,9 @@
           <input type="checkbox" checked={c.startup.launchAtLogin} onchange={(e) => set((c) => (c.startup.launchAtLogin = e.currentTarget.checked))} />
         </label>
       </div>
+
+    {:else if section === 'Updates'}
+      <Updates />
 
     {:else if section === 'Backup'}
       <div class="group">

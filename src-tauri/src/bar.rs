@@ -232,6 +232,7 @@ fn tray_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
         &profiles,
         &PredefinedMenuItem::separator(app)?,
         &MenuItem::with_id(app, "restore", "Restore Windows taskbar", true, None::<&str>)?,
+        &MenuItem::with_id(app, "update", "Check for updates…", true, None::<&str>)?,
         &MenuItem::with_id(app, "quit", "Quit GlassBar", true, None::<&str>)?,
     ])
 }
@@ -260,6 +261,7 @@ fn on_menu(app: &AppHandle, id: &str) {
         "settings" => { let _ = open_settings(app); }
         "edit" => set_edit(app, !app.state::<AppState>().edit.load(Ordering::Relaxed)),
         "restore" => edit_cfg(&|c| c.profile_mut().bar.native_taskbar = TaskbarMode::Show),
+        "update" => crate::updates::check_now(app.clone()),
         "quit" => { cleanup(app); app.exit(0); }
         p => if let Some(name) = p.strip_prefix("profile:") {
             let name = name.to_string();
