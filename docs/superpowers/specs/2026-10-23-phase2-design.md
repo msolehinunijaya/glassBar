@@ -77,6 +77,18 @@ The MVP made GlassBar a working taskbar. Phase 2 turns it into the place where t
 - **Waktu Solat**
   - Next prayer name and countdown on the pill. The popup shows today's six times (Imsak optional, Subuh, Syuruk, Zohor, Asar, Maghrib, Isyak).
   - Alert at each prayer time, with an optional azan sound: a user-chosen audio file, nothing bundled.
+- **IPU (Air Pollutant Index)** *(added at user request)*
+  - The pill shows the current IPU number with its status color, from the DOE station nearest the user's location (Weather and Waktu Solat use the same location):
+    - Good (0–50): blue
+    - Moderate (51–100): green
+    - Unhealthy (101–200): yellow
+    - Very Unhealthy (201–300): orange
+    - Hazardous (>300): red
+  - The popup shows the station name and distance, the reading time, the dominant pollutant (e.g. PM2.5), and the three next-nearest stations.
+  - A manual station picker in settings overrides auto.
+  - **Source:** live readings from DOE Malaysia's public APIMS map service (`eqms.doe.gov.my/api3/publicmapproxy/PUBLIC_DISPLAY/CAQM_MCAQM_Current_Reading/MapServer/0/query`). It covers 68 stations, updated hourly, so "realtime" means the latest hourly reading. Refresh every 15 min (cheap: one small JSON request).
+  - **Outside Malaysia,** or if DOE is unreachable: Open-Meteo Air Quality (`us_aqi`, no key), clearly labelled "AQI (US)" rather than IPU, because the two scales differ.
+  - An alert fires once when the reading crosses into Unhealthy (>100) and again if it later reaches Very Unhealthy (>200). This can be switched off in settings.
 - **System Monitor**
   - CPU %, RAM %, optional GPU % and network up/down, each with a mini sparkline (last 60 samples).
   - Sampling every 2 s, only while the widget is placed.
