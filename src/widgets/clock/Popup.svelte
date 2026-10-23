@@ -70,6 +70,9 @@
   <div class="dim">{date(clock.now, settings)}</div>
   <button class="icon-btn gear" class:on={showFormat} onclick={() => (showFormat = !showFormat)} aria-label="Time and date format"><Settings2 size={16} /></button>
 </div>
+<label class="wxsw dim">Weather on the clock
+  <input type="checkbox" class="switch" checked={settings.showWeather} onchange={(e) => updateWidgetSettings(instance, { showWeather: e.currentTarget.checked })} />
+</label>
 {#if showFormat}
   <div class="fmt"><FormatOptions {settings} save={(p) => updateWidgetSettings(instance, p)} /></div>
   <div class="fmt"><WeatherOptions {settings} save={(p) => updateWidgetSettings(instance, p)} /></div>
@@ -128,6 +131,7 @@
 
 <style>
   .head { position: relative; padding: 2px 4px 10px; }
+  .wxsw { display: flex; align-items: center; justify-content: space-between; font-size: 12px; margin: 0 4px 10px; }
   .gear { position: absolute; top: 0; right: 0; }
   .gear.on { color: var(--accent); }
   .fmt { margin-bottom: 10px; }

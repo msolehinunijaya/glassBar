@@ -1,14 +1,13 @@
 <script lang="ts">
   import { Check, Speaker, Volume2, VolumeX } from '@lucide/svelte';
   import { ipc, type AudioSession } from '../../lib/ipc';
-  import { updateWidgetSettings } from '../../lib/config.svelte';
-  import { layoutOf, type SoundSettings } from './index';
+  import { layoutOf, type SoundSettings } from './settings';
   import OptionsPopover from '../../lib/OptionsPopover.svelte';
-  import type { PopupProps } from '../types';
   import { liveAudio, pct, volumeIcon } from './audio.svelte';
   import { volumeBlip } from '../../lib/sound';
 
-  let { instance, settings }: PopupProps<SoundSettings> = $props();
+  // Opened from the volume segment of Quick Settings; its options are saved there.
+  let { settings, save }: { settings: SoundSettings; save: (p: Partial<SoundSettings>) => void } = $props();
   const audio = liveAudio();
   const Icon = $derived(volumeIcon(audio.v));
   let sessions = $state<AudioSession[]>([]);
@@ -91,13 +90,13 @@
 
 <div class="opts">
   <OptionsPopover title="On the bar" values={{ ...settings, layout: layoutOf(settings) }}
-    save={(p) => updateWidgetSettings(instance, { ...p, showSlider: false })} options={[
+    save={(p) => save({ ...p, showSlider: false })} options={[
       { type: 'choice', key: 'layout', label: 'Volume', choices: [{ value: 'icon', label: 'Icon', hint: 'Speaker icon (click it to mute)' }, { value: 'horizontal', label: 'Horizontal', hint: 'Icon and percentage; a slider opens when you hover' }] },
       { type: 'toggle', key: 'wheel', label: 'Mouse wheel changes volume', hint: 'Off: scrolling over it never changes the volume' },
   ]} />
   {#if layoutOf(settings) === 'horizontal'}
     <label class="slen">Slider length <input type="range" min="60" max="240" step="10" value={settings.sliderWidth}
-      oninput={(e) => updateWidgetSettings(instance, { sliderWidth: +e.currentTarget.value })} /> <span class="dim">{settings.sliderWidth}px</span></label>
+      oninput={(e) => save({ sliderWidth: +e.currentTarget.value })} /> <span class="dim">{settings.sliderWidth}px</span></label>
   {/if}
 </div>
 

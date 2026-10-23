@@ -6,6 +6,9 @@
   import { settingsOf, widgets } from '../widgets/registry';
   import Gallery from './Gallery.svelte';
   import WeatherPanel from '../widgets/weather/Popup.svelte';
+  import SoundPanel from '../widgets/sound/SoundPanel.svelte';
+  import { SOUND_PANEL, soundOf } from '../widgets/sound/settings';
+  import { updateWidgetSettings } from '../lib/config.svelte';
   import WindowPreviews from './WindowPreviews.svelte';
   import Feedback from '../widgets/ocr/Feedback.svelte';
   import type { CaptureDone } from '../lib/ipc';
@@ -72,6 +75,12 @@
     {#key instance}<WindowPreviews appKey={instance.slice(WINDOWS.length)} {close} />{/key}
   {:else if instance === FEEDBACK && feedback}
     {#key feedback}<Feedback data={feedback} {close} />{/key}
+  {:else if instance?.startsWith(SOUND_PANEL)}
+    {@const qs = profile().widgets.find((x) => x.instance === instance!.slice(SOUND_PANEL.length))}
+    {#if qs}
+      {@const snd = soundOf(qs.settings as never)}
+      <SoundPanel settings={snd} save={(p) => updateWidgetSettings(qs.instance, { sound: { ...snd, ...p } })} />
+    {/if}
   {:else if instance?.startsWith(WEATHER)}
     <WeatherPanel />
   {:else if instance === GALLERY}

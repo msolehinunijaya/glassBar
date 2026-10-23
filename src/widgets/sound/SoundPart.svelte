@@ -1,15 +1,19 @@
 <script lang="ts">
-  // Volume on the bar: the speaker icon mutes/unmutes, the rest of the pill opens the sound
-  // panel. "Horizontal": icon + percentage; hovering slides a volume slider open. The mouse
+  // Volume segment of the Quick Settings pill: the speaker icon mutes/unmutes, the rest opens
+  // the sound panel. "Horizontal": icon + percentage; hovering slides a volume slider open. The mouse
   // wheel only changes volume when enabled in the options. Every change plays a soft tick at
   // the new volume, so you hear how loud it is.
   import { ipc } from '../../lib/ipc';
   import { volumeBlip } from '../../lib/sound';
-  import type { PillProps } from '../types';
+  import type { WidgetSize } from '../../lib/ipc';
   import { liveAudio, pct, volumeIcon } from './audio.svelte';
-  import { layoutOf, type SoundSettings } from './index';
+  import { layoutOf, SOUND_PANEL, type SoundSettings } from './settings';
 
-  let { size, settings, vertical }: PillProps<SoundSettings> = $props();
+  let { instance, size, settings, vertical }: { instance: string; size: WidgetSize; settings: SoundSettings; vertical: boolean } = $props();
+  function openPanel(e: MouseEvent) {
+    e.stopPropagation();
+    ipc.popupOpen(SOUND_PANEL + instance, (e.currentTarget as HTMLElement).getBoundingClientRect(), 340, 520);
+  }
   const audio = liveAudio();
   const Icon = $derived(volumeIcon(audio.v));
   // Side docks have no room for a sideways slider: icon + percentage only there.
@@ -53,6 +57,7 @@
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="pill snd" class:vertical bind:this={el} onpointerenter={() => (open = slider)} onpointerleave={() => (open = false)}
+     onclick={openPanel} onpointerdown={stop} role="button" tabindex="-1" onkeydown={() => {}}
      title={audio.v ? `Volume ${pct(audio.v.volume)}${audio.v.muted ? ' (muted)' : ''} · click the speaker to mute` : 'Sound'}>
   <button class="mute" onclick={toggleMute} onpointerdown={stop} aria-label={audio.v?.muted ? 'Unmute' : 'Mute'}><Icon size={16} /></button>
   {#if slider && audio.v}

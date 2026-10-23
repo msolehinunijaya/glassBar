@@ -11,8 +11,10 @@
   import type { Battery } from '../../lib/ipc';
   import BatteryIcon from '../battery/BatteryIcon.svelte';
   import LiquidBattery from '../battery/LiquidBattery.svelte';
+  import SoundPart from '../sound/SoundPart.svelte';
+  import { soundOf } from '../sound/settings';
 
-  let { settings, vertical }: PillProps<QuickSettings> = $props();
+  let { instance, size, settings, vertical }: PillProps<QuickSettings> = $props();
   // Tray icons on the dock (switch in the panel), collapsed behind a chevron by default.
   // Click the chevron to show them all; a click anywhere else on the dock (another widget,
   // the bar itself) folds them away again. Not on losing focus: right-clicking a tray icon
@@ -58,6 +60,8 @@
   });
 </script>
 
+<!-- Three joined segments: tray · language · Wi-Fi · Bluetooth | volume | battery. -->
+<div class="qswrap" class:vertical>
 <div class="pill qs" class:vertical title="Quick settings">
   {#if trayIcons.length}
     <span class="tray" bind:this={trayEl}>
@@ -81,22 +85,32 @@
     {#if has('bluetooth')}{#if on('bluetooth')}<Bluetooth size={16} />{:else}<BluetoothOff size={16} class="dim" />{/if}{/if}
     {#if !radios.length}<Wifi size={16} />{/if}
   {/if}
-  {#if settings.batteryOnDock && bat.v}
-    <span class="bat" title="{bat.v.percent}% · {batWord}">
-      {#if settings.batteryStyle === 'liquid'}<LiquidBattery b={bat.v} />{:else}<BatteryIcon b={bat.v} size={16} />{/if}
-      {#if bat.v.onAc}<span class="plug"><Plug size={12} strokeWidth={2.2} /></span>{/if}
-    </span>
-  {/if}
+</div>
+{#if settings.soundOnDock}<SoundPart {instance} {size} settings={soundOf(settings)} {vertical} />{/if}
+{#if settings.batteryOnDock && bat.v}
+  <div class="pill bat" class:vertical title="{bat.v.percent}% · {batWord}">
+    {#if settings.batteryStyle === 'liquid'}<LiquidBattery b={bat.v} />{:else}<BatteryIcon b={bat.v} size={16} />{/if}
+    {#if bat.v.onAc}<span class="plug"><Plug size={12} strokeWidth={2.2} /></span>{/if}
+  </div>
+{/if}
 </div>
 
 <style>
   .qs { gap: 6px; }
+  .qswrap { display: flex; align-items: stretch; gap: 2px; height: 100%; }
+  .qswrap.vertical { flex-direction: column; height: auto; }
+  /* Inner corners of the joined segments are nearly square. */
+  .qswrap:not(.vertical) > :global(.pill:not(:first-child)) { border-top-left-radius: 4px; border-bottom-left-radius: 4px; }
+  .qswrap:not(.vertical) > :global(.pill:not(:last-child)) { border-top-right-radius: 4px; border-bottom-right-radius: 4px; }
+  .qswrap.vertical > :global(.pill:not(:first-child)) { border-top-left-radius: 4px; border-top-right-radius: 4px; }
+  .qswrap.vertical > :global(.pill:not(:last-child)) { border-bottom-left-radius: 4px; border-bottom-right-radius: 4px; }
   .tray, .icons { display: flex; align-items: center; gap: 0; }
   .vertical .tray, .vertical .icons { flex-direction: column; }
   .chev { display: flex; align-items: center; gap: 2px; padding: 3px 4px; border-radius: 8px; transition: background 0.15s; }
   .chev:hover, .chev.open { background: var(--pill-hover); }
   .lang { font-size: 11.5px; letter-spacing: 0.04em; min-width: 18px; text-align: center; }
-  .bat { display: inline-flex; align-items: center; gap: 2px; }
+  .bat { gap: 2px; padding: 0 9px; }
+  .bat.vertical { flex-direction: column; padding: 6px 0; }
   .plug { display: inline-flex; color: #30d158; }
   .count { font-size: 10px; font-variant-numeric: tabular-nums; opacity: 0.75; }
   .icons { overflow: hidden; }

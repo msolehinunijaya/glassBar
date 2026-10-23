@@ -9,6 +9,7 @@
 <OptionsPopover title="Quick settings sections" values={settings} save={(p) => save(p as Partial<QuickSettings>)} options={[
   { type: 'toggle', key: 'showLanguage', label: 'Keyboard language' },
   { type: 'toggle', key: 'langOnDock', label: 'Show keyboard language on the dock', hint: 'EN, MS… next to the Wi-Fi icon' },
+  { type: 'toggle', key: 'soundOnDock', label: 'Volume on the dock', hint: 'Click the speaker to mute, hover to adjust, click the % for the sound panel' },
   { type: 'toggle', key: 'showBattery', label: 'Battery and power mode in the panel' },
   { type: 'toggle', key: 'batteryOnDock', label: 'Show battery on the dock', hint: 'After the Bluetooth icon' },
   { type: 'toggle', key: 'showTray', label: 'System tray icons in the panel' },

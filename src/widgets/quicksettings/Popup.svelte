@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Bluetooth, ChevronRight, Monitor, Plane, RadioTower, Sun, Wifi } from '@lucide/svelte';
+  import { Bluetooth, ChevronRight, Monitor, Plane, RadioTower, Settings, Sun, Wifi } from '@lucide/svelte';
   import WifiPanel from './WifiPanel.svelte';
   import BtPanel from './BtPanel.svelte';
   import { ipc, type DisplayMode, type Hotspot, type RadioInfo } from '../../lib/ipc';
@@ -56,7 +56,10 @@
 {:else if view === 'bluetooth'}
   <BtPanel back={() => (view = 'main')} radio={find('bluetooth')} toggle={() => run(() => ipc.setRadio('bluetooth', !find('bluetooth')!.on))} />
 {:else}
-<h3>Quick settings</h3>
+<div class="qhead">
+  <h3>Quick settings</h3>
+  <button class="icon-btn" onclick={() => ipc.appLaunch('ms-settings:')} title="Open Windows Settings" aria-label="Open Windows Settings"><Settings size={16} /></button>
+</div>
 <div class="tiles">
   {#each [['wifi', 'Wi-Fi', Wifi], ['bluetooth', 'Bluetooth', Bluetooth]] as const as [kind, label, Icon] (kind)}
     {@const r = find(kind)}
@@ -122,7 +125,8 @@
 {/if}
 
 <style>
-  h3 { margin: 0 0 10px; font-size: 15px; font-weight: 600; }
+  h3 { margin: 0; font-size: 15px; font-weight: 600; }
+  .qhead { display: flex; align-items: center; justify-content: space-between; margin: 0 0 10px; }
   .lhead { display: flex; align-items: center; justify-content: space-between; margin: 14px 2px 6px; }
   .lhead h4 { margin: 0; }
   .lsw { display: flex; align-items: center; gap: 6px; font-size: 11px; }

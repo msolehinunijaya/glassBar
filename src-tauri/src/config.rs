@@ -76,7 +76,7 @@ impl Default for Profile {
             id: id.into(), instance: format!("{id}-1"), size: size.into(), settings: serde_json::Value::Null,
         };
         Self { bar: BarCfg::default(), widgets: vec![
-            w("start", "small"), w("apps", "large"), w("music", "medium"), w("sound", "small"),
+            w("start", "small"), w("apps", "large"), w("music", "medium"),
             w("quicksettings", "small"), w("clock", "medium"),
         ] }
     }
@@ -158,7 +158,7 @@ impl Default for Config {
 
 /// v2 added the Start/Search button widget.
 /// v3 folded the Disk widget into the System Monitor; v4 the Tray widget into Quick Settings.
-pub const CURRENT_VERSION: u32 = 6;
+pub const CURRENT_VERSION: u32 = 7;
 
 /// Migration helper: widget `from` became part of widget `into`. Its settings (mapped by
 /// `map`) are merged into the existing `into` widget, or it turns into one in place.
@@ -259,6 +259,21 @@ impl Config {
                     "weatherUnit": old["unit"].as_str().unwrap_or("c"),
                     "weatherColorful": old["colorful"].as_bool().unwrap_or(true),
                 }));
+            }
+        }
+        if self.version < 7 {
+            // Volume became the middle segment of Quick Settings. Only bars that had the
+            // Sound widget get it; the others keep it off.
+            for p in self.profiles.values_mut() {
+                if p.widgets.iter().any(|w| w.id == "sound") {
+                    fold(&mut p.widgets, "sound", "quicksettings", |old| serde_json::json!({
+                        "soundOnDock": true,
+                        "sound": if old.is_object() { old.clone() } else { serde_json::json!({}) },
+                    }));
+                } else if let Some(q) = p.widgets.iter_mut().find(|w| w.id == "quicksettings") {
+                    if !q.settings.is_object() { q.settings = serde_json::json!({}); }
+                    q.settings["soundOnDock"] = false.into();
+                }
             }
         }
         self.version = CURRENT_VERSION;
@@ -508,6 +523,21 @@ mod tests {
         c.profiles.get_mut("Default").unwrap().widgets = vec![w("tray")];
         let ws = c.normalized().profiles["Default"].widgets.clone();
         assert_eq!((ws[0].id.as_str(), &ws[0].settings["trayOnDock"]), ("quicksettings", &serde_json::json!(true)));
+    }
+
+    #[test]
+    fn v7_moves_volume_into_quick_settings_only_where_it_was() {
+        let w = |id: &str, s: serde_json::Value| WidgetInst { id: id.into(), instance: format!("{id}-1"), size: "small".into(), settings: s };
+        let mut c = Config { version: 6, ..Config::default() };
+        c.profiles.get_mut("Default").unwrap().widgets = vec![w("sound", serde_json::json!({ "layout": "icon", "wheel": true })), w("quicksettings", serde_json::Value::Null)];
+        let ws = c.normalized().profiles["Default"].widgets.clone();
+        assert_eq!(ws.iter().map(|x| x.id.as_str()).collect::<Vec<_>>(), ["quicksettings"]);
+        assert_eq!((&ws[0].settings["soundOnDock"], &ws[0].settings["sound"]["layout"], &ws[0].settings["sound"]["wheel"]),
+            (&serde_json::json!(true), &serde_json::json!("icon"), &serde_json::json!(true)), "keeps the volume options");
+        // No Sound widget: Quick Settings must not suddenly grow a volume control.
+        let mut c = Config { version: 6, ..Config::default() };
+        c.profiles.get_mut("Default").unwrap().widgets = vec![w("quicksettings", serde_json::Value::Null)];
+        assert_eq!(c.normalized().profiles["Default"].widgets[0].settings["soundOnDock"], false);
     }
 
     #[test]
