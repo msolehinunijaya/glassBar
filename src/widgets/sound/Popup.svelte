@@ -2,7 +2,8 @@
   import { Check, Speaker, Volume2, VolumeX } from '@lucide/svelte';
   import { ipc, type AudioSession } from '../../lib/ipc';
   import { updateWidgetSettings } from '../../lib/config.svelte';
-  import type { SoundSettings } from './index';
+  import { layoutOf, type SoundSettings } from './index';
+  import OptionsPopover from '../../lib/OptionsPopover.svelte';
   import type { PopupProps } from '../types';
   import { liveAudio, pct, volumeIcon } from './audio.svelte';
 
@@ -43,11 +44,7 @@
   function muteApp(s: AudioSession) { s.muted = !s.muted; ipc.audioSetSessionMute(s.pid, s.muted); }
 </script>
 
-<div class="head">
-  <h3>Sound</h3>
-  <label class="dim opt"><input type="checkbox" checked={settings.showSlider}
-    onchange={(e) => updateWidgetSettings(instance, { showSlider: e.currentTarget.checked })} /> Slider on bar</label>
-</div>
+<div class="head"><h3>Sound</h3></div>
 {#if audio.v}
   <div class="master">
     <button class="icon-btn" onclick={toggleMute} aria-label={audio.v.muted ? 'Unmute' : 'Mute'}><Icon size={18} /></button>
@@ -90,11 +87,18 @@
 {/if}
 {#if error}<p class="err">{error}</p>{/if}
 
+<div class="opts">
+  <OptionsPopover title="On the bar" values={{ ...settings, layout: layoutOf(settings) }}
+    save={(p) => updateWidgetSettings(instance, { ...p, showSlider: false })} options={[
+      { type: 'choice', key: 'layout', label: 'Volume', choices: [{ value: 'icon', label: 'Icon' }, { value: 'horizontal', label: 'Horizontal' }, { value: 'vertical', label: 'Vertical' }] },
+      { type: 'toggle', key: 'wheel', label: 'Mouse wheel changes volume', hint: 'Off: scrolling over it never changes the volume' },
+  ]} />
+</div>
+
 <style>
   h3 { margin: 0; font-size: 15px; font-weight: 600; }
   .head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-  .opt { display: flex; align-items: center; gap: 6px; font-size: 12px; }
-  .opt input { accent-color: var(--accent); }
+  .opts { margin-top: 12px; }
   h4 { margin: 14px 2px 6px; font-size: 12px; font-weight: 500; }
   .master { display: flex; align-items: center; gap: 8px; }
   .num { font-variant-numeric: tabular-nums; width: 4ch; text-align: right; }

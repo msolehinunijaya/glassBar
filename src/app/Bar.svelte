@@ -18,7 +18,9 @@
 
   const bar = $derived(profile().bar);
   const vertical = $derived(bar.edge === 'left' || bar.edge === 'right');
-  const placed = $derived(profile().widgets.filter((w) => widgets[w.id]));
+  // The standalone Start & Search widget is hidden while the App Launcher shows it inline.
+  const inlineStart = $derived(profile().widgets.some((w) => w.id === 'apps' && (w.settings?.startPlacement ?? 'inline') === 'inline'));
+  const placed = $derived(profile().widgets.filter((w) => widgets[w.id] && !(w.id === 'start' && inlineStart)));
 
   // While dragging a widget in edit mode we show a local order, committed on drop.
   let order = $state<string[] | null>(null);

@@ -3,6 +3,7 @@
   import type { SettingsProps } from '../types';
   import type { AppsSettings } from './index';
   import { nameOf } from './groups';
+  import OptionsPopover from '../../lib/OptionsPopover.svelte';
 
   let { settings, save }: SettingsProps<AppsSettings> = $props();
   let path = $state('');
@@ -14,6 +15,10 @@
   }
 </script>
 
+<OptionsPopover title="Start & Search" values={settings} save={(p) => save(p as Partial<AppsSettings>)} options={[
+  { type: 'choice', key: 'startPlacement', label: 'Placement', choices: [{ value: 'inline', label: 'Before app icons' }, { value: 'separate', label: 'Own widget' }] },
+  { type: 'choice', key: 'searchStyle', label: 'Search', choices: [{ value: 'icon', label: 'Icon' }, { value: 'bar', label: 'Search bar' }] },
+]} />
 <label><input type="checkbox" checked={settings.showTitles} onchange={(e) => save({ showTitles: e.currentTarget.checked })} /> Show active window title (large size)</label>
 <p class="dim">Pinned apps — tip: right-click a running app in the bar and choose "Pin to bar".</p>
 <ul>

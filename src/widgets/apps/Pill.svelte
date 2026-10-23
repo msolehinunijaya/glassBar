@@ -7,6 +7,7 @@
   import type { PillProps } from '../types';
   import { group, keyOf, nextWindow, stableOrder, type Group } from './groups';
   import type { AppsSettings } from './index';
+  import StartButtons from '../start/StartButtons.svelte';
 
   let { instance, size, settings, vertical }: PillProps<AppsSettings> = $props();
   let windows = $state<AppWindow[]>([]);
@@ -95,6 +96,10 @@
 </script>
 
 <div class="pill apps" class:vertical>
+  {#if settings.startPlacement === 'inline'}
+    <StartButtons searchStyle={settings.searchStyle} />
+    <span class="sep"></span>
+  {/if}
   {#each groups as g (g.key)}
     {@const active = g.windows.some((w) => w.active)}
     <button
@@ -125,6 +130,8 @@
 
 <style>
   .apps { gap: 2px; padding: 0 4px; }
+  .sep { width: 1px; align-self: stretch; margin: 8px 3px; background: var(--line-soft); flex: none; }
+  .vertical .sep { width: auto; height: 1px; margin: 3px 8px; }
   .apps.vertical { flex-direction: column; height: auto; padding: 4px 0; }
   .app {
     position: relative; display: flex; align-items: center; gap: 6px;
