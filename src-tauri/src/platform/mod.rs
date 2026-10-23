@@ -68,6 +68,8 @@ pub enum SystemEvent {
     Device(bool),
     /// Something was copied (clipboard contents changed).
     Clipboard,
+    /// The desktop work area changed (an app bar reserved or released space).
+    WorkArea,
     /// Plugged in / unplugged / battery level changed (instant, from Windows).
     PowerChanged,
 }

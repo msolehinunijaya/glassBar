@@ -9,7 +9,7 @@ use std::sync::OnceLock;
 use windows::core::w;
 use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
-use windows::Win32::UI::Shell::ABN_FULLSCREENAPP;
+use windows::Win32::UI::Shell::{ABN_FULLSCREENAPP, ABN_POSCHANGED};
 use windows::Win32::UI::WindowsAndMessaging::*;
 
 static HWND_SYS: AtomicIsize = AtomicIsize::new(0);
@@ -32,6 +32,8 @@ unsafe extern "system" fn proc(h: HWND, msg: u32, wp: WPARAM, lp: LPARAM) -> LRE
         }
         WM_POWERBROADCAST if wp.0 as u32 == PBT_APMPOWERSTATUSCHANGE => Some(SystemEvent::PowerChanged),
         WM_CLIPBOARDUPDATE => Some(SystemEvent::Clipboard),
+        WM_SETTINGCHANGE if wp.0 as u32 == SPI_SETWORKAREA.0 => Some(SystemEvent::WorkArea),
+        appbar::APPBAR_MSG if wp.0 as u32 == ABN_POSCHANGED => Some(SystemEvent::WorkArea),
         appbar::APPBAR_MSG if wp.0 as u32 == ABN_FULLSCREENAPP => Some(SystemEvent::Fullscreen(lp.0 != 0)),
         WM_ENDSESSION if wp.0 != 0 => {
             // Logoff/shutdown: the process may die right after this returns, so clean up here.

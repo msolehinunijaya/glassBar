@@ -121,11 +121,13 @@ fn main() {
                 SystemEvent::PowerChanged => { let _ = a.emit("battery:changed", ()); widgets::sound::power_event(&a); }
                 SystemEvent::Device(on) => widgets::sound::device_event(&a, on),
                 SystemEvent::Clipboard => widgets::clipboard::on_change(&a),
+                SystemEvent::WorkArea => bar::replace(&a),
                 // Step back from always-on-top while a game or video is fullscreen.
                 SystemEvent::Fullscreen(on) => {
                     if let Some(w) = a.get_webview_window("bar") { let _ = w.set_always_on_top(!on); }
                 }
             }));
+            bar::start_apply_worker(h);
             widgets::ocr::register_hotkey(h);
             bar::watch_autohide(h);
             widgets::sound::charger_init();

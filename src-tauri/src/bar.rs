@@ -4,7 +4,7 @@ pub use crate::platform::Rect;
 use crate::config::{Config, TaskbarMode, ThemeMode};
 use crate::platform::{shell, Glass};
 use crate::AppState;
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::tray::TrayIconBuilder;
@@ -109,7 +109,47 @@ fn bar_rect(app: &AppHandle, bar: &crate::config::BarCfg, length: f64) -> Option
 /// stops, so two slides (or a slide and a re-placement) can never fight over the position.
 static SLIDE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
+/// Where the bar was last put while reserving space, so it can be put back if Windows
+/// shoves it (it moves windows out of a newly reserved strip, and the dock window is not
+/// the reservation's owner).
+static RESERVED_AT: std::sync::Mutex<Option<Rect>> = std::sync::Mutex::new(None);
+static APPLY_TX: std::sync::OnceLock<std::sync::mpsc::Sender<()>> = std::sync::OnceLock::new();
+static APPLY_PENDING: AtomicBool = AtomicBool::new(false);
+
+/// Place, reserve and style the bar. Runs on a background worker: reserving space and
+/// changing the taskbar are calls into Explorer, and when Explorer is slow to answer they
+/// must not freeze the dock (Windows then reports GlassBar as "not responding").
+/// Requests arriving while one is queued are merged.
 pub fn apply(app: &AppHandle) {
+    SLIDE.fetch_add(1, Ordering::SeqCst); // stop any slide at once
+    let Some(tx) = APPLY_TX.get() else { return apply_now(app) };
+    if !APPLY_PENDING.swap(true, Ordering::SeqCst) { let _ = tx.send(()); }
+}
+
+pub fn start_apply_worker(app: &AppHandle) {
+    let (tx, rx) = std::sync::mpsc::channel::<()>();
+    if APPLY_TX.set(tx).is_err() { return; }
+    let app = app.clone();
+    std::thread::Builder::new().name("bar-apply".into()).spawn(move || {
+        while rx.recv().is_ok() {
+            APPLY_PENDING.store(false, Ordering::SeqCst);
+            apply_now(&app);
+        }
+    }).ok();
+}
+
+/// Windows changed the work area (any app bar moved): put the dock back in its strip if it
+/// was pushed. Never re-registers, so it can't start a loop.
+pub fn replace(app: &AppHandle) {
+    let cfg = app.state::<AppState>().config.lock().unwrap().profile().bar.clone();
+    if cfg.auto_hide || cfg.floating.is_some() || !cfg.reserve_space { return; }
+    let Some(r) = *RESERVED_AT.lock().unwrap() else { return };
+    let Some(win) = app.get_webview_window("bar") else { return };
+    let at = win.outer_position().map(|p| (p.x, p.y)).unwrap_or((r.x, r.y));
+    if at != (r.x, r.y) { set_rect(&win, r); }
+}
+
+fn apply_now(app: &AppHandle) {
     SLIDE.fetch_add(1, Ordering::SeqCst);
     let cfg = app.state::<AppState>().config.lock().unwrap().clone();
     let Some(win) = app.get_webview_window("bar") else { return };
@@ -122,6 +162,7 @@ pub fn apply(app: &AppHandle) {
         if let Some(w) = app.get_webview_window(label) { shell().style_window(&w, &glass); }
     }
     if let Some((mut r, strip)) = bar_rect(app, bar, bar.length) {
+        *RESERVED_AT.lock().unwrap() = None;
         if bar.auto_hide && bar.floating.is_none() {
             // Auto-hide never reserves space: windows use the whole screen.
             shell().appbar_remove();
@@ -134,6 +175,10 @@ pub fn apply(app: &AppHandle) {
             r.x += got.x - strip.x;
             r.y += got.y - strip.y;
             set_rect(&win, r);
+            *RESERVED_AT.lock().unwrap() = Some(r);
+            // Windows may shove the dock out of the strip a moment later: check once more.
+            let a = app.clone();
+            std::thread::spawn(move || { std::thread::sleep(Duration::from_millis(350)); replace(&a); });
         } else {
             shell().appbar_remove();
             set_rect(&win, r);
@@ -468,3 +513,4 @@ mod tests {
         assert_eq!((r.x, r.y), (62, 8));
     }
 }
+
