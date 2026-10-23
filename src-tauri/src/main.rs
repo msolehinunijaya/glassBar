@@ -1,6 +1,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+mod alerts;
 mod bar;
 mod config;
+mod db;
 mod platform;
 mod widgets;
 
@@ -79,8 +81,11 @@ fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _, _| { let _ = bar::open_settings(app); }))
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, None))
+        .plugin(tauri_plugin_notification::init())
         .setup(|app| {
             let path = data_dir().join("config.json");
+            let database = db::open(&data_dir().join("glassbar.db")).map_err(|e| format!("database: {e}"))?;
+            app.manage(database);
             let cfg = config::load(&path);
             app.manage(AppState {
                 config: Mutex::new(cfg),
@@ -115,6 +120,7 @@ fn main() {
             get_config, save_config, export_config, import_config, apply_bar, restore_taskbar,
             bar::popup_open, bar::popup_hide, bar::open_settings_cmd, bar::set_edit_mode,
             bar::bar_preview, bar::bar_drag, bar::mouse_down,
+            alerts::alerts_list, alerts::alerts_mark_read, alerts::alerts_dismiss, alerts::alerts_clear,
             widgets::apps::apps_list, widgets::apps::app_icon, widgets::apps::app_activate,
             widgets::apps::app_close, widgets::apps::app_launch,
             widgets::sound::audio_state, widgets::sound::audio_set_volume, widgets::sound::audio_set_mute,

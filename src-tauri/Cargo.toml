@@ -17,6 +17,8 @@ window-vibrancy = "0.6"
 base64 = "0.22"
 image = { version = "0.25", default-features = false, features = ["png"] }
 windows-core = "0.62"
+rusqlite = { version = "0.40", features = ["bundled"] }
+tauri-plugin-notification = "2"
 
 [profile.release]
 codegen-units = 1

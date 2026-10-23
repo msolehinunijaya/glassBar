@@ -10,6 +10,7 @@
     "core:window:allow-show",
     "core:window:allow-set-focus",
     "core:menu:default",
-    "autostart:default"
+    "autostart:default",
+    "notification:default"
   ]
 }

@@ -102,6 +102,20 @@ impl Default for Theme {
 pub struct Startup { pub launch_at_login: bool }
 impl Default for Startup { fn default() -> Self { Self { launch_at_login: false } } }
 
+/// Shared location for Weather, Waktu Solat and IPU.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase", default)]
+pub struct LocationCfg {
+    /// Detect automatically (Windows location, then IP). False = use lat/lon below.
+    pub auto: bool,
+    pub lat: Option<f64>,
+    pub lon: Option<f64>,
+    pub name: String,
+}
+impl Default for LocationCfg {
+    fn default() -> Self { Self { auto: true, lat: None, lon: None, name: String::new() } }
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Config {
@@ -110,13 +124,17 @@ pub struct Config {
     pub profiles: BTreeMap<String, Profile>,
     pub theme: Theme,
     pub startup: Startup,
+    /// Do Not Disturb: alerts are recorded but make no toast or sound.
+    pub dnd: bool,
+    pub location: LocationCfg,
 }
 
 impl Default for Config {
     fn default() -> Self {
         Self { version: 1, active_profile: "Default".into(),
                profiles: BTreeMap::from([("Default".into(), Profile::default())]),
-               theme: Theme::default(), startup: Startup::default() }
+               theme: Theme::default(), startup: Startup::default(),
+               dnd: false, location: LocationCfg::default() }
     }
 }
 
@@ -145,6 +163,21 @@ impl Config {
         self
     }
     pub fn profile(&self) -> &Profile { &self.profiles[&self.active_profile] }
+
+    /// Is widget `id` placed in any profile?
+    pub fn uses(&self, id: &str) -> bool {
+        self.profiles.values().any(|p| p.widgets.iter().any(|w| w.id == id))
+    }
+
+    /// Settings of the first `id` instance, active profile first; Null if none.
+    pub fn widget_settings(&self, id: &str) -> serde_json::Value {
+        std::iter::once(self.profile())
+            .chain(self.profiles.values())
+            .flat_map(|p| p.widgets.iter())
+            .find(|w| w.id == id)
+            .map(|w| w.settings.clone())
+            .unwrap_or(serde_json::Value::Null)
+    }
     pub fn profile_mut(&mut self) -> &mut Profile {
         self.profiles.get_mut(&self.active_profile).expect("normalized config")
     }
@@ -247,6 +280,32 @@ mod tests {
         let ids: std::collections::HashSet<_> = c.profile().widgets.iter().map(|w| w.instance.clone()).collect();
         assert_eq!(ids.len(), c.profile().widgets.len());
         assert_eq!(c.profile().widgets[2].size, "medium");
+    }
+
+    #[test]
+    fn uses_finds_widget_in_any_profile() {
+        let mut c = Config::default();
+        assert!(c.uses("clock"));
+        assert!(!c.uses("todo"));
+        let mut other = Profile::default();
+        other.widgets.push(WidgetInst { id: "todo".into(), instance: "todo-1".into(), size: "medium".into(), settings: serde_json::Value::Null });
+        c.profiles.insert("Work".into(), other);
+        assert!(c.uses("todo"));
+    }
+
+    #[test]
+    fn widget_settings_prefers_active_profile() {
+        let mut c = Config::default();
+        let w = |v: i64| WidgetInst { id: "solat".into(), instance: format!("solat-{v}"), size: "small".into(), settings: serde_json::json!({ "v": v }) };
+        let mut a = Profile::default();
+        a.widgets.push(w(1));
+        let mut b = Profile::default();
+        b.widgets.push(w(2));
+        c.profiles.insert("A".into(), a);
+        c.profiles.insert("B".into(), b);
+        c.active_profile = "B".into();
+        assert_eq!(c.widget_settings("solat")["v"], 2);
+        assert!(c.widget_settings("nope").is_null());
     }
 
     #[test]

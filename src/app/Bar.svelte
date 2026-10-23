@@ -8,6 +8,7 @@
   import { events, ipc, type WidgetInst, type WidgetSize } from '../lib/ipc';
   import { indexAt, reorder, snap } from '../lib/geometry';
   import { GALLERY, openPopup } from '../lib/popup';
+  import { chime, playFile } from '../lib/sound';
   import { settingsOf, widgets } from '../widgets/registry';
 
   const win = getCurrentWindow();
@@ -23,7 +24,12 @@
   const shown = $derived(order ? order.map((id) => placed.find((w) => w.instance === id)!).filter(Boolean) : placed);
 
   onMount(() => {
-    const offs = [events.editMode((on) => (edit = on)), win.onMoved(onMoved)];
+    const offs = [
+      events.editMode((on) => (edit = on)),
+      win.onMoved(onMoved),
+      // Alert sounds play here: the bar window is always alive.
+      events.soundPlay((s) => (s.kind === 'azan' ? playFile(s.src) : chime())),
+    ];
     return () => offs.forEach((p) => p.then((off) => off()));
   });
 

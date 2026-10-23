@@ -12,10 +12,15 @@ export interface BarCfg {
 }
 export interface Profile { bar: BarCfg; widgets: WidgetInst[] }
 export interface Theme { mode: 'auto' | 'light' | 'dark'; accent: string; blur: number; opacity: number; nativeBlur: boolean }
+export interface LocationCfg { auto: boolean; lat: number | null; lon: number | null; name: string }
 export interface Config {
   version: number; activeProfile: string; profiles: Record<string, Profile>;
   theme: Theme; startup: { launchAtLogin: boolean };
+  dnd: boolean; location: LocationCfg;
 }
+
+export interface Alert { id: number; source: string; title: string; body: string; at: number; missed: boolean; read: boolean }
+export type Sound = { kind: 'chime' } | { kind: 'azan'; src: string };
 
 export interface AppWindow { id: number; title: string; exe: string; active: boolean; minimized: boolean }
 export interface AudioDevice { id: string; name: string; isDefault: boolean }
@@ -46,6 +51,11 @@ export const ipc = {
   popupOpen: (instance: string, anchor: DOMRect, width: number, height: number) =>
     invoke<void>('popup_open', { instance, x: anchor.x, y: anchor.y, w: anchor.width, h: anchor.height, width, height }),
   popupHide: () => invoke<void>('popup_hide'),
+  // alerts
+  alertsList: () => invoke<Alert[]>('alerts_list'),
+  alertsMarkRead: () => invoke<void>('alerts_mark_read'),
+  alertsDismiss: (id: number) => invoke<void>('alerts_dismiss', { id }),
+  alertsClear: () => invoke<void>('alerts_clear'),
   // apps
   appsList: () => invoke<AppWindow[]>('apps_list'),
   appIcon: (exe: string) => invoke<string | null>('app_icon', { exe }),
@@ -82,5 +92,9 @@ export const events = {
   appsChanged: (cb: (w: AppWindow[]) => void) => listen<AppWindow[]>('apps:changed', (e) => cb(e.payload)),
   audioChanged: (cb: (s: AudioState) => void) => listen<AudioState>('audio:changed', (e) => cb(e.payload)),
   mediaChanged: (cb: (m: MediaInfo | null) => void) => listen<MediaInfo | null>('media:changed', (e) => cb(e.payload)),
+  alertsChanged: (cb: () => void) => listen('alerts:changed', () => cb()),
+  soundPlay: (cb: (s: Sound) => void) => listen<Sound>('sound:play', (e) => cb(e.payload)),
+  /** Any "<name>:changed" event from Rust (todos, notes, timers, ...). */
+  changed: (name: string, cb: () => void) => listen(`${name}:changed`, () => cb()),
 };
 export type { UnlistenFn };
