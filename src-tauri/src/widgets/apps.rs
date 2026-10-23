@@ -4,7 +4,9 @@ use crate::platform::{shell, AppWindow, Res};
 #[tauri::command]
 pub async fn apps_list() -> Vec<AppWindow> { blocking(move || shell().list_windows()).await.unwrap_or_default() }
 #[tauri::command]
-pub async fn app_icon(exe: String) -> Option<String> { blocking(move || shell().exe_icon(&exe)).await.ok().flatten() }
+pub async fn app_icon(exe: String, window: Option<isize>) -> Option<String> {
+    blocking(move || shell().exe_icon(&exe).or_else(|| window.and_then(|w| shell().window_icon(w)))).await.ok().flatten()
+}
 #[tauri::command]
 pub async fn app_activate(id: isize) { let _ = blocking(move || shell().activate(id)).await; }
 #[tauri::command]

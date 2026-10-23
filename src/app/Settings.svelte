@@ -86,6 +86,10 @@
         <div class="field"><span>Length {Math.round(bar.length * 100)}%</span>
           <input type="range" min="0.2" max="1" step="0.01" value={bar.length} onchange={(e) => setBar((b) => (b.length = +e.currentTarget.value))} />
         </div>
+        <label class="field"><span>Auto-hide</span>
+          <input type="checkbox" checked={bar.autoHide} onchange={(e) => setBar((b) => { b.autoHide = e.currentTarget.checked; b.floating = null; })} />
+        </label>
+        <p class="hint">The bar slides away and comes back when you touch that screen edge. Tip: drag the bar past the screen edge to turn this on, and drag it back in to turn it off.</p>
         <label class="field"><span>Reserve screen space</span>
           <input type="checkbox" checked={bar.reserveSpace} onchange={(e) => setBar((b) => (b.reserveSpace = e.currentTarget.checked))} />
         </label>

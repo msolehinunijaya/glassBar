@@ -8,12 +8,15 @@ const dist2 = (r: Rect, px: number, py: number) => {
   return dx * dx + dy * dy;
 };
 
-/** Which monitor the window belongs to, and the edge to dock to (null = float). */
-export function snap(win: Rect, monitors: Rect[], threshold: number): { monitor: number; edge: Edge | null } {
+/** Which monitor the window belongs to and the edge to dock to (null = float).
+ *  `hide` = the bar was dragged past that edge (its centre left the screen): auto-hide there. */
+export function snap(win: Rect, monitors: Rect[], threshold: number): { monitor: number; edge: Edge | null; hide: boolean } {
   const cx = win.x + win.w / 2, cy = win.y + win.h / 2;
   let monitor = 0;
   monitors.forEach((m, i) => { if (dist2(m, cx, cy) < dist2(monitors[monitor], cx, cy)) monitor = i; });
   const m = monitors[monitor];
+  const past: Edge | null = cy > m.y + m.h ? 'bottom' : cy < m.y ? 'top' : cx < m.x ? 'left' : cx > m.x + m.w ? 'right' : null;
+  if (past) return { monitor, edge: past, hide: true };
   const gaps: [Edge, number][] = [
     ['top', win.y - m.y],
     ['bottom', m.y + m.h - (win.y + win.h)],
@@ -21,7 +24,7 @@ export function snap(win: Rect, monitors: Rect[], threshold: number): { monitor:
     ['right', m.x + m.w - (win.x + win.w)],
   ];
   const [edge, gap] = gaps.reduce((a, b) => (Math.abs(b[1]) < Math.abs(a[1]) ? b : a));
-  return { monitor, edge: Math.abs(gap) <= threshold ? edge : null };
+  return { monitor, edge: Math.abs(gap) <= threshold ? edge : null, hide: false };
 }
 
 /** Copy of `list` with the item at `from` moved to `to` (clamped). */

@@ -71,6 +71,8 @@ pub struct RecentItem { pub name: String, pub path: String }
 pub struct Glass { pub native: bool, pub dark: bool, pub opacity: f64 }
 
 pub trait Shell: Send + Sync {
+    /// Show a window without activating it (hover popups).
+    fn show_passive(&self, win: &tauri::WebviewWindow);
     /// Native blur + rounded corners (or plain transparent window for CSS glass).
     fn style_window(&self, win: &tauri::WebviewWindow, glass: &Glass);
     /// Reserve `strip` on `edge` so maximized windows stop short of the bar.
@@ -99,6 +101,8 @@ pub trait Shell: Send + Sync {
     fn launch(&self, path: &str, args: &str) -> Res<()>;
     /// PNG data: URL for an executable's icon.
     fn exe_icon(&self, exe: &str) -> Option<String>;
+    /// Icon for a window (Store apps, or programs whose file has no icon).
+    fn window_icon(&self, id: isize) -> Option<String>;
 }
 
 pub trait Audio: Send + Sync {

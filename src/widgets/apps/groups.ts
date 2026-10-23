@@ -25,3 +25,12 @@ export function nextWindow(g: Group): AppWindow | undefined {
   const i = g.windows.findIndex((w) => w.active);
   return i >= 0 && g.windows.length > 1 ? g.windows[(i + 1) % g.windows.length] : g.windows[Math.max(i, 0)];
 }
+
+/** Keep keys in the order they were first seen: new ones go to the end, gone ones drop out.
+ *  (Windows lists windows in z-order, which changes on every focus.) */
+export function stableOrder(prev: string[], current: string[]): string[] {
+  const now = new Set(current);
+  const kept = prev.filter((k) => now.has(k));
+  const known = new Set(kept);
+  return [...kept, ...current.filter((k) => !known.has(k))];
+}

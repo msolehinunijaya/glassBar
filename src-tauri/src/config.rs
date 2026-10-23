@@ -42,13 +42,15 @@ pub struct BarCfg {
     pub floating: Option<Pos>,
     pub reserve_space: bool,
     pub native_taskbar: TaskbarMode,
+    /// Slide out of view, leaving a sliver at the edge; hovering the edge shows it.
+    pub auto_hide: bool,
 }
 
 impl Default for BarCfg {
     fn default() -> Self {
         // Top + taskbar shown: safe first run, nothing hidden if the app is killed.
         Self { edge: Edge::Top, monitor: None, length: 0.7, size: BarSize::Normal, floating: None,
-               reserve_space: true, native_taskbar: TaskbarMode::Show }
+               reserve_space: true, native_taskbar: TaskbarMode::Show, auto_hide: false }
     }
 }
 

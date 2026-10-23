@@ -8,7 +8,7 @@ export interface WidgetInst { id: string; instance: string; size: WidgetSize; se
 export interface BarCfg {
   edge: Edge; monitor: number | null; length: number; size: 'compact' | 'normal' | 'large';
   floating: { x: number; y: number } | null; reserveSpace: boolean;
-  nativeTaskbar: 'show' | 'autohide' | 'hidden';
+  nativeTaskbar: 'show' | 'autohide' | 'hidden'; autoHide: boolean;
 }
 export interface Profile { bar: BarCfg; widgets: WidgetInst[] }
 export interface Theme { mode: 'auto' | 'light' | 'dark'; accent: string; blur: number; opacity: number; nativeBlur: boolean }
@@ -73,8 +73,10 @@ export const ipc = {
   restoreTaskbar: () => invoke<void>('restore_taskbar'),
   setEditMode: (on: boolean) => invoke<void>('set_edit_mode', { on }),
   openSettings: () => invoke<void>('open_settings_cmd'),
-  popupOpen: (instance: string, anchor: DOMRect, width: number, height: number) =>
-    invoke<void>('popup_open', { instance, x: anchor.x, y: anchor.y, w: anchor.width, h: anchor.height, width, height }),
+  popupOpen: (instance: string, anchor: DOMRect, width: number, height: number, focus = true) =>
+    invoke<void>('popup_open', { instance, x: anchor.x, y: anchor.y, w: anchor.width, h: anchor.height, width, height, focus }),
+  popupLeave: () => invoke<void>('popup_leave'),
+  barReveal: (show: boolean) => invoke<void>('bar_reveal', { show }),
   popupHide: () => invoke<void>('popup_hide'),
   // alerts
   alertsList: () => invoke<Alert[]>('alerts_list'),
@@ -130,7 +132,7 @@ export const ipc = {
   screentimeWeek: () => invoke<[string, number][]>('screentime_week'),
   // apps
   appsList: () => invoke<AppWindow[]>('apps_list'),
-  appIcon: (exe: string) => invoke<string | null>('app_icon', { exe }),
+  appIcon: (exe: string, window: number | null = null) => invoke<string | null>('app_icon', { exe, window }),
   appActivate: (id: number) => invoke<void>('app_activate', { id }),
   appClose: (id: number) => invoke<void>('app_close', { id }),
   appLaunch: (path: string, args = '') => invoke<void>('app_launch', { path, args }),
@@ -162,6 +164,7 @@ export const events = {
   editMode: (cb: (on: boolean) => void) => listen<boolean>('editmode', (e) => cb(e.payload)),
   popupShow: (cb: (instance: string) => void) => listen<string>('popup:show', (e) => cb(e.payload)),
   popupHide: (cb: () => void) => listen('popup:hide', () => cb()),
+  popupLeave: (cb: () => void) => listen('popup:leave', () => cb()),
   appsChanged: (cb: (w: AppWindow[]) => void) => listen<AppWindow[]>('apps:changed', (e) => cb(e.payload)),
   audioChanged: (cb: (s: AudioState) => void) => listen<AudioState>('audio:changed', (e) => cb(e.payload)),
   mediaChanged: (cb: (m: MediaInfo | null) => void) => listen<MediaInfo | null>('media:changed', (e) => cb(e.payload)),

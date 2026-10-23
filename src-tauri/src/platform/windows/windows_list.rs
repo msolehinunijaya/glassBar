@@ -176,45 +176,101 @@ pub fn exe_icon(exe: &str) -> Option<String> {
     icon
 }
 
+fn data_url(png: Vec<u8>) -> String {
+    format!("data:image/png;base64,{}", base64::engine::general_purpose::STANDARD.encode(png))
+}
+
 fn extract(exe: &str, size: u32) -> Option<String> {
     let path = wide(exe);
     let mut icon = HICON::default();
     unsafe {
         SHDefExtractIconW(PCWSTR(path.as_ptr()), 0, 0, Some(&mut icon), None, size).ok().ok()?;
-        let png = icon_to_png(icon, size as i32);
+        let png = icon_to_png(icon);
         let _ = DestroyIcon(icon);
-        png.map(|b| format!("data:image/png;base64,{}", base64::engine::general_purpose::STANDARD.encode(b)))
+        png.map(data_url)
     }
 }
 
-unsafe fn icon_to_png(icon: HICON, size: i32) -> Option<Vec<u8>> {
+/// Icon for a window whose program file has none. Microsoft Store apps (WhatsApp,
+/// Calculator, ...) keep their icons in the app package, so ask the shell for the
+/// app's registered icon by its AppUserModelID; otherwise use the window's own icon.
+pub fn window_icon(id: isize) -> Option<String> {
+    let w = h(id);
+    package_icon(pid_of(w)).or_else(|| hwnd_icon(w)).map(data_url)
+}
+
+fn package_icon(pid: u32) -> Option<Vec<u8>> {
+    use windows::Win32::Foundation::{ERROR_SUCCESS, SIZE};
+    use windows::Win32::Storage::Packaging::Appx::GetApplicationUserModelId;
+    use windows::Win32::UI::Shell::{IShellItemImageFactory, SHCreateItemFromParsingName, SIIGBF_ICONONLY};
+    unsafe {
+        let proc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid).ok()?;
+        let mut buf = [0u16; 512];
+        let mut len = buf.len() as u32;
+        let r = GetApplicationUserModelId(proc, &mut len, Some(PWSTR(buf.as_mut_ptr())));
+        let _ = CloseHandle(proc);
+        if r != ERROR_SUCCESS || len < 2 { return None; } // not a packaged app
+        let aumid = String::from_utf16_lossy(&buf[..len as usize - 1]);
+        super::com_init();
+        let path = wide(&format!("shell:AppsFolder\\{aumid}"));
+        let factory: IShellItemImageFactory = SHCreateItemFromParsingName(PCWSTR(path.as_ptr()), None).ok()?;
+        let hbm = factory.GetImage(SIZE { cx: 48, cy: 48 }, SIIGBF_ICONONLY).ok()?;
+        let png = bitmap_to_png(hbm);
+        let _ = DeleteObject(hbm.into());
+        png
+    }
+}
+
+fn hwnd_icon(w: HWND) -> Option<Vec<u8>> {
+    unsafe {
+        let mut res = 0usize;
+        let _ = SendMessageTimeoutW(w, WM_GETICON, WPARAM(ICON_BIG as usize), LPARAM(0), SMTO_ABORTIFHUNG, 200, Some(&mut res));
+        let raw = if res != 0 { res as isize } else { GetClassLongPtrW(w, GCLP_HICON) as isize };
+        if raw == 0 { return None; }
+        icon_to_png(HICON(raw as *mut _)) // shared icon owned by the window: don't destroy
+    }
+}
+
+unsafe fn icon_to_png(icon: HICON) -> Option<Vec<u8>> {
     let mut info = ICONINFO::default();
     unsafe { GetIconInfo(icon, &mut info).ok()? };
+    let png = unsafe { bitmap_to_png(info.hbmColor) };
+    unsafe {
+        let _ = DeleteObject(info.hbmColor.into());
+        let _ = DeleteObject(info.hbmMask.into());
+    }
+    png
+}
+
+/// 32-bit bitmap of any size -> PNG (BGRA -> RGBA; opaque if it has no alpha).
+unsafe fn bitmap_to_png(hbm: HBITMAP) -> Option<Vec<u8>> {
+    let mut bm = BITMAP::default();
+    if unsafe { GetObjectW(hbm.into(), std::mem::size_of::<BITMAP>() as i32, Some(&mut bm as *mut _ as *mut _)) } == 0 { return None; }
+    let (w, ht) = (bm.bmWidth, bm.bmHeight.abs());
+    if w <= 0 || ht <= 0 || w > 512 || ht > 512 { return None; }
     let mut bmi = BITMAPINFO {
         bmiHeader: BITMAPINFOHEADER {
             biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32,
-            biWidth: size, biHeight: -size, biPlanes: 1, biBitCount: 32, biCompression: BI_RGB.0,
+            biWidth: w, biHeight: -ht, biPlanes: 1, biBitCount: 32, biCompression: BI_RGB.0,
             ..Default::default()
         },
         ..Default::default()
     };
-    let mut px = vec![0u8; (size * size * 4) as usize];
-    let ok = unsafe {
+    let mut px = vec![0u8; (w * ht * 4) as usize];
+    let n = unsafe {
         let dc = GetDC(None);
-        let n = GetDIBits(dc, info.hbmColor, 0, size as u32, Some(px.as_mut_ptr() as *mut _), &mut bmi, DIB_RGB_COLORS);
+        let n = GetDIBits(dc, hbm, 0, ht as u32, Some(px.as_mut_ptr() as *mut _), &mut bmi, DIB_RGB_COLORS);
         ReleaseDC(None, dc);
-        let _ = DeleteObject(info.hbmColor.into());
-        let _ = DeleteObject(info.hbmMask.into());
-        n > 0
+        n
     };
-    if !ok { return None; }
+    if n <= 0 { return None; }
     let has_alpha = px.chunks(4).any(|p| p[3] != 0);
     for p in px.chunks_mut(4) {
-        p.swap(0, 2); // BGRA -> RGBA
+        p.swap(0, 2);
         if !has_alpha { p[3] = 255; }
     }
     let mut out = Vec::new();
     image::codecs::png::PngEncoder::new(&mut out)
-        .write_image(&px, size as u32, size as u32, image::ExtendedColorType::Rgba8).ok()?;
+        .write_image(&px, w as u32, ht as u32, image::ExtendedColorType::Rgba8).ok()?;
     Some(out)
 }

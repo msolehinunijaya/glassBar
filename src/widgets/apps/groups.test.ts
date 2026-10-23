@@ -31,3 +31,16 @@ it('nameOf strips folders and extensions', () => {
   expect(nameOf('C:\\x\\Spotify.exe')).toBe('Spotify');
   expect(nameOf('C:/y/Chrome.lnk')).toBe('Chrome');
 });
+
+describe('stableOrder', () => {
+  it('keeps the order apps were first seen, whatever Windows z-order says', async () => {
+    const { stableOrder } = await import('./groups');
+    let order: string[] = [];
+    order = stableOrder(order, ['a', 'b', 'c']);
+    expect(order).toEqual(['a', 'b', 'c']);
+    order = stableOrder(order, ['c', 'a', 'b']); // focusing c moves it to the top of z-order
+    expect(order).toEqual(['a', 'b', 'c']);
+    order = stableOrder(order, ['d', 'a', 'c']); // b closed, d opened
+    expect(order).toEqual(['a', 'c', 'd']);
+  });
+});

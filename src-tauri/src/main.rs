@@ -24,6 +24,8 @@ pub struct AppState {
     pub edit: AtomicBool,
     /// The user is dragging the bar window (ignore DPI re-layout until they let go).
     pub dragging: AtomicBool,
+    /// Auto-hide: is the bar currently slid in?
+    pub revealed: AtomicBool,
 }
 
 pub fn data_dir() -> PathBuf {
@@ -90,6 +92,7 @@ fn main() {
         popup: Mutex::new(Default::default()),
         edit: AtomicBool::new(false),
         dragging: AtomicBool::new(false),
+        revealed: AtomicBool::new(false),
     };
     // Never recreated over an existing file; a failure here is logged by the panic hook.
     let database = db::open(&data_dir().join("glassbar.db")).expect("could not open glassbar.db");
@@ -142,7 +145,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             get_config, save_config, export_config, import_config, apply_bar, restore_taskbar,
             bar::popup_open, bar::popup_hide, bar::open_settings_cmd, bar::set_edit_mode,
-            bar::bar_preview, bar::bar_drag, bar::mouse_down,
+            bar::bar_preview, bar::bar_drag, bar::mouse_down, bar::bar_reveal, bar::popup_leave,
             widgets::todo::todo_list, widgets::todo::todo_add, widgets::todo::todo_update,
             widgets::todo::todo_delete, widgets::todo::todo_clear_done,
             widgets::notes::notes_list, widgets::notes::note_create, widgets::notes::note_update,

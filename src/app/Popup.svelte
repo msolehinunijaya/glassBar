@@ -5,6 +5,7 @@
   import { GALLERY } from '../lib/popup';
   import { settingsOf, widgets } from '../widgets/registry';
   import Gallery from './Gallery.svelte';
+  import WindowList from './WindowList.svelte';
 
   // Which widget's panel is showing. Cleared when Rust hides the popup, so hidden
   // panels stop their timers. (Rust sends hide before the next show, so no race.)
@@ -12,11 +13,19 @@
   const w = $derived(instance ? profile().widgets.find((x) => x.instance === instance) : undefined);
   const m = $derived(w ? widgets[w.id] : undefined);
   const close = () => ipc.popupHide();
+  const WINDOWS = '__windows:';
+  const hover = $derived(instance?.startsWith(WINDOWS) ?? false);
+
+  // Hover popups close shortly after the pointer leaves both the icon and the popup.
+  let leaveTimer: ReturnType<typeof setTimeout>;
+  const leaveSoon = () => { clearTimeout(leaveTimer); if (hover) leaveTimer = setTimeout(close, 350); };
+  const stay = () => clearTimeout(leaveTimer);
 
   onMount(() => {
     const offs = [
-      events.popupShow((i) => { instance = i; }),
+      events.popupShow((i) => { instance = i; stay(); }),
       events.popupHide(() => { instance = null; }),
+      events.popupLeave(leaveSoon),
     ];
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && close();
     addEventListener('keydown', onKey);
@@ -24,8 +33,11 @@
   });
 </script>
 
-<div class="surface popup">
-  {#if instance === GALLERY}
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div class="surface popup" class:hover onpointerenter={stay} onpointerleave={leaveSoon}>
+  {#if hover && instance}
+    <WindowList appKey={instance.slice(WINDOWS.length)} {close} />
+  {:else if instance === GALLERY}
     <Gallery {close} />
   {:else if w && m?.Popup}
     {#key instance}
@@ -36,4 +48,5 @@
 
 <style>
   .popup { padding: 14px; overflow: auto; }
+  .popup.hover { padding: 8px; }
 </style>

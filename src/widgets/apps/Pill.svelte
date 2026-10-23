@@ -1,16 +1,24 @@
 <script lang="ts">
-  import { Menu, PredefinedMenuItem } from '@tauri-apps/api/menu';
+  import { PredefinedMenuItem } from '@tauri-apps/api/menu';
+  import { showMenu } from '../../lib/menu';
   import { onMount } from 'svelte';
   import { updateWidgetSettings } from '../../lib/config.svelte';
   import { events, ipc, type AppWindow } from '../../lib/ipc';
   import type { PillProps } from '../types';
-  import { group, keyOf, nextWindow, type Group } from './groups';
+  import { group, keyOf, nextWindow, stableOrder, type Group } from './groups';
   import type { AppsSettings } from './index';
 
   let { instance, size, settings, vertical }: PillProps<AppsSettings> = $props();
   let windows = $state<AppWindow[]>([]);
   let icons = $state<Record<string, string | null>>({});
-  const groups = $derived(group(settings.pinned, windows));
+  // Icons keep their place: order by first appearance, and windows inside a group by id.
+  let seen: string[] = [];
+  const groups = $derived.by(() => {
+    const raw = group(settings.pinned, windows);
+    seen = stableOrder(seen, raw.map((g) => g.key));
+    const byKey = new Map(raw.map((g) => [g.key, { ...g, windows: [...g.windows].sort((a, b) => a.id - b.id) }]));
+    return seen.map((k) => byKey.get(k)!);
+  });
   const iconSize = $derived(size === 'small' ? 22 : 26);
 
   onMount(() => {
@@ -25,9 +33,24 @@
     for (const g of groups) {
       if (requested.has(g.key)) continue;
       requested.add(g.key);
-      ipc.appIcon(g.path).then((src) => (icons[g.key] = src));
+      ipc.appIcon(g.path, g.windows[0]?.id ?? null).then((src) => (icons[g.key] = src));
     }
   });
+
+  // Hovering an app with 2+ windows opens a chooser (without taking keyboard focus).
+  let hoverTimer: ReturnType<typeof setTimeout>;
+  function onHover(e: PointerEvent, g: Group) {
+    clearTimeout(hoverTimer);
+    if (g.windows.length < 2) return;
+    const el = e.currentTarget as HTMLElement;
+    hoverTimer = setTimeout(() => {
+      ipc.popupOpen(`__windows:${g.key}`, el.getBoundingClientRect(), 300, Math.min(420, 48 + g.windows.length * 38), false);
+    }, 350);
+  }
+  function onUnhover() {
+    clearTimeout(hoverTimer);
+    ipc.popupLeave();
+  }
 
   function open(g: Group) {
     const w = nextWindow(g);
@@ -61,9 +84,7 @@
         await PredefinedMenuItem.new({ item: 'Separator' }),
       );
     }
-    const m = await Menu.new({ items });
-    await m.popup();
-    await m.close();
+    await showMenu(items);
   }
 </script>
 
@@ -77,6 +98,8 @@
       onclick={(e) => { e.stopPropagation(); open(g); }}
       onauxclick={(e) => { if (e.button === 1) ipc.appLaunch(g.path, g.pin?.args ?? ''); }}
       oncontextmenu={(e) => menu(e, g)}
+      onpointerenter={(e) => onHover(e, g)}
+      onpointerleave={onUnhover}
     >
       {#if icons[g.key]}
         <img src={icons[g.key]} alt="" width={iconSize} height={iconSize} draggable="false" />

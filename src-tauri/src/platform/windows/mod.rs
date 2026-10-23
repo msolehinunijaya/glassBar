@@ -34,6 +34,10 @@ pub(crate) fn err(e: impl std::fmt::Display) -> String { e.to_string() }
 
 impl Shell for WinShell {
     fn style_window(&self, win: &tauri::WebviewWindow, g: &Glass) { appbar::style_window(win, g) }
+    fn show_passive(&self, win: &tauri::WebviewWindow) {
+        use windows::Win32::UI::WindowsAndMessaging::{ShowWindow, SW_SHOWNOACTIVATE};
+        if let Ok(h) = win.hwnd() { unsafe { let _ = ShowWindow(windows::Win32::Foundation::HWND(h.0), SW_SHOWNOACTIVATE); } }
+    }
     fn init(&self, dir: &std::path::Path, f: Box<dyn Fn(SystemEvent) + Send>) {
         appbar::set_state_dir(dir);
         system::start(f);
@@ -62,6 +66,7 @@ impl Shell for WinShell {
     fn close(&self, id: isize) { windows_list::close(id) }
     fn launch(&self, path: &str, args: &str) -> Res<()> { windows_list::launch(path, args) }
     fn exe_icon(&self, exe: &str) -> Option<String> { windows_list::exe_icon(exe) }
+    fn window_icon(&self, id: isize) -> Option<String> { windows_list::window_icon(id) }
 }
 
 impl Audio for WinAudio {

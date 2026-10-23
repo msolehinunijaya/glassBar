@@ -35,6 +35,19 @@ pub fn place(mon: Rect, edge: Edge, length: f64, thick: i32, gap: i32) -> (Rect,
     }
 }
 
+/// Pixels of an auto-hidden bar left on screen, so the mouse can find it.
+const PEEK: i32 = 3;
+
+/// An auto-hidden bar: pushed past its edge with only `peek` pixels showing.
+pub fn hidden_rect(r: Rect, edge: Edge, mon: Rect, peek: i32) -> Rect {
+    match edge {
+        Edge::Bottom => Rect { y: mon.y + mon.h - peek, ..r },
+        Edge::Top => Rect { y: mon.y - r.h + peek, ..r },
+        Edge::Left => Rect { x: mon.x - r.w + peek, ..r },
+        Edge::Right => Rect { x: mon.x + mon.w - peek, ..r },
+    }
+}
+
 /// Where a popup goes: beside the bar on the side away from the screen edge,
 /// centered on its widget, kept on screen.
 pub fn popup_rect(bar: Rect, anchor: Rect, w: i32, h: i32, edge: Edge, mon: Rect, gap: i32) -> Rect {
@@ -97,14 +110,22 @@ pub fn apply(app: &AppHandle) {
     let Some(win) = app.get_webview_window("bar") else { return };
     let bar = &cfg.profile().bar;
     if let Some((mut r, strip)) = bar_rect(app, bar, bar.length) {
-        if bar.floating.is_none() && bar.reserve_space {
+        if bar.auto_hide && bar.floating.is_none() {
+            // Auto-hide never reserves space: windows use the whole screen.
+            shell().appbar_remove();
+            if !app.state::<AppState>().revealed.load(Ordering::Relaxed) {
+                if let Some(mon) = bar_monitor(app, bar.monitor) { r = hidden_rect(r, bar.edge, monitor_rect(&mon), PEEK); }
+            }
+            set_rect(&win, r);
+        } else if bar.floating.is_none() && bar.reserve_space {
             let got = shell().appbar_set(bar.edge, strip);
             r.x += got.x - strip.x;
             r.y += got.y - strip.y;
+            set_rect(&win, r);
         } else {
             shell().appbar_remove();
+            set_rect(&win, r);
         }
-        set_rect(&win, r);
     }
     shell().set_taskbar(bar.native_taskbar);
     let glass = Glass { native: cfg.theme.native_blur, dark: is_dark(app, &cfg), opacity: cfg.theme.opacity };
@@ -129,6 +150,28 @@ pub fn bar_preview(app: AppHandle, length: f64) {
     }
 }
 
+/// Slide an auto-hidden bar in (show) or out. Animated over ~120 ms.
+#[tauri::command]
+pub fn bar_reveal(app: AppHandle, show: bool) {
+    let cfg = app.state::<AppState>().config.lock().unwrap().profile().bar.clone();
+    if !cfg.auto_hide || cfg.floating.is_some() { return; }
+    if app.state::<AppState>().revealed.swap(show, Ordering::Relaxed) == show { return; }
+    let (Some(win), Some((r, _)), Some(mon)) = (app.get_webview_window("bar"), bar_rect(&app, &cfg, cfg.length), bar_monitor(&app, cfg.monitor)) else { return };
+    let to = if show { r } else { hidden_rect(r, cfg.edge, monitor_rect(&mon), PEEK) };
+    let from = win.outer_position().map(|p| (p.x, p.y)).unwrap_or((to.x, to.y));
+    std::thread::spawn(move || {
+        const STEPS: i32 = 8;
+        for i in 1..=STEPS {
+            // ease-out
+            let t = 1.0 - (1.0 - i as f64 / STEPS as f64).powi(3);
+            let x = from.0 + ((to.x - from.0) as f64 * t).round() as i32;
+            let y = from.1 + ((to.y - from.1) as f64 * t).round() as i32;
+            let _ = win.set_position(PhysicalPosition::new(x, y));
+            std::thread::sleep(Duration::from_millis(15));
+        }
+    });
+}
+
 /// The frontend marks a window drag, so a DPI change mid-drag doesn't snap the bar back.
 #[tauri::command]
 pub fn bar_drag(app: AppHandle, on: bool) { app.state::<AppState>().dragging.store(on, Ordering::Relaxed); }
@@ -144,12 +187,13 @@ pub struct PopupState { pub instance: Option<String>, pub hidden_at: Option<Inst
 pub fn popup_hidden(app: &AppHandle) {
     if let Some(p) = app.get_webview_window("popup") { let _ = p.hide(); }
     app.state::<AppState>().popup.lock().unwrap().hidden_at = Some(Instant::now());
-    let _ = app.emit_to("popup", "popup:hide", ());
+    let _ = app.emit("popup:hide", ());
 }
 
 #[allow(clippy::too_many_arguments)]
 #[tauri::command]
-pub fn popup_open(app: AppHandle, instance: String, x: f64, y: f64, w: f64, h: f64, width: f64, height: f64) -> Result<(), String> {
+pub fn popup_open(app: AppHandle, instance: String, x: f64, y: f64, w: f64, h: f64, width: f64, height: f64, focus: Option<bool>) -> Result<(), String> {
+    let focus = focus.unwrap_or(true);
     let st = app.state::<AppState>();
     {
         // Clicking the open widget again: the popup already hid on blur, so this click means "close".
@@ -178,15 +222,24 @@ pub fn popup_open(app: AppHandle, instance: String, x: f64, y: f64, w: f64, h: f
         _ => Edge::Top,
     };
     let r = popup_rect(br, anchor, (width * s).round() as i32, (height * s).round() as i32, edge, mon, (8.0 * s) as i32);
-    let _ = app.emit_to("popup", "popup:show", &instance);
+    let _ = app.emit("popup:show", &instance);
     set_rect(&popup, r);
-    popup.show().map_err(e)?;
-    popup.set_focus().map_err(e)?;
+    if focus {
+        popup.show().map_err(e)?;
+        popup.set_focus().map_err(e)?;
+    } else {
+        shell().show_passive(&popup); // hover popups must not steal focus from the user's app
+    }
     Ok(())
 }
 
 #[tauri::command]
 pub fn popup_hide(app: AppHandle) { popup_hidden(&app) }
+
+/// The pointer left the widget that opened a hover popup; the popup closes soon
+/// unless the pointer moves into it.
+#[tauri::command]
+pub fn popup_leave(app: AppHandle) { let _ = app.emit_to("popup", "popup:leave", ()); }
 
 // ---- Settings window, edit mode, tray ----
 
@@ -280,6 +333,18 @@ mod tests {
         let (win, res) = place(MON, Edge::Bottom, 0.5, 48, 6);
         assert_eq!(win, Rect { x: 480, y: 1080 - 6 - 48, w: 960, h: 48 });
         assert_eq!(res, Rect { x: 0, y: 1080 - 60, w: 1920, h: 60 });
+    }
+
+    #[test]
+    fn hidden_bar_leaves_a_sliver_on_its_edge() {
+        let (win, _) = place(MON, Edge::Bottom, 0.5, 48, 6);
+        assert_eq!(hidden_rect(win, Edge::Bottom, MON, 3), Rect { y: 1080 - 3, ..win });
+        let (win, _) = place(MON, Edge::Top, 0.5, 48, 6);
+        assert_eq!(hidden_rect(win, Edge::Top, MON, 3), Rect { y: 3 - 48, ..win });
+        let (win, _) = place(MON, Edge::Left, 0.5, 48, 6);
+        assert_eq!(hidden_rect(win, Edge::Left, MON, 3), Rect { x: 3 - 48, ..win });
+        let (win, _) = place(MON, Edge::Right, 0.5, 48, 6);
+        assert_eq!(hidden_rect(win, Edge::Right, MON, 3), Rect { x: 1920 - 3, ..win });
     }
 
     #[test]

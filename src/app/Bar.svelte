@@ -1,6 +1,5 @@
 <script lang="ts">
   import { availableMonitors, getCurrentWindow, primaryMonitor } from '@tauri-apps/api/window';
-  import { Menu } from '@tauri-apps/api/menu';
   import { flip } from 'svelte/animate';
   import { onMount } from 'svelte';
   import { Check, Maximize2, Plus, X } from '@lucide/svelte';
@@ -9,6 +8,7 @@
   import { indexAt, reorder, snap } from '../lib/geometry';
   import { GALLERY, openPopup } from '../lib/popup';
   import { chime, playFile } from '../lib/sound';
+  import { showMenu } from '../lib/menu';
   import { settingsOf, widgets } from '../widgets/registry';
 
   const win = getCurrentWindow();
@@ -23,8 +23,33 @@
   let order = $state<string[] | null>(null);
   const shown = $derived(order ? order.map((id) => placed.find((w) => w.instance === id)!).filter(Boolean) : placed);
 
+  // ---- Auto-hide: slide in while the pointer is on the bar (or a popup/edit is open) ----
+  const autoHide = $derived(bar.autoHide && !bar.floating);
+  let hovering = false;
+  let popupOpen = false;
+  let hideTimer: ReturnType<typeof setTimeout>;
+  function scheduleHide() {
+    clearTimeout(hideTimer);
+    if (!autoHide) return;
+    hideTimer = setTimeout(() => {
+      if (!hovering && !edit && !popupOpen && !dragging) ipc.barReveal(false);
+    }, 900);
+  }
+  function onEnter() {
+    hovering = true;
+    clearTimeout(hideTimer);
+    if (autoHide) ipc.barReveal(true);
+  }
+  function onLeave() { hovering = false; scheduleHide(); }
+  $effect(() => {
+    if (!autoHide) return;
+    if (edit) ipc.barReveal(true); else scheduleHide();
+  });
+
   onMount(() => {
     const offs = [
+      events.popupShow(() => { popupOpen = true; }),
+      events.popupHide(() => { popupOpen = false; scheduleHide(); }),
       events.editMode((on) => (edit = on)),
       win.onMoved(onMoved),
       // Alert sounds play here: the bar window is always alive.
@@ -67,6 +92,7 @@
     await update((c) => {
       const b = c.profiles[c.activeProfile].bar;
       b.monitor = s.monitor;
+      b.autoHide = s.hide; // dragged past the edge = hide there; dragged back in = stay visible
       if (s.edge) { b.edge = s.edge; b.floating = null; } else { b.floating = { x: pos.x, y: pos.y }; }
     });
   }
@@ -128,14 +154,10 @@
 
   async function onContext(e: MouseEvent) {
     e.preventDefault();
-    const menu = await Menu.new({
-      items: [
-        { id: 'edit', text: edit ? 'Done editing' : 'Edit widgets', action: () => ipc.setEditMode(!edit) },
-        { id: 'settings', text: 'Settings…', action: () => ipc.openSettings() },
-      ],
-    });
-    await menu.popup();
-    await menu.close(); // free the native menu resource
+    await showMenu([
+      { id: 'edit', text: edit ? 'Done editing' : 'Edit widgets', action: () => ipc.setEditMode(!edit) },
+      { id: 'settings', text: 'Settings…', action: () => ipc.openSettings() },
+    ]);
   }
 
   const removeWidget = (instance: string) =>
@@ -182,7 +204,8 @@
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="surface bar" class:vertical class:edit onpointerdown={onBarDown} oncontextmenu={onContext} data-size={bar.size}>
+<div class="surface bar" class:vertical class:edit onpointerdown={onBarDown} oncontextmenu={onContext}
+     onpointerenter={onEnter} onpointerleave={onLeave} data-size={bar.size}>
   <div class="handle start" onpointerdown={(e) => onHandleDown(e, -1)}></div>
 
   <div class="scroller" bind:this={scroller}>
@@ -236,6 +259,9 @@
     flex: 1;
     display: flex;
     align-items: stretch;
+    /* Centred with equal space both sides; 'safe' falls back to start when the
+       widgets overflow, so the first one stays reachable by scrolling. */
+    justify-content: safe center;
     gap: var(--gap);
     overflow: hidden;
     min-width: 0;
