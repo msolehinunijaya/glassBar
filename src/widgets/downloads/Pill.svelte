@@ -38,8 +38,8 @@
       <span class="ic"><FileIcon path={latest.path} size={20} />{#if fresh}<i class="dot"></i>{/if}</span>
       {#if size !== 'small' && !vertical}
         <span class="col">
+          <span class="k">Downloads{#if size === 'large'}&nbsp;·&nbsp;{fmtSize(latest.size)}&nbsp;·&nbsp;{ago(latest.at, t.now)}{/if}</span>
           <span class="nm">{err || cutMiddle(latest.name, size === 'large' ? 26 : 20)}</span>
-          {#if size === 'large'}<span class="sub dim">{fmtSize(latest.size)} · {ago(latest.at, t.now)}</span>{/if}
         </span>
       {/if}
     </button>
@@ -62,7 +62,8 @@
   .dot { position: absolute; top: -2px; right: -3px; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 2px var(--pill); }
   .col { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; text-align: left; }
   .nm { font-size: 12px; font-weight: 500; white-space: nowrap; }
-  .sub { font-size: 10.5px; white-space: nowrap; }
+  /* Small label over the file name (large adds size and age to it). */
+  .k { font-size: 10px; color: var(--fg-3); white-space: nowrap; }
   .empty { font-size: 12px; padding: 0 6px; }
   /* Ghost icon buttons (not the global filled .btn). At rest they take no space: the pill is
      just the file, and it slides open to show them on hover or keyboard focus. Small size,
