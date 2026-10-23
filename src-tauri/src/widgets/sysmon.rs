@@ -22,6 +22,23 @@ pub async fn battery_get() -> Option<crate::platform::Battery> {
     crate::widgets::blocking(|| crate::platform::power().battery()).await.ok().flatten()
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PowerInfo { pub mode: Option<crate::platform::PowerMode>, pub saver_on: Option<bool> }
+
+#[tauri::command]
+pub async fn power_get() -> PowerInfo {
+    crate::widgets::blocking(|| {
+        let p = crate::platform::power();
+        PowerInfo { mode: p.power_mode(), saver_on: p.saver_on() }
+    }).await.unwrap_or(PowerInfo { mode: None, saver_on: None })
+}
+
+#[tauri::command]
+pub async fn power_set_mode(mode: crate::platform::PowerMode) -> crate::platform::Res<()> {
+    crate::widgets::blocking(move || crate::platform::power().set_power_mode(mode)).await?
+}
+
 pub fn start(app: AppHandle) {
     // System monitor: every 2 s while placed.
     let a = app.clone();

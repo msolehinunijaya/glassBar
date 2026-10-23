@@ -6,11 +6,11 @@ import Popup from './Popup.svelte';
 export default defineWidget<Record<string, never>>({
   id: 'battery',
   name: 'Battery',
-  description: 'Charge level, charging state, time remaining',
+  description: 'Charge level, charging animation, power mode',
   icon: BatteryMedium,
   sizes: ['small', 'medium'],
   defaultSize: 'small',
   defaults: {},
   Pill,
-  Popup: { component: Popup, width: 300, height: 220 },
+  Popup: { component: Popup, width: 320, height: 330 },
 });

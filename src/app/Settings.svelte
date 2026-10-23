@@ -4,7 +4,7 @@
   import { profile, store, update, updateWidgetSettings } from '../lib/config.svelte';
   import { ipc, type Config } from '../lib/ipc';
   import { reorder } from '../lib/geometry';
-  import { addWidget, settingsOf, widgets } from '../widgets/registry';
+  import { addWidget, available, settingsOf, widgets } from '../widgets/registry';
   import Updates from './Updates.svelte';
 
   const sections = ['Bar', 'Appearance', 'Widgets', 'Profiles', 'Startup', 'Updates', 'Backup'] as const;
@@ -156,7 +156,7 @@
       </div>
       <h2>Add a widget</h2>
       <div class="gallery">
-        {#each Object.values(widgets) as m (m.id)}
+        {#each available(profile().widgets) as m (m.id)}
           <button class="gcard" onclick={() => addWidget(m.id)}>
             <span class="wico"><m.icon size={18} /></span>
             <b>{m.name}</b>

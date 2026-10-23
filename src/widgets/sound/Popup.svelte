@@ -1,10 +1,12 @@
 <script lang="ts">
   import { Check, Speaker, Volume2, VolumeX } from '@lucide/svelte';
   import { ipc, type AudioSession } from '../../lib/ipc';
+  import { updateWidgetSettings } from '../../lib/config.svelte';
+  import type { SoundSettings } from './index';
   import type { PopupProps } from '../types';
   import { liveAudio, pct, volumeIcon } from './audio.svelte';
 
-  let {}: PopupProps = $props();
+  let { instance, settings }: PopupProps<SoundSettings> = $props();
   const audio = liveAudio();
   const Icon = $derived(volumeIcon(audio.v));
   let sessions = $state<AudioSession[]>([]);
@@ -41,7 +43,11 @@
   function muteApp(s: AudioSession) { s.muted = !s.muted; ipc.audioSetSessionMute(s.pid, s.muted); }
 </script>
 
-<h3>Sound</h3>
+<div class="head">
+  <h3>Sound</h3>
+  <label class="dim opt"><input type="checkbox" checked={settings.showSlider}
+    onchange={(e) => updateWidgetSettings(instance, { showSlider: e.currentTarget.checked })} /> Slider on bar</label>
+</div>
 {#if audio.v}
   <div class="master">
     <button class="icon-btn" onclick={toggleMute} aria-label={audio.v.muted ? 'Unmute' : 'Mute'}><Icon size={18} /></button>
@@ -85,7 +91,10 @@
 {#if error}<p class="err">{error}</p>{/if}
 
 <style>
-  h3 { margin: 0 0 10px; font-size: 15px; font-weight: 600; }
+  h3 { margin: 0; font-size: 15px; font-weight: 600; }
+  .head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .opt { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+  .opt input { accent-color: var(--accent); }
   h4 { margin: 14px 2px 6px; font-size: 12px; font-weight: 500; }
   .master { display: flex; align-items: center; gap: 8px; }
   .num { font-variant-numeric: tabular-nums; width: 4ch; text-align: right; }

@@ -1,13 +1,14 @@
 <script lang="ts">
   import { Plus } from '@lucide/svelte';
-  import { addWidget, widgets } from '../widgets/registry';
+  import { profile } from '../lib/config.svelte';
+  import { addWidget, available } from '../widgets/registry';
 
   let { close = () => {} }: { close?: () => void } = $props();
 </script>
 
 <h3>Add widget</h3>
 <div class="list">
-  {#each Object.values(widgets) as m (m.id)}
+  {#each available(profile().widgets) as m (m.id)}
     <button class="row" onclick={() => { addWidget(m.id); close(); }}>
       <span class="ico"><m.icon size={18} /></span>
       <span class="text">
@@ -16,6 +17,8 @@
       </span>
       <Plus size={16} />
     </button>
+  {:else}
+    <p class="dim">Every widget is already on your bar.</p>
   {/each}
 </div>
 

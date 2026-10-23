@@ -132,9 +132,17 @@ pub trait Radios: Send + Sync {
 #[serde(rename_all = "camelCase")]
 pub struct Battery { pub percent: u8, pub charging: bool, pub on_ac: bool, pub secs_left: Option<u32> }
 
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum PowerMode { Efficiency, Balanced, Performance }
+
 pub trait Power: Send + Sync {
     /// None on PCs without a battery.
     fn battery(&self) -> Option<Battery>;
+    fn power_mode(&self) -> Option<PowerMode>;
+    fn set_power_mode(&self, m: PowerMode) -> Res<()>;
+    /// Battery/energy saver on? None if unknown.
+    fn saver_on(&self) -> Option<bool>;
 }
 
 pub trait Gpu: Send + Sync {

@@ -148,6 +148,7 @@
 
   // ---- Widgets ----
   function onSlotClick(w: WidgetInst, el: HTMLElement) {
+    if (swallowClick) { swallowClick = false; return; } // the click that ended a long-press
     const m = widgets[w.id];
     if (!edit && m.Popup) openPopup(w.instance, el, m.Popup.width, m.Popup.height);
   }
@@ -155,8 +156,8 @@
   async function onContext(e: MouseEvent) {
     e.preventDefault();
     await showMenu([
-      { id: 'edit', text: edit ? 'Done editing' : 'Edit widgets', action: () => ipc.setEditMode(!edit) },
-      { id: 'settings', text: 'Settings…', action: () => ipc.openSettings() },
+      { id: 'bar:edit', text: edit ? 'Done editing' : 'Edit widgets', action: () => ipc.setEditMode(!edit) },
+      { id: 'bar:settings', text: 'Settings…', action: () => ipc.openSettings() },
     ]);
   }
 
@@ -169,8 +170,23 @@
     update((c) => { const t = c.profiles[c.activeProfile].widgets.find((x) => x.instance === w.instance); if (t) t.size = next; });
   };
 
+  // Press and hold any widget (~0.6 s) to start editing, like the iPhone home screen.
+  let holdTimer: ReturnType<typeof setTimeout>;
+  let swallowClick = false;
+  function startHold(e: PointerEvent) {
+    if (edit || e.button !== 0) return;
+    const x = e.clientX, y = e.clientY, el = e.currentTarget as HTMLElement;
+    const cancel = () => { clearTimeout(holdTimer); el.removeEventListener('pointerup', cancel); el.removeEventListener('pointerleave', cancel); el.removeEventListener('pointermove', moved); };
+    const moved = (m: PointerEvent) => { if (Math.hypot(m.clientX - x, m.clientY - y) > 6) cancel(); };
+    holdTimer = setTimeout(() => { cancel(); swallowClick = true; ipc.setEditMode(true); }, 600);
+    el.addEventListener('pointerup', cancel);
+    el.addEventListener('pointerleave', cancel);
+    el.addEventListener('pointermove', moved);
+  }
+
   // Edit-mode reorder: press a widget, slide it, release.
   function onSlotDown(e: PointerEvent, instance: string) {
+    startHold(e);
     if (!edit || e.button !== 0 || (e.target as HTMLElement).closest('.badge')) return;
     const el = e.currentTarget as HTMLElement;
     el.setPointerCapture(e.pointerId);
@@ -218,6 +234,7 @@
         tabindex="-1"
         animate:flip={{ duration: 280 }}
         onpointerdown={(e) => onSlotDown(e, w.instance)}
+        onclickcapture={(e) => { if (swallowClick) { swallowClick = false; e.stopPropagation(); e.preventDefault(); } }}
         onclick={(e) => onSlotClick(w, e.currentTarget as HTMLElement)}
       >
         <m.Pill instance={w.instance} size={vertical ? 'small' : w.size} settings={settingsOf(m, w)} {vertical} />

@@ -3,6 +3,7 @@
   import { ipc } from '../../lib/ipc';
   import type { PopupProps } from '../types';
   import { fmt, liveMedia, positionAt, toggle } from './media.svelte';
+  import Rhythm from './Rhythm.svelte';
 
   let {}: PopupProps = $props();
   const media = liveMedia();
@@ -27,7 +28,7 @@
   <div class="meta">
     <b class="ellipsis">{media.m.title || 'Unknown title'}</b>
     <span class="dim ellipsis">{[media.m.artist, media.m.album].filter(Boolean).join(' — ')}</span>
-    <span class="dim app">{media.m.app}</span>
+    <span class="dim app"><Rhythm playing={media.m.playing} /> {media.m.app}</span>
   </div>
   {#if media.m.durationMs > 0}
     <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->

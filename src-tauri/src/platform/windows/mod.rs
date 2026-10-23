@@ -4,6 +4,7 @@ mod audio;
 mod display;
 mod gpu;
 mod power;
+mod powermode;
 mod location;
 mod media;
 mod radios;
@@ -105,6 +106,9 @@ impl Location for WinLocation {
 
 impl Power for WinPower {
     fn battery(&self) -> Option<Battery> { power::battery() }
+    fn power_mode(&self) -> Option<PowerMode> { powermode::mode() }
+    fn set_power_mode(&self, m: PowerMode) -> Res<()> { powermode::set_mode(m) }
+    fn saver_on(&self) -> Option<bool> { powermode::saver_on() }
 }
 
 impl Gpu for WinGpu {

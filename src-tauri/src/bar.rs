@@ -276,17 +276,17 @@ fn tray_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
     let cfg = app.state::<AppState>().config.lock().unwrap().clone();
     let profiles = Submenu::with_id(app, "profiles", "Profiles", true)?;
     for name in cfg.profiles.keys() {
-        let item = CheckMenuItem::with_id(app, format!("profile:{name}"), name, true, *name == cfg.active_profile, None::<&str>)?;
+        let item = CheckMenuItem::with_id(app, format!("tray:profile:{name}"), name, true, *name == cfg.active_profile, None::<&str>)?;
         profiles.append(&item)?;
     }
     Menu::with_items(app, &[
-        &MenuItem::with_id(app, "settings", "Settings…", true, None::<&str>)?,
-        &MenuItem::with_id(app, "edit", "Edit widgets", true, None::<&str>)?,
+        &MenuItem::with_id(app, "tray:settings", "Settings…", true, None::<&str>)?,
+        &MenuItem::with_id(app, "tray:edit", "Edit widgets", true, None::<&str>)?,
         &profiles,
         &PredefinedMenuItem::separator(app)?,
-        &MenuItem::with_id(app, "restore", "Restore Windows taskbar", true, None::<&str>)?,
-        &MenuItem::with_id(app, "update", "Check for updates…", true, None::<&str>)?,
-        &MenuItem::with_id(app, "quit", "Quit GlassBar", true, None::<&str>)?,
+        &MenuItem::with_id(app, "tray:restore", "Restore Windows taskbar", true, None::<&str>)?,
+        &MenuItem::with_id(app, "tray:update", "Check for updates…", true, None::<&str>)?,
+        &MenuItem::with_id(app, "tray:quit", "Quit GlassBar", true, None::<&str>)?,
     ])
 }
 
@@ -304,7 +304,11 @@ pub fn refresh_tray(app: &AppHandle) {
     if let (Some(t), Ok(m)) = (app.tray_by_id("main"), tray_menu(app)) { let _ = t.set_menu(Some(m)); }
 }
 
+/// Tauri delivers every menu click (including the bar's right-click menus) to this
+/// handler, so tray items are namespaced and anything else is ignored. Without this,
+/// "Edit widgets" in the bar menu toggled edit mode on and straight back off.
 fn on_menu(app: &AppHandle, id: &str) {
+    let Some(id) = id.strip_prefix("tray:") else { return };
     let edit_cfg = |f: &dyn Fn(&mut Config)| {
         let mut c = app.state::<AppState>().config.lock().unwrap().clone();
         f(&mut c);

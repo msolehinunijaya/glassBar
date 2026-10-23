@@ -3,6 +3,7 @@
   import { ipc } from '../../lib/ipc';
   import type { PillProps } from '../types';
   import { liveMedia, toggle } from './media.svelte';
+  import Rhythm from './Rhythm.svelte';
 
   let { size, settings }: PillProps<{ showControls: boolean }> = $props();
   const media = liveMedia();
@@ -15,6 +16,7 @@
   {:else}
     <span class="noart"><Music size={14} /></span>
   {/if}
+  {#if media.m}<Rhythm playing={media.m.playing} />{/if}
   {#if size !== 'small'}
     <span class="meta">
       <span class="ellipsis t">{media.m?.title || 'Not playing'}</span>

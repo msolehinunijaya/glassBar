@@ -43,6 +43,8 @@ export interface IpuReading {
   nearby: [Station, number][]; place: Place | null; fetchedAt: number; offline: boolean; stations: [string, string][];
 }
 export interface Battery { percent: number; charging: boolean; onAc: boolean; secsLeft: number | null }
+export type PowerMode = 'efficiency' | 'balanced' | 'performance';
+export interface PowerInfo { mode: PowerMode | null; saverOn: boolean | null }
 export interface Sample { cpu: number; mem: number; gpu: number | null; rxBps: number; txBps: number; at: number }
 export interface ScreenToday { total: number; apps: { exe: string; name: string; seconds: number }[] }
 export type Sound = { kind: 'chime' } | { kind: 'azan'; src: string };
@@ -127,6 +129,8 @@ export const ipc = {
   // battery + system monitor
   batteryGet: () => invoke<Battery | null>('battery_get'),
   sysmonHistory: () => invoke<Sample[]>('sysmon_history'),
+  powerGet: () => invoke<PowerInfo>('power_get'),
+  powerSetMode: (mode: PowerMode) => invoke<void>('power_set_mode', { mode }),
   // screen time
   screentimeToday: () => invoke<ScreenToday>('screentime_today'),
   screentimeWeek: () => invoke<[string, number][]>('screentime_week'),
