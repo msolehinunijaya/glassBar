@@ -59,6 +59,7 @@ export interface MediaInfo {
   canNext: boolean; canPrev: boolean;
 }
 export interface RadioInfo { kind: 'wifi' | 'bluetooth' | 'other'; name: string; on: boolean }
+export interface Hotspot { on: boolean; ssid: string; clients: number; maxClients: number }
 export type DisplayMode = 'internal' | 'clone' | 'extend' | 'external';
 
 export const ipc = {
@@ -162,6 +163,8 @@ export const ipc = {
   radios: () => invoke<RadioInfo[]>('radios_list'),
   setRadio: (kind: RadioInfo['kind'], on: boolean) => invoke<void>('radio_set', { kind, on }),
   setAirplane: (on: boolean) => invoke<void>('airplane_set', { on }),
+  hotspotGet: () => invoke<Hotspot>('hotspot_get'),
+  hotspotSet: (on: boolean) => invoke<void>('hotspot_set', { on }),
   displayMode: () => invoke<DisplayMode | null>('display_mode'),
   setDisplayMode: (mode: DisplayMode) => invoke<void>('display_set_mode', { mode }),
   brightness: () => invoke<number | null>('brightness_get'),

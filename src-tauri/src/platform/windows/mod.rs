@@ -3,6 +3,7 @@ mod appbar;
 mod audio;
 mod display;
 mod gpu;
+mod hotspot;
 mod power;
 mod powermode;
 mod location;
@@ -103,6 +104,8 @@ impl Media for WinMedia {
 impl Radios for WinRadios {
     fn list(&self) -> Res<Vec<RadioInfo>> { radios::list() }
     fn set(&self, kind: Option<RadioKind>, on: bool) -> Res<()> { radios::set(kind, on) }
+    fn hotspot(&self) -> Res<Hotspot> { hotspot::state() }
+    fn set_hotspot(&self, on: bool) -> Res<()> { hotspot::set(on) }
 }
 
 impl Display for WinDisplay {

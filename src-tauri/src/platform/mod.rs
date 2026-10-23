@@ -134,7 +134,14 @@ pub trait Media: Send + Sync {
 pub trait Radios: Send + Sync {
     fn list(&self) -> Res<Vec<RadioInfo>>;
     fn set(&self, kind: Option<RadioKind>, on: bool) -> Res<()>;
+    /// Mobile hotspot; Err(reason) when this PC/connection can't host one.
+    fn hotspot(&self) -> Res<Hotspot>;
+    fn set_hotspot(&self, on: bool) -> Res<()>;
 }
+
+#[derive(Serialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct Hotspot { pub on: bool, pub ssid: String, pub clients: u32, pub max_clients: u32 }
 
 #[derive(Serialize, Clone, Copy, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]

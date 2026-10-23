@@ -1,5 +1,5 @@
 use super::blocking;
-use crate::platform::{display, radios, DisplayMode, RadioInfo, RadioKind, Res};
+use crate::platform::{display, radios, DisplayMode, Hotspot, RadioInfo, RadioKind, Res};
 
 #[tauri::command]
 pub async fn radios_list() -> Res<Vec<RadioInfo>> { blocking(move || radios().list()).await? }
@@ -16,3 +16,8 @@ pub async fn display_set_mode(mode: DisplayMode) -> Res<()> { blocking(move || d
 pub async fn brightness_get() -> Option<u32> { blocking(move || display().brightness()).await.ok().flatten() }
 #[tauri::command]
 pub async fn brightness_set(value: u32) -> Res<()> { blocking(move || display().set_brightness(value)).await? }
+
+#[tauri::command]
+pub async fn hotspot_get() -> Res<Hotspot> { blocking(move || radios().hotspot()).await? }
+#[tauri::command]
+pub async fn hotspot_set(on: bool) -> Res<()> { blocking(move || radios().set_hotspot(on)).await? }

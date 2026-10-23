@@ -66,6 +66,8 @@ features = [
   "Media_Control",
   "Devices_Radios",
   "Devices_Geolocation",
+  "Networking_Connectivity",
+  "Networking_NetworkOperators",
   "System_Power",
   "Storage_Streams",
 ]

@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { Bluetooth, Monitor, Plane, Sun, Wifi } from '@lucide/svelte';
-  import { ipc, type DisplayMode, type RadioInfo } from '../../lib/ipc';
+  import { Bluetooth, Monitor, Plane, RadioTower, Sun, Wifi } from '@lucide/svelte';
+  import { ipc, type DisplayMode, type Hotspot, type RadioInfo } from '../../lib/ipc';
   import type { PopupProps } from '../types';
 
   let {}: PopupProps = $props();
@@ -9,6 +9,10 @@
   let brightness = $state<number | null>(null);
   let error = $state('');
   let busy = $state(false);
+  // Hotspot: real state from Windows, or the reason it can't be used (never a fake toggle).
+  let hotspot = $state<Hotspot | null>(null);
+  let hotspotWhy = $state('');
+  const loadHotspot = () => ipc.hotspotGet().then((h) => { hotspot = h; hotspotWhy = ''; }).catch((e) => { hotspot = null; hotspotWhy = String(e); });
 
   const find = (k: RadioInfo['kind']) => radios.find((r) => r.kind === k);
   const airplane = $derived(radios.length > 0 && radios.every((r) => !r.on));
@@ -17,6 +21,7 @@
   const loadRadios = () => ipc.radios().then((r) => { radios = r; }).catch((e) => (error = String(e)));
   $effect(() => {
     loadRadios();
+    loadHotspot();
     ipc.displayMode().then((m) => (mode = m));
     ipc.brightness().then((b) => (brightness = b));
   });
@@ -26,6 +31,7 @@
     error = '';
     try { await f(); } catch (e) { error = String(e); }
     await loadRadios();
+    await loadHotspot();
     busy = false;
   }
 
@@ -53,6 +59,14 @@
     <span>Airplane</span>
     <span class="state">{airplane ? 'All radios off' : 'Off'}</span>
   </button>
+  <button class="tile" class:on={hotspot?.on} disabled={!hotspot || busy} onclick={() => run(() => ipc.hotspotSet(!hotspot!.on))}
+          title={hotspotWhy || (hotspot?.ssid ? `Network: ${hotspot.ssid}` : 'Mobile hotspot')}>
+    <RadioTower size={18} />
+    <span>Hotspot</span>
+    <span class="state">
+      {#if !hotspot}Unavailable{:else if hotspot.on}On · {hotspot.clients}/{hotspot.maxClients} devices{:else}Off{/if}
+    </span>
+  </button>
 </div>
 
 <h4 class="dim"><Monitor size={13} /> Display</h4>
@@ -70,12 +84,13 @@
   <p class="dim small">This monitor does not support brightness control (DDC/CI off or not available).</p>
 {/if}
 
+{#if hotspotWhy}<p class="dim small">Hotspot: {hotspotWhy}</p>{/if}
 {#if error}<p class="err">{error}</p>{/if}
 
 <style>
   h3 { margin: 0 0 10px; font-size: 15px; font-weight: 600; }
   h4 { display: flex; align-items: center; gap: 6px; margin: 14px 2px 6px; font-size: 12px; font-weight: 500; }
-  .tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .tiles { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
   .tile span { font-size: 12px; font-weight: 500; }
   .tile .state { font-size: 10px; font-weight: 400; opacity: 0.75; }
   .seg { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; padding: 3px; border-radius: 12px; background: var(--pill); }

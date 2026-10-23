@@ -175,6 +175,7 @@ fn main() {
             widgets::quick::radios_list, widgets::quick::radio_set, widgets::quick::airplane_set,
             widgets::quick::display_mode, widgets::quick::display_set_mode,
             widgets::quick::brightness_get, widgets::quick::brightness_set,
+            widgets::quick::hotspot_get, widgets::quick::hotspot_set,
         ])
         .build(tauri::generate_context!())
         .expect("error while building GlassBar")
