@@ -207,7 +207,13 @@ pub fn window_icon(id: isize) -> Option<String> {
     aumid_of(pid).and_then(|a| package_icon(&a)).or_else(|| hwnd_icon(w)).map(data_url)
 }
 
-/// For an ApplicationFrameHost window, the pid of the app it hosts (its CoreWindow child).
+/// Frame window -> the app process it hosted the last time we could see it.
+static HOSTED: Mutex<Option<HashMap<isize, u32>>> = Mutex::new(None);
+
+/// For an ApplicationFrameHost window, the pid of the app it hosts (its CoreWindow).
+/// Open: the CoreWindow is a child of the frame. Minimised: Windows detaches it into a
+/// top-level CoreWindow with the same title, so look for that, then for the last match.
+/// Without this a minimised Settings/Calculator window showed up as some other app.
 fn hosted_pid(w: HWND, pid: u32) -> u32 {
     if !exe_path(pid).to_lowercase().ends_with("\\applicationframehost.exe") { return pid; }
     unsafe extern "system" fn each(c: HWND, out: LPARAM) -> BOOL {
@@ -218,7 +224,28 @@ fn hosted_pid(w: HWND, pid: u32) -> u32 {
     }
     let mut st = (pid, 0u32);
     unsafe { let _ = EnumChildWindows(Some(w), Some(each), LPARAM(&mut st as *mut _ as isize)); }
-    if st.1 != 0 { st.1 } else { pid }
+    let found = (st.1 != 0).then_some(st.1).or_else(|| detached_core_pid(w, pid));
+    let mut cache = HOSTED.lock().unwrap();
+    let map = cache.get_or_insert_with(HashMap::new);
+    match found {
+        Some(p) => { map.insert(w.0 as isize, p); p }
+        None => map.get(&(w.0 as isize)).copied().filter(|&p| !exe_path(p).is_empty()).unwrap_or(pid),
+    }
+}
+
+/// A top-level CoreWindow from another process with the frame's title (a minimised Store app).
+fn detached_core_pid(frame: HWND, host: u32) -> Option<u32> {
+    let title = title_of(frame);
+    if title.is_empty() { return None; }
+    let class = wide("Windows.UI.Core.CoreWindow");
+    let mut after: Option<HWND> = None;
+    for _ in 0..64 {
+        let c = unsafe { FindWindowExW(None, after, PCWSTR(class.as_ptr()), PCWSTR::null()) }.ok()?;
+        let p = pid_of(c);
+        if p != host && title_of(c) == title { return Some(p); }
+        after = Some(c);
+    }
+    None
 }
 
 /// AppUserModelID of a packaged process, None for normal programs.
