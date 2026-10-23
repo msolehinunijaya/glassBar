@@ -4,6 +4,7 @@
   import { Camera, ClipboardList, ScanText, Video } from '@lucide/svelte';
   import { flip } from 'svelte/animate';
   import { updateWidgetSettings } from '../../lib/config.svelte';
+  import { ipc } from '../../lib/ipc';
   import { insertIndex } from '../../lib/geometry';
   import { showMenu } from '../../lib/menu';
   import type { PillProps } from '../types';
@@ -12,11 +13,14 @@
   import { hotkeyLabel } from './hotkey';
 
   let { instance, settings, vertical }: PillProps<OcrSettings> = $props();
+  // The hotkey actually registered (the default may have fallen back to Ctrl+Alt+T).
+  let activeKey = $state('');
+  $effect(() => { settings.hotkey; ipc.ocrHotkeyStatus().then((s) => (activeKey = s.hotkey)).catch(() => {}); });
   const ALL: CaptureTab[] = ['shot', 'record', 'ocr', 'clip'];
   const meta = $derived({
     shot: { icon: Camera, label: 'Screenshot' },
     record: { icon: Video, label: 'Screen recording' },
-    ocr: { icon: ScanText, label: `OCR Snap (${hotkeyLabel(settings.hotkey)})` },
+    ocr: { icon: ScanText, label: `OCR Snap (${hotkeyLabel(activeKey || settings.hotkey)})` },
     clip: { icon: ClipboardList, label: 'Clipboard history' },
   } as const);
   // Saved order, plus any tab the saved order doesn't know yet.

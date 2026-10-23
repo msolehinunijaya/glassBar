@@ -60,7 +60,7 @@
       events.captureDone((d) => {
         if (d.kind === 'shot') shutter(); else if (d.kind === 'ocr') tick();
         const el = document.querySelector('.capture-pill') ?? scroller;
-        const h = d.kind === 'shot' ? 226 : d.kind === 'ocr' ? 172 : 104;
+        const h = d.kind === 'shot' ? 208 : d.kind === 'ocr' ? 168 : 100;
         setTimeout(() => ipc.popupOpen('__feedback', el.getBoundingClientRect(), 300, h, false), 60);
       }),
       events.soundPlay((s) => (s.kind === 'azan' ? playFile(s.src) : s.kind === 'connect' || s.kind === 'disconnect' ? deviceTone(s.kind === 'connect', s.volume) : s.kind === 'plug' || s.kind === 'unplug' ? chargerTone(s.kind === 'plug', s.volume) : chime())),

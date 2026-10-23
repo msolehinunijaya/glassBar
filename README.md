@@ -33,7 +33,8 @@ The bar can dock to any edge or float. You can drag it, resize it, and edit it i
 - **IPU (Air Quality):** live Air Pollutant Index from the nearest JAS/DOE station, with haze alerts.
 
 **OCR & AI**
-- **Capture** (Screenshot | Recording | OCR Snap): screenshots of the full screen, an area, a window, or a whole scrolling page (it scrolls the window and stitches the page), copied to the clipboard automatically and kept in a history (copy, open, discard) that cleans itself after 1–30 days. Recording starts Windows' own recorders (Snipping Tool for an area, Game Bar for an app).
+- **Capture** (four dock buttons, reorderable: Screenshot | Recording | OCR Snap | Clipboard). After each snap a card by the dock shows what was copied. Clipboard history keeps your last 200 copies (text and images; passwords from password managers are skipped).
+  Screenshot | Recording | OCR Snap: screenshots of the full screen, an area, a window, or a whole scrolling page (it scrolls the window and stitches the page), copied to the clipboard automatically and kept in a history (copy, open, discard) that cleans itself after 1–30 days. Recording starts Windows' own recorders (Snipping Tool for an area, Game Bar for an app).
 - **OCR Snap:** press **Win+Shift+T** (changeable), drag a box over anything on screen, and the text is on your clipboard. The screen is frozen while you select, so video text can't move. Modes: Text, Code (keeps indentation) and Terminal (drops shell prompts). Engine: Windows OCR (offline, default) or Claude (sends the selection to Anthropic). Keeps the last 200 captures.
 - **AI Usage:** ask Claude a quick question from the bar, and see tokens used today and this month (as reported by Anthropic). Your API key is stored in Windows Credential Manager, never in GlassBar's files.
 
