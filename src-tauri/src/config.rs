@@ -187,6 +187,12 @@ impl Config {
                 }
                 p.widgets.retain(|w| w.id != "disk");
             }
+            // The music "Mini" (two buttons) was replaced by the full Player as the compact look.
+            for p in self.profiles.values_mut() {
+                for w in p.widgets.iter_mut().filter(|w| w.id == "music" && w.settings["style"] == "mini") {
+                    w.settings["style"] = "player".into();
+                }
+            }
         }
         self.version = CURRENT_VERSION;
         if self.profiles.is_empty() {

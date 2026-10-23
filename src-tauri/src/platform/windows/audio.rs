@@ -158,3 +158,13 @@ pub fn watch(on_change: Box<dyn Fn(AudioState) + Send>) {
         }
     });
 }
+
+/// Live output level 0..1 of the default speakers (Windows' own peak meter, the one the
+/// volume mixer shows). Cheap: no audio is captured.
+pub fn peak() -> Option<f32> {
+    com_init();
+    unsafe {
+        let m: windows::Win32::Media::Audio::Endpoints::IAudioMeterInformation = default_device().ok()?.Activate(CLSCTX_ALL, None).ok()?;
+        m.GetPeakValue().ok()
+    }
+}

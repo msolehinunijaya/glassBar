@@ -101,15 +101,19 @@
     return () => { off.then((f) => f()); };
   });
 
-  // Fetch each program's icon once.
-  const requested = new Set<string>();
+  // Fetch each program's real icon (Store icon, program file, or window). If none was found
+  // yet (e.g. a window still starting), ask again when the window list changes, at most
+  // every 5 s, instead of settling for the letter placeholder.
+  const asked = new Map<string, number>();
   $effect(() => {
+    const now = Date.now();
     for (const g of groups) {
-      if (requested.has(g.key)) continue;
-      requested.add(g.key);
-      ipc.appIcon(g.path, g.windows[0]?.id ?? null).then((src) => (icons[g.key] = src));
+      if (icons[g.key] || now - (asked.get(g.key) ?? -Infinity) < 5000) continue;
+      asked.set(g.key, now);
+      ipc.appIcon(g.path, g.windows[0]?.id ?? null, g.aumid ?? null).then((src) => { if (src) icons[g.key] = src; });
     }
   });
+  const launch = (g: Group, args = g.pin?.args ?? '') => ipc.appLaunch(g.path, args, g.aumid ?? null);
 
   // Hovering a running app shows live previews of its windows (without taking keyboard focus).
   let hoverTimer: ReturnType<typeof setTimeout>;
@@ -136,7 +140,7 @@
     if (swallow) { swallow = false; return; } // the click that ended a drag
     const w = nextWindow(g);
     if (w) ipc.appActivate(w.id);
-    else ipc.appLaunch(g.path, g.pin?.args ?? '').catch(() => {
+    else launch(g).catch(() => {
       failed = g.key;
       setTimeout(() => { if (failed === g.key) failed = null; }, 4000);
     });
@@ -148,10 +152,10 @@
     e.preventDefault();
     e.stopPropagation();
     const items: ({ text: string; action: () => unknown } | PredefinedMenuItem)[] = [
-      { text: 'New window', action: () => ipc.appLaunch(g.path, g.pin?.args ?? '') },
+      { text: 'New window', action: () => launch(g) },
       g.pin
         ? { text: 'Unpin', action: () => setPins(settings.pinned.filter((p) => keyOf(p.path) !== g.key)) }
-        : { text: 'Pin to bar', action: () => setPins([...settings.pinned, { path: g.path }]) },
+        : { text: 'Pin to bar', action: () => setPins([...settings.pinned, { path: g.path, aumid: g.aumid }]) },
     ];
     const i = groups.indexOf(g);
     if (i > 0) items.push({ text: vertical ? 'Move up' : 'Move left', action: () => nudge(g, -1) });
@@ -195,7 +199,7 @@
         : g.windows.length ? g.windows.map((w) => w.title).join('\n') : `${g.name} (pinned)`}
       onpointerdown={(e) => onDown(e, g)}
       onclick={(e) => { e.stopPropagation(); open(g); }}
-      onauxclick={(e) => { if (e.button === 1) ipc.appLaunch(g.path, g.pin?.args ?? ''); }}
+      onauxclick={(e) => { if (e.button === 1) launch(g); }}
       oncontextmenu={(e) => menu(e, g)}
       onpointerenter={(e) => onHover(e, g)}
       onpointerleave={onUnhover}

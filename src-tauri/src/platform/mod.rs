@@ -11,7 +11,9 @@ pub struct Rect { pub x: i32, pub y: i32, pub w: i32, pub h: i32 }
 
 #[derive(Serialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
-pub struct AppWindow { pub id: isize, pub title: String, pub exe: String, pub active: bool, pub minimized: bool }
+pub struct AppWindow { pub id: isize, pub title: String, pub exe: String, pub active: bool, pub minimized: bool,
+    /// Store/packaged app identity (launch via shell:AppsFolder), None for normal programs.
+    pub aumid: Option<String> }
 
 #[derive(Serialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -115,6 +117,11 @@ pub trait Shell: Send + Sync {
     fn activate(&self, id: isize);
     fn close(&self, id: isize);
     fn launch(&self, path: &str, args: &str) -> Res<()>;
+    /// Start a Store/packaged app by its AppUserModelID, the way the Start menu does.
+    fn launch_aumid(&self, aumid: &str) -> Res<()>;
+    /// AppUserModelID for a program file inside C:\\Program Files\\WindowsApps (any version).
+    fn aumid_for_path(&self, path: &str) -> Option<String>;
+    fn aumid_icon(&self, aumid: &str) -> Option<String>;
     /// PNG data: URL for an executable's icon.
     fn exe_icon(&self, exe: &str) -> Option<String>;
     /// (target, args) of a .lnk shortcut; None if it has no file target.
@@ -134,6 +141,8 @@ pub trait Audio: Send + Sync {
     fn set_session_volume(&self, pid: u32, v: f32) -> Res<()>;
     fn set_session_mute(&self, pid: u32, m: bool) -> Res<()>;
     fn watch(&self, on_change: Box<dyn Fn(AudioState) + Send>);
+    /// Current output peak level 0..1 (None if no output device).
+    fn peak(&self) -> Option<f32>;
 }
 
 pub trait Media: Send + Sync {

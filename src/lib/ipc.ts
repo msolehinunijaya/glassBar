@@ -59,7 +59,7 @@ export interface DiskInfo { mount: string; label: string; total: number; availab
 export interface ScreenToday { total: number; apps: { exe: string; name: string; seconds: number }[] }
 export type Sound = { kind: 'chime' } | { kind: 'azan'; src: string } | { kind: 'connect' | 'disconnect' | 'plug' | 'unplug'; volume: number };
 
-export interface AppWindow { id: number; title: string; exe: string; active: boolean; minimized: boolean }
+export interface AppWindow { id: number; title: string; exe: string; active: boolean; minimized: boolean; aumid?: string | null }
 export interface AudioDevice { id: string; name: string; isDefault: boolean }
 export interface AudioSession { pid: number; name: string; exe: string; volume: number; muted: boolean }
 export interface AudioState { volume: number; muted: boolean; devices: AudioDevice[] }
@@ -153,10 +153,10 @@ export const ipc = {
   windowsSearch: () => invoke<void>('windows_search'),
   // apps
   appsList: () => invoke<AppWindow[]>('apps_list'),
-  appIcon: (exe: string, window: number | null = null) => invoke<string | null>('app_icon', { exe, window }),
+  appIcon: (exe: string, window: number | null = null, aumid: string | null = null) => invoke<string | null>('app_icon', { exe, window, aumid }),
   appActivate: (id: number) => invoke<void>('app_activate', { id }),
   appClose: (id: number) => invoke<void>('app_close', { id }),
-  appLaunch: (path: string, args = '') => invoke<void>('app_launch', { path, args }),
+  appLaunch: (path: string, args = '', aumid: string | null = null) => invoke<void>('app_launch', { path, args, aumid }),
   jumplist: (exe: string) => invoke<{ name: string; path: string }[]>('jumplist', { exe }),
   // audio
   audioState: () => invoke<AudioState>('audio_state'),
@@ -201,6 +201,8 @@ export const ipc = {
   btPair: (id: string) => invoke<void>('bt_pair', { id }),
   btUnpair: (id: string) => invoke<void>('bt_unpair', { id }),
   openSettingsUri: (uri: string) => invoke<void>('open_settings_uri', { uri }),
+  /** Keep the live output-level meter running ~3 s more (the music visualizer calls this every 2 s). */
+  audioMeter: () => invoke<void>('audio_meter'),
   trayIcons: () => invoke<TrayIcon[]>('tray_icons'),
   trayClick: (id: string, button: 'left' | 'right' | 'double') => invoke<boolean>('tray_click', { id, button }),
   langList: () => invoke<KeyboardLayout[]>('lang_list'),

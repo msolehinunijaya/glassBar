@@ -57,3 +57,16 @@ describe('reorder', () => {
     expect(pinsInOrder(pins, ['c.exe', 'zz.exe', 'a.exe']).map((p) => p.path)).toEqual(['C.exe', 'A.exe', 'B.exe']);
   });
 });
+
+import { keyOf as k } from './groups';
+describe('store apps', () => {
+  it('treat every version of a Store app as the same program', () => {
+    expect(k('C:\\Program Files\\WindowsApps\\SpotifyAB.SpotifyMusic_1.306.1921.0_x64__zpdnekdrzrea0\\Spotify.exe'))
+      .toBe(k('C:\\Program Files\\WindowsApps\\SpotifyAB.SpotifyMusic_1.400.0.0_x64__zpdnekdrzrea0\\Spotify.exe'));
+    expect(k('C:\\Apps\\Code.exe')).toBe('c:\\apps\\code.exe');
+  });
+  it('carries the app identity from the pin or a running window', () => {
+    const g = group([{ path: 'C:\\x\\a.exe', aumid: 'A!App' }], [{ id: 1, title: '', exe: 'C:\\y\\b.exe', active: false, minimized: false, aumid: 'B!App' }]);
+    expect(g.map((x) => x.aumid)).toEqual(['A!App', 'B!App']);
+  });
+});

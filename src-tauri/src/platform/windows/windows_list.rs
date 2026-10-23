@@ -90,13 +90,17 @@ pub fn list() -> Vec<AppWindow> {
         .filter(|&w| is_taskbar_window(w))
         .filter_map(|w| {
             let pid = pid_of(w);
-            (pid != me).then(|| AppWindow {
+            if pid == me { return None; }
+            // Store-style apps (Settings, Calculator…) live inside ApplicationFrameHost:
+            // report the hosted app, so it gets its own icon and identity.
+            let pid = hosted_pid(w, pid);
+            Some(AppWindow {
                 id: w.0 as isize,
                 title: title_of(w),
-                // ponytail: UWP apps report ApplicationFrameHost.exe; resolve the hosted app if it matters.
                 exe: exe_path(pid),
                 active: w.0 as isize == fg,
                 minimized: unsafe { IsIconic(w).as_bool() },
+                aumid: aumid_of(pid),
             })
         })
         .collect()
@@ -199,21 +203,44 @@ fn extract(exe: &str, size: u32) -> Option<String> {
 /// app's registered icon by its AppUserModelID; otherwise use the window's own icon.
 pub fn window_icon(id: isize) -> Option<String> {
     let w = h(id);
-    package_icon(pid_of(w)).or_else(|| hwnd_icon(w)).map(data_url)
+    let pid = hosted_pid(w, pid_of(w));
+    aumid_of(pid).and_then(|a| package_icon(&a)).or_else(|| hwnd_icon(w)).map(data_url)
 }
 
-fn package_icon(pid: u32) -> Option<Vec<u8>> {
-    use windows::Win32::Foundation::{ERROR_SUCCESS, SIZE};
+/// For an ApplicationFrameHost window, the pid of the app it hosts (its CoreWindow child).
+fn hosted_pid(w: HWND, pid: u32) -> u32 {
+    if !exe_path(pid).to_lowercase().ends_with("\\applicationframehost.exe") { return pid; }
+    unsafe extern "system" fn each(c: HWND, out: LPARAM) -> BOOL {
+        let st = unsafe { &mut *(out.0 as *mut (u32, u32)) };
+        let p = pid_of(c);
+        if p != st.0 { st.1 = p; return false.into(); }
+        true.into()
+    }
+    let mut st = (pid, 0u32);
+    unsafe { let _ = EnumChildWindows(Some(w), Some(each), LPARAM(&mut st as *mut _ as isize)); }
+    if st.1 != 0 { st.1 } else { pid }
+}
+
+/// AppUserModelID of a packaged process, None for normal programs.
+pub(crate) fn aumid_of(pid: u32) -> Option<String> {
+    use windows::Win32::Foundation::ERROR_SUCCESS;
     use windows::Win32::Storage::Packaging::Appx::GetApplicationUserModelId;
-    use windows::Win32::UI::Shell::{IShellItemImageFactory, SHCreateItemFromParsingName, SIIGBF_ICONONLY};
     unsafe {
         let proc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid).ok()?;
         let mut buf = [0u16; 512];
         let mut len = buf.len() as u32;
         let r = GetApplicationUserModelId(proc, &mut len, Some(PWSTR(buf.as_mut_ptr())));
         let _ = CloseHandle(proc);
-        if r != ERROR_SUCCESS || len < 2 { return None; } // not a packaged app
-        let aumid = String::from_utf16_lossy(&buf[..len as usize - 1]);
+        (r == ERROR_SUCCESS && len >= 2).then(|| String::from_utf16_lossy(&buf[..len as usize - 1]))
+    }
+}
+
+pub fn aumid_icon(aumid: &str) -> Option<String> { package_icon(aumid).map(data_url) }
+
+fn package_icon(aumid: &str) -> Option<Vec<u8>> {
+    use windows::Win32::Foundation::SIZE;
+    use windows::Win32::UI::Shell::{IShellItemImageFactory, SHCreateItemFromParsingName, SIIGBF_ICONONLY};
+    unsafe {
         super::com_init();
         let path = wide(&format!("shell:AppsFolder\\{aumid}"));
         let factory: IShellItemImageFactory = SHCreateItemFromParsingName(PCWSTR(path.as_ptr()), None).ok()?;

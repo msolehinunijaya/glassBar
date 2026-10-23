@@ -6,6 +6,7 @@ mod gpu;
 mod hotspot;
 mod lang;
 mod power;
+mod packages;
 mod powermode;
 mod promoted;
 mod location;
@@ -111,6 +112,9 @@ impl Shell for WinShell {
     fn activate(&self, id: isize) { windows_list::activate(id) }
     fn close(&self, id: isize) { windows_list::close(id) }
     fn launch(&self, path: &str, args: &str) -> Res<()> { windows_list::launch(path, args) }
+    fn launch_aumid(&self, aumid: &str) -> Res<()> { windows_list::launch(&format!("shell:AppsFolder\\{aumid}"), "") }
+    fn aumid_for_path(&self, path: &str) -> Option<String> { packages::aumid_for_path(path) }
+    fn aumid_icon(&self, aumid: &str) -> Option<String> { windows_list::aumid_icon(aumid) }
     fn resolve_shortcut(&self, lnk: &str) -> Option<(String, String)> { shortcuts::resolve(lnk) }
     fn installed_apps(&self) -> Vec<InstalledApp> { shortcuts::installed() }
     fn exe_icon(&self, exe: &str) -> Option<String> { windows_list::exe_icon(exe) }
@@ -126,6 +130,7 @@ impl Audio for WinAudio {
     fn set_session_volume(&self, pid: u32, v: f32) -> Res<()> { audio::set_session_volume(pid, v) }
     fn set_session_mute(&self, pid: u32, m: bool) -> Res<()> { audio::set_session_mute(pid, m) }
     fn watch(&self, f: Box<dyn Fn(AudioState) + Send>) { audio::watch(f) }
+    fn peak(&self) -> Option<f32> { audio::peak() }
 }
 
 impl Media for WinMedia {

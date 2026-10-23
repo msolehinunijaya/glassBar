@@ -3,7 +3,11 @@ import { defineWidget } from '../types';
 import Pill from './Pill.svelte';
 import Popup from './Popup.svelte';
 
-export interface MusicSettings { showControls: boolean; style: 'classic' | 'mini'; showProgress: boolean }
+export interface MusicSettings {
+  showControls: boolean; style: 'player' | 'classic' | 'mini'; showProgress: boolean;
+  /** Live level visualizer in the Player design, and its width in px (adjustable). */
+  showViz: boolean; vizWidth: number;
+}
 
 export default defineWidget<MusicSettings>({
   id: 'music',
@@ -12,7 +16,7 @@ export default defineWidget<MusicSettings>({
   icon: Music,
   sizes: ['small', 'medium', 'large'],
   defaultSize: 'medium',
-  defaults: { showControls: true, style: 'classic', showProgress: true },
+  defaults: { showControls: true, style: 'player', showProgress: true, showViz: true, vizWidth: 64 },
   Pill,
-  Popup: { component: Popup, width: 320, height: 470 },
+  Popup: { component: Popup, width: 320, height: 560 },
 });

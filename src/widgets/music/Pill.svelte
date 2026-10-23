@@ -1,5 +1,5 @@
 <script lang="ts">
-  // Two designs (classic / mini) sharing a song-progress background: a soft fill
+  // Player (default, see PlayerPill), Classic and Mini. Classic/Mini share a song-progress background: a soft fill
   // grows left → right with the song, pulses in the last 10 s, and hides for live streams.
   import { Music, Pause, Play, SkipBack, SkipForward } from '@lucide/svelte';
   import { ipc } from '../../lib/ipc';
@@ -9,6 +9,7 @@
   import { liveMedia, toggle } from './media.svelte';
   import { songProgress } from './progress';
   import Rhythm from './Rhythm.svelte';
+  import PlayerPill from './PlayerPill.svelte';
 
   let { size, settings, vertical }: PillProps<MusicSettings> = $props();
   const media = liveMedia();
@@ -19,6 +20,9 @@
   const down = (e: PointerEvent) => e.stopPropagation(); // buttons must not start edit mode
 </script>
 
+{#if settings.style === 'player'}
+  <PlayerPill {size} {settings} {vertical} />
+{:else}
 <div class="pill music" class:mini={settings.style === 'mini'} class:vertical title={media.m ? `${media.m.title} — ${media.m.artist}` : 'Nothing playing'}>
   {#if prog}
     {#key track}
@@ -56,6 +60,7 @@
     {/if}
   {/if}
 </div>
+{/if}
 
 <style>
   .music { position: relative; overflow: hidden; padding: 0 6px; gap: 8px; }

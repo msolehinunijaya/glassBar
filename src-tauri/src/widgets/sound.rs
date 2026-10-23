@@ -98,3 +98,29 @@ mod charger_tests {
         assert_eq!(charger_flip(Some(true), None), None, "no battery info");
     }
 }
+
+// ---- Live level for the music visualizer ----
+// The page calls `audio_meter` every ~2 s while a visualizer is on screen and music plays.
+// The meter thread emits "audio:peak" ~25 times a second and goes idle 3 s after the
+// last call, so a closed panel or reloaded page can never leave it running.
+
+static METER_LEASE: std::sync::atomic::AtomicI64 = std::sync::atomic::AtomicI64::new(0);
+static METER_STARTED: std::sync::Once = std::sync::Once::new();
+
+#[tauri::command]
+pub fn audio_meter(app: tauri::AppHandle) {
+    METER_LEASE.store(crate::db::now_ms(), std::sync::atomic::Ordering::Relaxed);
+    METER_STARTED.call_once(|| {
+        std::thread::spawn(move || {
+            use tauri::Emitter;
+            loop {
+                let live = crate::db::now_ms() - METER_LEASE.load(std::sync::atomic::Ordering::Relaxed) < 3000;
+                if !live { std::thread::sleep(std::time::Duration::from_millis(300)); continue; }
+                // ponytail: re-activates the meter each tick (follows device switches for free; ~µs cost).
+                let p = crate::platform::audio().peak().unwrap_or(0.0);
+                let _ = app.emit("audio:peak", p);
+                std::thread::sleep(std::time::Duration::from_millis(40));
+            }
+        });
+    });
+}

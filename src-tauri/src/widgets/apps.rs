@@ -34,14 +34,24 @@ pub async fn app_browse(app: AppHandle) -> Result<Option<PinTarget>, String> {
 pub async fn apps_installed() -> Vec<InstalledApp> { blocking(|| shell().installed_apps()).await.unwrap_or_default() }
 
 /// Which of these paths still exist (pinned apps that were uninstalled show as missing).
+/// A Store app whose versioned folder vanished after an update still counts while installed.
 #[tauri::command]
-pub fn paths_exist(paths: Vec<String>) -> Vec<bool> { paths.iter().map(|p| std::path::Path::new(p).exists()).collect() }
+pub async fn paths_exist(paths: Vec<String>) -> Vec<bool> {
+    blocking(move || paths.iter().map(|p| std::path::Path::new(p).exists() || shell().aumid_for_path(p).is_some()).collect()).await.unwrap_or_default()
+}
 
 #[tauri::command]
 pub async fn apps_list() -> Vec<AppWindow> { blocking(move || shell().list_windows()).await.unwrap_or_default() }
+/// Real app icon: the Store package's own icon for packaged apps (also when only a
+/// WindowsApps path is known), else the program file's icon, else the window's.
 #[tauri::command]
-pub async fn app_icon(exe: String, window: Option<isize>) -> Option<String> {
-    blocking(move || shell().exe_icon(&exe).or_else(|| window.and_then(|w| shell().window_icon(w)))).await.ok().flatten()
+pub async fn app_icon(exe: String, window: Option<isize>, aumid: Option<String>) -> Option<String> {
+    blocking(move || {
+        let aumid = aumid.or_else(|| shell().aumid_for_path(&exe));
+        aumid.and_then(|a| shell().aumid_icon(&a))
+            .or_else(|| shell().exe_icon(&exe))
+            .or_else(|| window.and_then(|w| shell().window_icon(w)))
+    }).await.ok().flatten()
 }
 const VK_LWIN: u16 = 0x5B;
 
@@ -57,5 +67,12 @@ pub fn windows_search() { shell().press_keys(&[VK_LWIN, b'S' as u16]) }
 pub async fn app_activate(id: isize) { let _ = blocking(move || shell().activate(id)).await; }
 #[tauri::command]
 pub async fn app_close(id: isize) { let _ = blocking(move || shell().close(id)).await; }
+/// Store apps start through their app identity (Windows refuses their .exe in WindowsApps);
+/// everything else through the shell, like double-clicking it.
 #[tauri::command]
-pub async fn app_launch(path: String, args: String) -> Res<()> { blocking(move || shell().launch(&path, &args)).await? }
+pub async fn app_launch(path: String, args: String, aumid: Option<String>) -> Res<()> {
+    blocking(move || match aumid.filter(|a| !a.is_empty()).or_else(|| shell().aumid_for_path(&path)) {
+        Some(a) => shell().launch_aumid(&a),
+        None => shell().launch(&path, &args),
+    }).await?
+}

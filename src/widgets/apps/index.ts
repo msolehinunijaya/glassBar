@@ -3,7 +3,8 @@ import { defineWidget } from '../types';
 import Pill from './Pill.svelte';
 import SettingsForm from './SettingsForm.svelte';
 
-export interface Pin { path: string; args?: string }
+/** aumid: Store-app identity (Store apps can only be started through it). */
+export interface Pin { path: string; args?: string; aumid?: string }
 export interface AppsSettings {
   pinned: Pin[];
   showTitles: boolean;

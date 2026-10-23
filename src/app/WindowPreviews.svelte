@@ -31,7 +31,7 @@
     ipc.appsList().then((all) => {
       windows = mine(all);
       activeAtOpen = all.find((w) => w.active)?.id;
-      if (windows[0]) ipc.appIcon(windows[0].exe, windows[0].id).then((i) => (icon = i));
+      if (windows[0]) ipc.appIcon(windows[0].exe, windows[0].id, windows[0].aumid ?? null).then((i) => (icon = i));
       place();
     });
     const off = events.appsChanged((all) => {
