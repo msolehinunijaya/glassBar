@@ -11,6 +11,7 @@ mod location;
 mod media;
 mod radios;
 mod recent;
+mod shortcuts;
 mod snap;
 mod system;
 mod thermal;
@@ -89,6 +90,8 @@ impl Shell for WinShell {
     fn activate(&self, id: isize) { windows_list::activate(id) }
     fn close(&self, id: isize) { windows_list::close(id) }
     fn launch(&self, path: &str, args: &str) -> Res<()> { windows_list::launch(path, args) }
+    fn resolve_shortcut(&self, lnk: &str) -> Option<(String, String)> { shortcuts::resolve(lnk) }
+    fn installed_apps(&self) -> Vec<InstalledApp> { shortcuts::installed() }
     fn exe_icon(&self, exe: &str) -> Option<String> { windows_list::exe_icon(exe) }
     fn window_icon(&self, id: isize) -> Option<String> { windows_list::window_icon(id) }
 }

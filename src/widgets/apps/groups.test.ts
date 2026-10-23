@@ -44,3 +44,16 @@ describe('stableOrder', () => {
     expect(order).toEqual(['a', 'c', 'd']);
   });
 });
+
+import { moveKey, pinsInOrder } from './groups';
+describe('reorder', () => {
+  it('moves a key to a new index', () => {
+    expect(moveKey(['a', 'b', 'c', 'd'], 'a', 2)).toEqual(['b', 'c', 'a', 'd']);
+    expect(moveKey(['a', 'b', 'c'], 'c', 0)).toEqual(['c', 'a', 'b']);
+    expect(moveKey(['a', 'b'], 'x', 0)).toEqual(['a', 'b']);
+  });
+  it('sorts pins by the saved order, unknown pins last', () => {
+    const pins = [{ path: 'A.exe' }, { path: 'B.exe' }, { path: 'C.exe' }];
+    expect(pinsInOrder(pins, ['c.exe', 'zz.exe', 'a.exe']).map((p) => p.path)).toEqual(['C.exe', 'A.exe', 'B.exe']);
+  });
+});

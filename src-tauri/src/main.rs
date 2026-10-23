@@ -105,6 +105,7 @@ fn main() {
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, None))
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new()
             .with_handler(|app, _sc, ev| if ev.state == tauri_plugin_global_shortcut::ShortcutState::Pressed { widgets::ocr::on_hotkey(app) })
             .build())
@@ -184,6 +185,7 @@ fn main() {
             widgets::quick::brightness_get, widgets::quick::brightness_set,
             widgets::quick::hotspot_get, widgets::quick::hotspot_set,
             widgets::currency::fx_rates,
+            widgets::apps::app_pin_target, widgets::apps::app_browse, widgets::apps::apps_installed, widgets::apps::paths_exist,
             widgets::ai::ai_key_status, widgets::ai::ai_key_set, widgets::ai::ai_key_clear, widgets::ai::ai_usage, widgets::ai::ai_ask,
             widgets::ocr::ocr_hotkey_status, widgets::ocr::ocr_snap_start, widgets::ocr::ocr_shot, widgets::ocr::ocr_snap_cancel,
             widgets::ocr::ocr_snap_finish, widgets::ocr::ocr_history, widgets::ocr::ocr_history_delete, widgets::ocr::ocr_copy,

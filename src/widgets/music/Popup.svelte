@@ -29,7 +29,7 @@
 {#if showOptions}
   <div class="optwrap">
     <OptionsPopover title="Music widget" values={settings} save={(p) => updateWidgetSettings(instance, p)} options={[
-      { type: 'choice', key: 'style', label: 'Design', choices: [{ value: 'classic', label: 'Classic' }, { value: 'mini', label: 'Mini' }] },
+      { type: 'choice', key: 'style', label: 'Design', choices: [{ value: 'classic', label: 'Classic' }, { value: 'mini', label: 'Mini (Play/Pause + Next)' }] },
       { type: 'toggle', key: 'showProgress', label: 'Show progress background', hint: 'Fill grows as the song plays' },
     ]} />
   </div>

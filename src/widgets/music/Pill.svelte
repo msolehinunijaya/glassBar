@@ -10,7 +10,7 @@
   import { songProgress } from './progress';
   import Rhythm from './Rhythm.svelte';
 
-  let { size, settings }: PillProps<MusicSettings> = $props();
+  let { size, settings, vertical }: PillProps<MusicSettings> = $props();
   const media = liveMedia();
   const t = tickingNow(() => !!media.m?.playing && settings.showProgress);
   const prog = $derived(settings.showProgress ? songProgress(media.m, t.now) : null);
@@ -19,7 +19,7 @@
   const down = (e: PointerEvent) => e.stopPropagation(); // buttons must not start edit mode
 </script>
 
-<div class="pill music" class:mini={settings.style === 'mini'} title={media.m ? `${media.m.title} — ${media.m.artist}` : 'Nothing playing'}>
+<div class="pill music" class:mini={settings.style === 'mini'} class:vertical title={media.m ? `${media.m.title} — ${media.m.artist}` : 'Nothing playing'}>
   {#if prog}
     {#key track}
       <span class="progress" class:ending={prog.ending} class:paused={!media.m?.playing} style:transform="scaleX({prog.frac})"></span>
@@ -27,17 +27,13 @@
   {/if}
 
   {#if settings.style === 'mini'}
-    {#if media.m?.art}<img class="art round" src={media.m.art} alt="" />{:else}<span class="art round noart"><Music size={12} /></span>{/if}
-    {#if media.m}
-      <span class="title marquee"><span>{media.m.title || 'Unknown'}</span></span>
-      <span class="ctls">
-        <button class="ctl" disabled={!media.m.canPrev} onpointerdown={down} onclick={stop(() => ipc.mediaControl('prev'))} aria-label="Previous"><SkipBack size={13} /></button>
-        <button class="ctl" onpointerdown={down} onclick={stop(() => toggle(media))} aria-label={media.m.playing ? 'Pause' : 'Play'}>
-          {#if media.m.playing}<Pause size={14} />{:else}<Play size={14} />{/if}
-        </button>
-        <button class="ctl" disabled={!media.m.canNext} onpointerdown={down} onclick={stop(() => ipc.mediaControl('next'))} aria-label="Next"><SkipForward size={13} /></button>
-      </span>
-    {:else}<span class="dim">–</span>{/if}
+    <!-- Compact mini player: Play/Pause and Next only. Track info lives in the tooltip and the panel. -->
+    <span class="ctls">
+      <button class="ctl" disabled={!media.m} onpointerdown={down} onclick={stop(() => media.m && toggle(media))} aria-label={media.m?.playing ? 'Pause' : 'Play'}>
+        {#if media.m?.playing}<Pause size={14} />{:else}<Play size={14} />{/if}
+      </button>
+      <button class="ctl" disabled={!media.m?.canNext} onpointerdown={down} onclick={stop(() => ipc.mediaControl('next'))} aria-label="Next track"><SkipForward size={13} /></button>
+    </span>
   {:else}
     {#if media.m?.art}<img class="art" src={media.m.art} alt="" />{:else}<span class="art noart"><Music size={14} /></span>{/if}
     {#if media.m}<Rhythm playing={media.m.playing} />{/if}
@@ -85,12 +81,9 @@
   .ctl:active { transform: scale(0.85); }
   .ctl:disabled { opacity: 0.35; }
 
-  /* mini: compact row; the title only scrolls while hovered */
-  .mini { gap: 6px; }
-  .ctls { display: flex; }
-  .marquee { max-width: 90px; overflow: hidden; white-space: nowrap; font-size: 12px; font-weight: 500;
-             mask-image: linear-gradient(90deg, #000 85%, transparent); }
-  .marquee span { display: inline-block; }
-  .mini:hover .marquee span { animation: marquee 6s linear infinite; padding-right: 30px; }
-  @keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-100%); } }
+  /* mini: just two small buttons, minimal padding */
+  .mini { gap: 0; padding: 0 2px; }
+  .ctls { display: flex; gap: 0; }
+  .vertical .ctls { flex-direction: column; }
+  .mini .ctl { width: 22px; height: 22px; }
 </style>

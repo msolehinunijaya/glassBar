@@ -49,6 +49,8 @@ export interface Sample { cpu: number; mem: number; gpu: number | null; rxBps: n
 export interface Rates { base: string; rates: Record<string, number>; rateTime: number; fetchedAt: number; source: string; cached: boolean }
 export interface OcrItem { id: number; at: number; text: string; mode: 'text' | 'code' | 'terminal'; engine: 'windows' | 'ai' }
 export interface AiUsage { day: string; dayIn: number; dayOut: number; dayRequests: number; month: string; monthIn: number; monthOut: number }
+export interface PinTarget { path: string; args: string }
+export interface InstalledApp { name: string; path: string; args: string }
 export interface KeyboardLayout { id: number; code: string; name: string; locale: string; active: boolean }
 export interface DiskInfo { mount: string; label: string; total: number; available: number; removable: boolean; fs: string }
 export interface ScreenToday { total: number; apps: { exe: string; name: string; seconds: number }[] }
@@ -185,6 +187,10 @@ export const ipc = {
   aiKeyClear: () => invoke<void>('ai_key_clear'),
   aiUsage: () => invoke<AiUsage>('ai_usage'),
   aiAsk: (question: string) => invoke<string>('ai_ask', { question }),
+  appPinTarget: (path: string) => invoke<PinTarget>('app_pin_target', { path }),
+  appBrowse: () => invoke<PinTarget | null>('app_browse'),
+  appsInstalled: () => invoke<InstalledApp[]>('apps_installed'),
+  pathsExist: (paths: string[]) => invoke<boolean[]>('paths_exist', { paths }),
   langList: () => invoke<KeyboardLayout[]>('lang_list'),
   langSet: (id: number) => invoke<void>('lang_set', { id }),
   trayOverflow: (nativeVisible: boolean) => invoke<void>('tray_overflow', { nativeVisible }),

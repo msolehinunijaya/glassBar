@@ -10,6 +10,8 @@ export interface AppsSettings {
   /** Start & Search: 'inline' = right before the app icons, 'separate' = their own widget. */
   startPlacement: 'inline' | 'separate';
   searchStyle: 'icon' | 'bar';
+  /** Icon order chosen by dragging (program keys = lower-case paths). */
+  order: string[];
 }
 
 export default defineWidget<AppsSettings>({
@@ -19,7 +21,7 @@ export default defineWidget<AppsSettings>({
   icon: LayoutGrid,
   sizes: ['small', 'medium', 'large'],
   defaultSize: 'large',
-  defaults: { pinned: [], showTitles: false, startPlacement: 'inline', searchStyle: 'icon' },
+  defaults: { pinned: [], showTitles: false, startPlacement: 'inline', searchStyle: 'icon', order: [] },
   Pill,
   SettingsForm,
 });

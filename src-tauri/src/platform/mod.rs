@@ -115,6 +115,10 @@ pub trait Shell: Send + Sync {
     fn launch(&self, path: &str, args: &str) -> Res<()>;
     /// PNG data: URL for an executable's icon.
     fn exe_icon(&self, exe: &str) -> Option<String>;
+    /// (target, args) of a .lnk shortcut; None if it has no file target.
+    fn resolve_shortcut(&self, lnk: &str) -> Option<(String, String)>;
+    /// Programs listed in the Start menu.
+    fn installed_apps(&self) -> Vec<InstalledApp>;
     /// Icon for a window (Store apps, or programs whose file has no icon).
     fn window_icon(&self, id: isize) -> Option<String>;
 }
@@ -162,6 +166,9 @@ pub trait Screen: Send + Sync {
     /// OCR with the OS engine: lines in reading order.
     fn ocr(&self, bgra: &[u8], w: u32, h: u32) -> Res<Vec<Vec<Word>>>;
 }
+
+#[derive(Serialize, Clone, Debug)]
+pub struct InstalledApp { pub name: String, pub path: String, pub args: String }
 
 /// An installed keyboard input language. `id` is the Windows HKL.
 #[derive(Serialize, Clone, Debug)]

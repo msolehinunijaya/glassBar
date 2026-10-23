@@ -34,3 +34,18 @@ export function stableOrder(prev: string[], current: string[]): string[] {
   const known = new Set(kept);
   return [...kept, ...current.filter((k) => !known.has(k))];
 }
+
+/** Move `key` so it ends up at index `to` (unknown keys: no change). */
+export function moveKey(order: string[], key: string, to: number): string[] {
+  const i = order.indexOf(key);
+  if (i < 0) return order;
+  const rest = order.filter((k) => k !== key);
+  rest.splice(Math.max(0, Math.min(to, rest.length)), 0, key);
+  return rest;
+}
+
+/** Pins sorted by the user's saved icon order; pins not in it keep their place at the end. */
+export function pinsInOrder(pins: Pin[], order: string[]): Pin[] {
+  const at = (p: Pin) => { const i = order.indexOf(keyOf(p.path)); return i < 0 ? Infinity : i; };
+  return [...pins].sort((a, b) => at(a) - at(b));
+}
