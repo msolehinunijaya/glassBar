@@ -109,7 +109,13 @@
     border-radius: 16px; background: rgba(var(--tint), 0.92); border: 1px solid var(--line); box-shadow: var(--shadow);
     color: var(--fg); cursor: default; animation: in 0.28s var(--ease);
   }
-  :global(:root[data-solid='true']) .banner { background: rgb(var(--tint)); }
+  /* Windows' transparency effects off: see-through pixels turn black, so the whole window is
+     one solid surface (Windows rounds its corners) and stacked banners are split by hairlines. */
+  :global(:root[data-solid='true'][data-window='banner'] body) { background: rgb(var(--tint)); }
+  :global(:root[data-solid='true']) .stack { padding: 0; gap: 0; }
+  :global(:root[data-solid='true']) .banner { background: transparent; border: 0; border-radius: 0; box-shadow: none; }
+  :global(:root[data-solid='true']) .banner + .banner { border-top: 1px solid var(--border); }
+  :global(:root[data-solid='true']) .stack[data-edge='bottom'] .banner + .banner { border-top: 0; border-bottom: 1px solid var(--border); }
   .stack[data-edge='top'] .banner { animation-name: in-top; }
   .stack[data-edge='left'] .banner { animation-name: in-left; }
   .stack[data-edge='right'] .banner { animation-name: in-right; }

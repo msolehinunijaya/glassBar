@@ -12,6 +12,7 @@ export interface PrayerState {
 }
 
 const APPROACH_MS = 15 * 60_000;
+const DAY_MS = 86_400_000;
 /** A prayer only flashes if it arrived within this window (no flashing for one that
  *  passed hours before GlassBar started). */
 const REACHED_WINDOW_MS = 30 * 60_000;
@@ -25,7 +26,13 @@ export function prayerState(days: PrayerDay[], now: number, ackKey: string | nul
   if (!next) return null;
   const prev = [...all].reverse().find((p) => p.at <= now);
   const reached = prev && now - prev.at <= REACHED_WINDOW_MS && prev.key !== ackKey ? prev : null;
-  const progress = prev ? Math.min(1, (now - prev.at) / (next.at - prev.at)) : 0;
+  // Between midnight and Subuh the previous prayer is last night's Isyak, which isn't loaded
+  // (only today and tomorrow are). Today's last prayer a day earlier is within a minute of it,
+  // and only drives the progress fill (never the "reached" alert).
+  const nextDate = next.key.slice(0, next.key.indexOf(':'));
+  const lastToday = all.filter((p) => p.key.startsWith(nextDate + ':')).at(-1);
+  const start = prev?.at ?? (lastToday ? lastToday.at - DAY_MS : null);
+  const progress = start != null && start < now ? Math.min(1, (now - start) / (next.at - start)) : 0;
   const phase = reached ? 'reached' : next.at - now <= APPROACH_MS ? 'approaching' : 'countdown';
   return { phase, next, reached, progress };
 }

@@ -15,6 +15,17 @@ describe('prayerState', () => {
     expect(s.phase).toBe('countdown');
     expect(s.progress).toBeCloseTo(0.5); // Zohor 500 -> Asar 700, now 600
   });
+  it("keeps a progress fill between midnight and Subuh (last night's Isyak isn't loaded)", () => {
+    // 50 min after midnight; last night's Isyak ≈ today's Isyak (1000) - 1 day = -440
+    const s = prayerState([day], 50 * MIN, null, false)!;
+    expect(s.next.name).toBe('Subuh');
+    expect(s.progress).toBeCloseTo((50 + 440) / (100 + 440));
+    expect(s.reached).toBeNull();
+    // Same with tomorrow loaded too (the real data): still today's Isyak, not tomorrow's Subuh.
+    const D = 1440 * MIN;
+    const tomorrow: PrayerDay = { ...day, date: '2026-10-24', times: day.times.map(([n, t]) => [n, t + D]) };
+    expect(prayerState([day, tomorrow], 50 * MIN, null, false)!.progress).toBeCloseTo((50 + 440) / (100 + 440));
+  });
   it('is "approaching" in the last 15 minutes', () => {
     expect(prayerState([day], 690 * MIN, null, false)!.phase).toBe('approaching');
   });

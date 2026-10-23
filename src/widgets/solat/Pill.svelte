@@ -34,7 +34,7 @@
     <!-- Stacked: name on top, countdown below (compact on the dock). -->
     <span class="stack">
       <span class="name">{st.next.name}</span>
-      {#if size !== 'small'}<span class="t">in {countdown(st.next.at - s.now)}{#if size === 'large'}<span class="dim"> · {at(st.next.at)}</span>{/if}</span>{/if}
+      {#if size !== 'small'}<span class="t">in {countdown(st.next.at - s.now)}{#if size === 'large'}<span class="dim">&nbsp;·&nbsp;{at(st.next.at)}</span>{/if}</span>{/if}
     </span>
   {:else}
     <span class="dim">–</span>
