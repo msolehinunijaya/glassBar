@@ -21,19 +21,19 @@
 
 <OptionsPopover title="Time" values={values} save={(p) => save(p as Partial<ClockSettings>)} options={[
   { type: 'choice', key: 'timeFormat', label: 'Format', choices: [
-    { value: 'system', label: sysLabel }, { value: '24', label: `24-hour · ${timeText(now, { ...settings, timeFormat: '24' })}` },
-    { value: '12', label: `12-hour · ${timeText(now, { ...settings, timeFormat: '12' })}` }] },
+    { value: 'system', label: sysLabel }, { value: '24', label: `24-hour (${timeText(now, { ...settings, timeFormat: '24' })})` },
+    { value: '12', label: `12-hour (${timeText(now, { ...settings, timeFormat: '12' })})` }] },
   { type: 'choice', key: 'ampm', label: 'AM/PM', choices: [{ value: 'PM', label: 'PM' }, { value: 'pm', label: 'pm' }, { value: 'P.M.', label: 'P.M.' }, { value: 'p.m.', label: 'p.m.' }] },
-  { type: 'choice', key: 'ampmSize', label: 'AM/PM size', choices: [{ value: 'small', label: 'Smaller' }, { value: 'same', label: 'Same size' }, { value: 'hidden', label: 'Hidden' }] },
-  { type: 'choice', key: 'leadingZero', label: 'Hour', choices: [{ value: 'auto', label: 'Automatic' }, { value: 'on', label: '02:05' }, { value: 'off', label: '2:05' }] },
+  { type: 'choice', key: 'ampmSize', label: 'AM/PM size', choices: [{ value: 'small', label: 'Small' }, { value: 'same', label: 'Same' }, { value: 'hidden', label: 'Hide' }] },
+  { type: 'choice', key: 'leadingZero', label: 'Hour', choices: [{ value: 'auto', label: 'Auto' }, { value: 'on', label: '02:05' }, { value: 'off', label: '2:05' }] },
   { type: 'toggle', key: 'showSeconds', label: 'Show seconds' },
   { type: 'toggle', key: 'worldSeconds', label: 'Show seconds in world clocks' },
 ]} />
 
 <OptionsPopover title="Date" values={settings} save={(p) => save(p as Partial<ClockSettings>)} options={[
-  { type: 'choice', key: 'dateStyle', label: 'Style', choices: styles.map(([value, label]) => ({ value, label: `${label} · ${preview(value)}` })) },
+  { type: 'choice', key: 'dateStyle', label: 'Style', choices: styles.map(([value, label]) => ({ value, label: `${label} — ${preview(value)}` })) },
   { type: 'choice', key: 'dateSep', label: 'Separator', choices: [{ value: '/', label: '/' }, { value: '-', label: '-' }, { value: '.', label: '.' }] },
-  { type: 'choice', key: 'weekday', label: 'Weekday', choices: [{ value: 'none', label: 'As the style' }, { value: 'short', label: 'Short (Fri)' }, { value: 'full', label: 'Full (Friday)' }] },
+  { type: 'choice', key: 'weekday', label: 'Weekday', choices: [{ value: 'none', label: 'As style' }, { value: 'short', label: 'Fri' }, { value: 'full', label: 'Friday' }] },
 ]} />
 {#if settings.dateStyle === 'custom'}
   <label class="pat">Pattern
@@ -46,9 +46,9 @@
 {/if}
 
 <OptionsPopover title="On the bar" values={settings} save={(p) => save(p as Partial<ClockSettings>)} options={[
-  { type: 'choice', key: 'show', label: 'Show', choices: [{ value: 'time', label: 'Time only' }, { value: 'date', label: 'Date only' }, { value: 'both', label: 'Time + date' }] },
-  { type: 'choice', key: 'layout', label: 'Time + date', choices: [{ value: 'inline', label: 'Side by side' }, { value: 'stacked', label: 'Stacked' }] },
-  { type: 'choice', key: 'appearance', label: 'Appearance', choices: [
+  { type: 'choice', key: 'show', label: 'Show', choices: [{ value: 'time', label: 'Time' }, { value: 'date', label: 'Date' }, { value: 'both', label: 'Both' }] },
+  { type: 'choice', key: 'layout', label: 'Both as', choices: [{ value: 'inline', label: 'Side by side' }, { value: 'stacked', label: 'Stacked' }] },
+  { type: 'choice', key: 'appearance', label: 'Appearance', menu: true, choices: [
     { value: 'standard', label: 'Standard' }, { value: 'prominent', label: 'Prominent', hint: 'Bigger, bolder time on an accent panel' },
     { value: 'popup', label: 'Popup', hint: 'Hover the clock to see a large clock and world clocks' }] },
   { type: 'toggle', key: 'dayNight', label: 'Day/night icon on world clocks' },
