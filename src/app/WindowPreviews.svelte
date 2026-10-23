@@ -6,7 +6,7 @@
   import { X } from '@lucide/svelte';
   import { onMount, tick } from 'svelte';
   import { events, ipc, type AppWindow } from '../lib/ipc';
-  import { keyOf } from '../widgets/apps/groups';
+  import { keyFor } from '../widgets/apps/groups';
 
   let { appKey, close }: { appKey: string; close: () => void } = $props();
   let windows = $state<AppWindow[]>([]);
@@ -15,7 +15,7 @@
   const boxes: Record<number, HTMLElement> = {};
   let activeAtOpen: number | undefined;
 
-  const mine = (all: AppWindow[]) => all.filter((w) => keyOf(w.exe) === appKey).sort((a, b) => a.id - b.id);
+  const mine = (all: AppWindow[]) => all.filter((w) => keyFor(w.exe, w.aumid) === appKey).sort((a, b) => a.id - b.id);
 
   async function place() {
     if (!windows.length) { close(); return; }

@@ -48,7 +48,12 @@ pub async fn apps_list() -> Vec<AppWindow> { blocking(move || shell().list_windo
 pub async fn app_icon(exe: String, window: Option<isize>, aumid: Option<String>) -> Option<String> {
     blocking(move || {
         let aumid = aumid.or_else(|| shell().aumid_for_path(&exe));
-        aumid.and_then(|a| shell().aumid_icon(&a))
+        // An installed web app runs as the browser's exe: never fall back to the browser's
+        // icon before the app's own (its Start-menu entry, then its window icon).
+        let web = aumid.as_deref().is_some_and(crate::platform::is_web_app_id);
+        let by_id = aumid.and_then(|a| shell().aumid_icon(&a));
+        if web { return by_id.or_else(|| window.and_then(|w| shell().window_icon(w))).or_else(|| shell().exe_icon(&exe)); }
+        by_id
             .or_else(|| shell().exe_icon(&exe))
             .or_else(|| window.and_then(|w| shell().window_icon(w)))
     }).await.ok().flatten()

@@ -4,7 +4,7 @@ import Pill from './Pill.svelte';
 import SettingsForm from './SettingsForm.svelte';
 
 /** aumid: Store-app identity (Store apps can only be started through it). */
-export interface Pin { path: string; args?: string; aumid?: string }
+export interface Pin { path: string; args?: string; aumid?: string; /** shown name (web apps: the app, not the browser) */ name?: string }
 export interface AppsSettings {
   pinned: Pin[];
   showTitles: boolean;

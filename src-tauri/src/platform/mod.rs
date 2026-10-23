@@ -297,6 +297,10 @@ pub trait Gpu: Send + Sync {
     fn cpu_temp_c(&self) -> Option<f32>;
 }
 
+/// A browser-installed web app (Chrome/Edge PWA: "Chrome._crx_…", "MSEdge._crx_…") runs as
+/// the browser's exe but is its own app: its window carries the app's own ID.
+pub fn is_web_app_id(id: &str) -> bool { id.contains("._crx_") }
+
 /// A position from the OS location service.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Fix { pub lat: f64, pub lon: f64, pub accuracy_m: Option<f64>, pub via: &'static str }

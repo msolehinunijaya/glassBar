@@ -100,7 +100,8 @@ pub fn list() -> Vec<AppWindow> {
                 exe: exe_path(pid),
                 active: w.0 as isize == fg,
                 minimized: unsafe { IsIconic(w).as_bool() },
-                aumid: aumid_of(pid),
+                // Store apps: the package's ID. Installed web apps: the window's own ID.
+                aumid: aumid_of(pid).or_else(|| window_aumid(w).filter(|a| crate::platform::is_web_app_id(a))),
             })
         })
         .collect()
@@ -205,6 +206,24 @@ pub fn window_icon(id: isize) -> Option<String> {
     let w = h(id);
     let pid = hosted_pid(w, pid_of(w));
     aumid_of(pid).and_then(|a| package_icon(&a)).or_else(|| hwnd_icon(w)).map(data_url)
+}
+
+/// The AppUserModelID a window sets for itself (its taskbar identity), if any.
+fn window_aumid(w: HWND) -> Option<String> {
+    use windows::Win32::System::Com::CoTaskMemFree;
+    use windows::Win32::System::Com::StructuredStorage::PropVariantToStringAlloc;
+    use windows::Win32::UI::Shell::PropertiesSystem::{IPropertyStore, SHGetPropertyStoreForWindow};
+    // PKEY_AppUserModel_ID = {9F4C2855-9F79-4B39-A8D0-E1D42DE1D5F3}, 5
+    let key = windows::Win32::Foundation::PROPERTYKEY { fmtid: windows::core::GUID::from_u128(0x9F4C2855_9F79_4B39_A8D0_E1D42DE1D5F3), pid: 5 };
+    super::com_init();
+    unsafe {
+        let store: IPropertyStore = SHGetPropertyStoreForWindow(w).ok()?;
+        let v = store.GetValue(&key).ok()?;
+        let p = PropVariantToStringAlloc(&v).ok()?;
+        let s = p.to_string().ok();
+        CoTaskMemFree(Some(p.0 as *const _));
+        s.filter(|s| !s.is_empty())
+    }
 }
 
 /// Frame window -> the app process it hosted the last time we could see it.
@@ -335,4 +354,15 @@ unsafe fn bitmap_to_png(hbm: HBITMAP) -> Option<Vec<u8>> {
 /// A (copied) HICON as a PNG data URL, for tray icons.
 pub(crate) fn hicon_data_url(icon: isize) -> Option<String> {
     unsafe { icon_to_png(HICON(icon as *mut _)) }.map(data_url)
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn web_app_ids_are_told_apart_from_the_browser() {
+        assert!(crate::platform::is_web_app_id("Chrome._crx_agimnkijcaahngcdmfeangaknmldooml"));
+        assert!(crate::platform::is_web_app_id("MSEdge._crx_cifhbcnohmdccbgoicgdjpfamggdegmo"));
+        assert!(!crate::platform::is_web_app_id("Chrome"));
+        assert!(!crate::platform::is_web_app_id("Microsoft.WindowsCalculator_8wekyb3d8bbwe!App"));
+    }
 }

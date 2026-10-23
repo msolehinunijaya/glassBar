@@ -6,7 +6,7 @@
   import type { PillProps } from '../types';
   import { flip } from 'svelte/animate';
   import { insertIndex } from '../../lib/geometry';
-  import { group, keyOf, moveKey, nextWindow, pinsInOrder, stableOrder, type Group } from './groups';
+  import { group, isWebApp, keyFor, keyOf, moveKey, nextWindow, pinsInOrder, stableOrder, type Group } from './groups';
   import type { AppsSettings } from './index';
   import StartButtons from '../start/StartButtons.svelte';
 
@@ -153,8 +153,8 @@
     const items: Item[] = [
       { text: 'New window', action: () => launch(g) },
       g.pin
-        ? { text: 'Unpin', action: () => setPins(settings.pinned.filter((p) => keyOf(p.path) !== g.key)) }
-        : { text: 'Pin to bar', action: () => setPins([...settings.pinned, { path: g.path, aumid: g.aumid }]) },
+        ? { text: 'Unpin', action: () => setPins(settings.pinned.filter((p) => keyFor(p.path, p.aumid) !== g.key)) }
+        : { text: 'Pin to bar', action: () => setPins([...settings.pinned, { path: g.path, aumid: g.aumid, ...(isWebApp(g.aumid) ? { name: g.name } : {}) }]) },
     ];
     const i = groups.indexOf(g);
     if (i > 0) items.push({ text: vertical ? 'Move up' : 'Move left', action: () => nudge(g, -1) });
