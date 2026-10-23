@@ -9,6 +9,7 @@
   import SoundPanel from '../widgets/sound/SoundPanel.svelte';
   import { BATTERY_PANEL, SOUND_PANEL, soundOf } from '../widgets/sound/settings';
   import BatterySection from '../widgets/battery/BatterySection.svelte';
+  import { parsePartPanel } from '../widgets/productivity/parts';
   import { updateWidgetSettings } from '../lib/config.svelte';
   import WindowPreviews from './WindowPreviews.svelte';
   import Feedback from '../widgets/ocr/Feedback.svelte';
@@ -76,6 +77,12 @@
     {#key instance}<WindowPreviews appKey={instance.slice(WINDOWS.length)} {close} />{/key}
   {:else if instance === FEEDBACK && feedback}
     {#key feedback}<Feedback data={feedback} {close} />{/key}
+  {:else if instance && parsePartPanel(instance)}
+    {@const pp = parsePartPanel(instance)!}
+    {@const pw = profile().widgets.find((x) => x.instance === pp.instance)}
+    {#if pw}
+      {#key instance}<pp.part.Popup instance={pw.instance} settings={settingsOf(widgets.productivity, pw)} {close} />{/key}
+    {/if}
   {:else if instance?.startsWith(BATTERY_PANEL)}
     {@const qs = profile().widgets.find((x) => x.instance === instance!.slice(BATTERY_PANEL.length))}
     {#if qs}

@@ -1,9 +1,5 @@
-import { Timer } from '@lucide/svelte';
+// Pomodoro: a part of the Productivity widget (pomodoro · to-do · notes).
 import type { Phase, PomoCfg } from '../../lib/ipc';
-import { defineWidget } from '../types';
-import Pill from './Pill.svelte';
-import Popup from './Popup.svelte';
-import SettingsForm from './SettingsForm.svelte';
 
 /** What the timer is doing, in the words the UI shows. Phases never start on their own. */
 export function stateOf(s: { phase: Phase; endsAt: number | null; pausedMs: number | null; completed: Phase | null }) {
@@ -20,15 +16,3 @@ export const PHASE = {
   long: { name: 'Long break', color: '#64d2ff' },
 } as const;
 
-export default defineWidget<PomoCfg>({
-  id: 'pomodoro',
-  name: 'Pomodoro',
-  description: 'Focus sessions with short and long breaks',
-  icon: Timer,
-  sizes: ['small', 'medium'],
-  defaultSize: 'medium',
-  defaults: { workMin: 25, shortMin: 5, longMin: 15, every: 4 },
-  Pill,
-  Popup: { component: Popup, width: 320, height: 360 },
-  SettingsForm,
-});

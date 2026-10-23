@@ -1,5 +1,5 @@
 <script lang="ts">
-  // Three cards like the reference: month, day, year. Click a card to show it on the dock.
+  // Three cards like the reference: day, month, year. Click a card to show it on the dock.
   import { updateWidgetSettings } from '../../lib/config.svelte';
   import type { PopupProps } from '../types';
   import type { ProgressSettings } from './index';
@@ -9,7 +9,7 @@
   let { instance, settings }: PopupProps<ProgressSettings> = $props();
   let now = $state(new Date());
   $effect(() => { const t = setInterval(() => (now = new Date()), 30_000); return () => clearInterval(t); });
-  const modes: Mode[] = ['month', 'day', 'year'];
+  const modes: Mode[] = ['day', 'month', 'year'];
 </script>
 
 {#each modes as m (m)}

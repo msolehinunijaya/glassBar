@@ -158,7 +158,7 @@ impl Default for Config {
 
 /// v2 added the Start/Search button widget.
 /// v3 folded the Disk widget into the System Monitor; v4 the Tray widget into Quick Settings.
-pub const CURRENT_VERSION: u32 = 7;
+pub const CURRENT_VERSION: u32 = 8;
 
 /// Migration helper: widget `from` became part of widget `into`. Its settings (mapped by
 /// `map`) are merged into the existing `into` widget, or it turns into one in place.
@@ -274,6 +274,24 @@ impl Config {
                     if !q.settings.is_object() { q.settings = serde_json::json!({}); }
                     q.settings["soundOnDock"] = false.into();
                 }
+            }
+        }
+        if self.version < 8 {
+            // Pomodoro, To-Do and Notes became one widget ("productivity") with a segment
+            // each. It takes the place of the first of them; only the ones that were on the
+            // bar show; their settings carry over (flat).
+            for p in self.profiles.values_mut() {
+                const PARTS: [(&str, &str); 3] = [("pomodoro", "showPomo"), ("todo", "showTodo"), ("notes", "showNotes")];
+                let Some(at) = p.widgets.iter().position(|w| PARTS.iter().any(|(id, _)| *id == w.id)) else { continue };
+                let mut s = serde_json::json!({});
+                for (id, flag) in PARTS {
+                    let old = p.widgets.iter().find(|w| w.id == id);
+                    s[flag] = old.is_some().into();
+                    for (k, v) in old.and_then(|w| w.settings.as_object()).into_iter().flatten() { s[k] = v.clone(); }
+                }
+                let size = p.widgets[at].size.clone();
+                p.widgets[at] = WidgetInst { id: "productivity".into(), instance: "productivity-1".into(), size, settings: s };
+                p.widgets.retain(|w| !PARTS.iter().any(|(id, _)| *id == w.id));
             }
         }
         self.version = CURRENT_VERSION;
@@ -523,6 +541,25 @@ mod tests {
         c.profiles.get_mut("Default").unwrap().widgets = vec![w("tray")];
         let ws = c.normalized().profiles["Default"].widgets.clone();
         assert_eq!((ws[0].id.as_str(), &ws[0].settings["trayOnDock"]), ("quicksettings", &serde_json::json!(true)));
+    }
+
+    #[test]
+    fn v8_combines_pomodoro_todo_and_notes() {
+        let w = |id: &str, s: serde_json::Value| WidgetInst { id: id.into(), instance: format!("{id}-1"), size: "medium".into(), settings: s };
+        let mut c = Config { version: 7, ..Config::default() };
+        c.profiles.get_mut("Default").unwrap().widgets = vec![
+            w("clock", serde_json::Value::Null), w("pomodoro", serde_json::json!({ "workMin": 50 })),
+            w("todo", serde_json::Value::Null), w("music", serde_json::Value::Null),
+        ];
+        let ws = c.normalized().profiles["Default"].widgets.clone();
+        assert_eq!(ws.iter().map(|x| x.id.as_str()).collect::<Vec<_>>(), ["clock", "productivity", "music"], "takes the first one's place");
+        let s = &ws[1].settings;
+        assert_eq!((&s["showPomo"], &s["showTodo"], &s["showNotes"], &s["workMin"]),
+            (&serde_json::json!(true), &serde_json::json!(true), &serde_json::json!(false), &serde_json::json!(50)), "notes wasn't on the bar");
+        // None of them on the bar: nothing added.
+        let mut c = Config { version: 7, ..Config::default() };
+        c.profiles.get_mut("Default").unwrap().widgets = vec![w("clock", serde_json::Value::Null)];
+        assert!(!c.normalized().uses("productivity"));
     }
 
     #[test]

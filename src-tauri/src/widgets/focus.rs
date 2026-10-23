@@ -76,7 +76,7 @@ impl Pomo {
 }
 
 fn pomo_cfg(app: &AppHandle) -> PomoCfg {
-    let v = app.state::<crate::AppState>().config.lock().unwrap().widget_settings("pomodoro");
+    let v = app.state::<crate::AppState>().config.lock().unwrap().widget_settings("productivity");
     serde_json::from_value(v).unwrap_or_default()
 }
 

@@ -2,8 +2,10 @@
   import { ipc, type ScreenToday } from '../../lib/ipc';
   import { duration } from '../../lib/time';
   import type { PopupProps } from '../types';
+  import type { ScreenTimeSettings } from './index';
+  import { updateWidgetSettings } from '../../lib/config.svelte';
 
-  let {}: PopupProps = $props();
+  let { instance, settings }: PopupProps<ScreenTimeSettings> = $props();
   let today = $state<ScreenToday | null>(null);
   let week = $state<[string, number][]>([]);
   let icons = $state<Record<string, string | null>>({});
@@ -47,10 +49,14 @@
     <p class="dim empty">No usage recorded yet today.</p>
   {/each}
 </div>
+<label class="dim gsw">7-day graph on the dock
+  <input type="checkbox" class="switch" checked={settings.showGraph} onchange={(e) => updateWidgetSettings(instance, { showGraph: e.currentTarget.checked })} />
+</label>
 <p class="dim note">Recorded only while this widget is on your bar. Kept for 30 days, on this PC only.</p>
 
 <style>
   h3 { margin: 0 0 4px; font-size: 15px; font-weight: 600; }
+  .gsw { display: flex; align-items: center; justify-content: space-between; font-size: 12px; margin: 10px 2px 0; }
   .total { font-size: 26px; font-weight: 600; }
   .total .dim { font-size: 13px; font-weight: 400; }
   .week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; height: 90px; margin: 12px 0; align-items: end; }

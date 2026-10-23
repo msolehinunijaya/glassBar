@@ -16,16 +16,24 @@
   });
   const p = $derived(period(now, settings.mode));
   const year = $derived(settings.mode === 'year');
-  // Fits the bar: smaller dots on a left/right dock.
-  const dot = $derived(vertical ? (year ? 2 : 3) : year ? 3 : 4);
+  // Big enough to read on the dock (3 rows day/month, 4 rows year, still within the bar);
+  // smaller on a left/right dock.
+  const dot = $derived(vertical ? (year ? 2 : 3) : year ? 5 : 7);
+  const KIND = { day: 'Day', month: 'Month', year: 'Year' } as const;
 </script>
 
 <div class="pill prog" title="{label(now, settings.mode)}: {Math.floor(p.frac * 100)}% passed">
-  <DotGrid mode={settings.mode} frac={p.frac} {dot} gap={vertical ? 1 : year ? 1.5 : 2} />
-  <span class="txt">{#if size !== 'small' && !vertical}<span class="dim">{label(now, settings.mode)}</span> {/if}<b>{Math.floor(p.frac * 100)}%</b></span>
+  <!-- Which period (Day / Month / Year) and how far through it, on the left; dots on the right. -->
+  <span class="side">
+    <span class="kind">{KIND[settings.mode]}</span>
+    <b>{Math.floor(p.frac * 100)}%</b>
+  </span>
+  <DotGrid mode={settings.mode} frac={p.frac} {dot} gap={vertical ? 1 : year ? 2 : 3} />
 </div>
 
 <style>
-  .prog { gap: 8px; }
-  .txt { font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .prog { gap: 9px; }
+  .side { display: flex; flex-direction: column; line-height: 1.15; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .kind { font-size: 10.5px; color: var(--fg-dim); }
+  .side b { font-size: 12.5px; }
 </style>

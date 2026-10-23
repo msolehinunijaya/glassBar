@@ -172,7 +172,7 @@ pub fn note_drag_image(window: WebviewWindow, name: String) -> Result<(), String
 /// Daily: trash expired notes, then delete long-trashed notes and their images.
 pub fn housekeeping(app: &AppHandle) {
     let days = app.state::<crate::AppState>().config.lock().unwrap()
-        .widget_settings("notes")["temporaryDays"].as_u64().map(|d| d as u32);
+        .widget_settings("productivity")["temporaryDays"].as_u64().map(|d| d as u32);
     let now = now_ms();
     {
         let db = app.state::<Db>();
