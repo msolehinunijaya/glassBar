@@ -154,7 +154,8 @@ impl Default for Config {
 }
 
 /// v2 added the Start/Search button widget.
-pub const CURRENT_VERSION: u32 = 2;
+/// v3 folded the Disk widget into the System Monitor.
+pub const CURRENT_VERSION: u32 = 3;
 
 impl Config {
     /// Repair values a hand-edited or imported file can get wrong, and upgrade old versions.
@@ -165,6 +166,23 @@ impl Config {
                 if !p.widgets.iter().any(|w| w.id == "start") {
                     p.widgets.insert(0, WidgetInst { id: "start".into(), instance: "start-1".into(), size: "small".into(), settings: serde_json::Value::Null });
                 }
+            }
+        }
+        if self.version < 3 {
+            // Disk storage moved into the System Monitor.
+            for p in self.profiles.values_mut() {
+                let Some(i) = p.widgets.iter().position(|w| w.id == "disk") else { continue };
+                if let Some(m) = p.widgets.iter_mut().find(|w| w.id == "sysmon") {
+                    if !m.settings.is_object() { m.settings = serde_json::json!({}); }
+                    m.settings["disk"] = true.into();
+                    p.widgets.remove(i);
+                } else {
+                    let w = &mut p.widgets[i];
+                    w.id = "sysmon".into();
+                    w.instance = format!("sysmon-{}", w.instance);
+                    w.settings = serde_json::json!({ "cpu": false, "ram": false, "network": false, "disk": true });
+                }
+                p.widgets.retain(|w| w.id != "disk");
             }
         }
         self.version = CURRENT_VERSION;
@@ -380,5 +398,23 @@ mod tests {
     fn import_rejects_garbage() {
         assert!(import("[1,2,3]").is_err());
         assert!(import(&export(&Config::default())).is_ok());
+    }
+
+    #[test]
+    fn v3_folds_the_disk_widget_into_the_system_monitor() {
+        let w = |id: &str| WidgetInst { id: id.into(), instance: format!("{id}-1"), size: "small".into(), settings: serde_json::Value::Null };
+        // With a system monitor already placed: disk goes, the monitor shows disk.
+        let mut c = Config { version: 2, ..Config::default() };
+        c.profiles.get_mut("Default").unwrap().widgets = vec![w("sysmon"), w("disk"), w("clock")];
+        let c = c.normalized();
+        let ws = &c.profiles["Default"].widgets;
+        assert_eq!(ws.iter().map(|x| x.id.as_str()).collect::<Vec<_>>(), ["sysmon", "clock"]);
+        assert_eq!(ws[0].settings["disk"], true);
+        // Without one: the disk widget becomes a system monitor showing disk only.
+        let mut c = Config { version: 2, ..Config::default() };
+        c.profiles.get_mut("Default").unwrap().widgets = vec![w("disk")];
+        let c = c.normalized();
+        let ws = &c.profiles["Default"].widgets;
+        assert_eq!((ws[0].id.as_str(), &ws[0].settings["disk"], &ws[0].settings["cpu"]), ("sysmon", &serde_json::json!(true), &serde_json::json!(false)));
     }
 }

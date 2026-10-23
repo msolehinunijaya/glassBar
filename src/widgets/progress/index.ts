@@ -16,6 +16,6 @@ export default defineWidget<ProgressSettings>({
   defaultSize: 'small',
   defaults: { mode: 'day', showTimes: true },
   Pill,
-  Popup: { component: Popup, width: 320, height: 300 },
+  Popup: { component: Popup, width: 380, height: 520 },
   SettingsForm,
 });

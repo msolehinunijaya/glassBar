@@ -23,3 +23,25 @@ describe('period progress (local time)', () => {
     expect(p.end - p.now).toBe(6 * 3_600_000);
   });
 });
+
+import { grid, label } from './period';
+describe('dot grid (reference design)', () => {
+  it('uses 52 week-dots for the year and 30 for month/day', () => {
+    expect(grid('year')).toMatchObject({ cols: 13, rows: 4, total: 52 });
+    expect(grid('month')).toMatchObject({ cols: 10, rows: 3, total: 30 });
+    expect(grid('day')).toMatchObject({ cols: 10, rows: 3, total: 30 });
+  });
+  it('fills dots like the reference: 3% -> 1, 71% -> 21, 75% of 52 -> 39', () => {
+    expect(grid('month', 0.03).filled).toBe(1);
+    expect(grid('day', 0.71).filled).toBe(21);
+    expect(grid('year', 0.75).filled).toBe(39);
+    expect(grid('day', 0).filled).toBe(0);
+    expect(grid('day', 1).filled).toBe(30);
+  });
+  it('labels each card like the reference', () => {
+    const d = new Date(2026, 9, 23, 15);
+    expect(label(d, 'month', 'en-US')).toBe('Oct 2026');
+    expect(label(d, 'day', 'en-US')).toBe('Oct 23');
+    expect(label(d, 'year', 'en-US')).toBe('2026');
+  });
+});

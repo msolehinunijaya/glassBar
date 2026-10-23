@@ -21,3 +21,17 @@ export function span(ms: number): string {
   if (h) return `${h}h ${r}m`;
   return `${r}m`;
 }
+
+/** Dot grid from the reference design: one dot per week for the year (13×4),
+ *  30 dots (10×3) for the month and the day. `filled` = elapsed dots. */
+export function grid(mode: Mode, frac = 0) {
+  const [cols, rows] = mode === 'year' ? [13, 4] : [10, 3];
+  const total = cols * rows;
+  return { cols, rows, total, filled: Math.round(Math.min(1, Math.max(0, frac)) * total) };
+}
+
+/** "Oct 2026" / "Oct 23" / "2026" */
+export function label(d: Date, mode: Mode, locale?: string): string {
+  const f = (o: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat(locale, o).format(d);
+  return mode === 'year' ? String(d.getFullYear()) : mode === 'month' ? f({ month: 'short', year: 'numeric' }) : f({ month: 'short', day: 'numeric' });
+}

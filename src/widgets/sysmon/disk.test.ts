@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bytes, letter, level, pickDrives, usedPct } from './level';
+import { bytes, letter, level, pickDrives, usedPct } from './disk';
 
 const d = (mount: string, total: number, available: number) => ({ mount, label: '', total, available, removable: false, fs: 'NTFS' });
 

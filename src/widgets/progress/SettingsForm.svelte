@@ -7,6 +7,5 @@
 </script>
 
 <OptionsPopover title="Time progress" values={settings} save={(p) => save(p as Partial<ProgressSettings>)} options={[
-  { type: 'choice', key: 'mode', label: 'Mode', choices: [{ value: 'day', label: 'Day' }, { value: 'month', label: 'Month' }, { value: 'year', label: 'Year' }] },
-  { type: 'toggle', key: 'showTimes', label: 'Show elapsed and remaining time' },
+  { type: 'choice', key: 'mode', label: 'On the dock', choices: [{ value: 'day', label: 'Day' }, { value: 'month', label: 'Month' }, { value: 'year', label: 'Year' }] },
 ]} />

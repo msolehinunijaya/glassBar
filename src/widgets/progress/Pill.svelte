@@ -1,11 +1,12 @@
 <script lang="ts">
-  // e.g. "Day 72%" with a slim bar underneath. Updates once a minute (day mode) or
-  // once an hour (month/year): no animation, nothing busy.
+  // A miniature of the reference card: the dot grid and the percentage.
+  // Updates once a minute (day) or once an hour (month/year).
   import type { PillProps } from '../types';
   import type { ProgressSettings } from './index';
-  import { period } from './period';
+  import DotGrid from './DotGrid.svelte';
+  import { label, period } from './period';
 
-  let { size, settings }: PillProps<ProgressSettings> = $props();
+  let { size, settings, vertical }: PillProps<ProgressSettings> = $props();
   let now = $state(new Date());
   $effect(() => {
     const every = settings.mode === 'day' ? 60_000 : 3_600_000;
@@ -14,19 +15,17 @@
     return () => clearInterval(t);
   });
   const p = $derived(period(now, settings.mode));
-  const name = $derived(settings.mode === 'day' ? 'Day' : settings.mode === 'month' ? 'Month' : 'Year');
+  const year = $derived(settings.mode === 'year');
+  // Fits the bar: smaller dots on a left/right dock.
+  const dot = $derived(vertical ? (year ? 2 : 3) : year ? 3 : 4);
 </script>
 
-<div class="pill prog" title="{name}: {Math.floor(p.frac * 100)}% passed">
-  <div class="col">
-    <span class="txt">{#if size !== 'small'}<span class="dim">{name}</span> {/if}<b>{Math.floor(p.frac * 100)}%</b></span>
-    <span class="track"><span class="fill" style:width="{p.frac * 100}%"></span></span>
-  </div>
+<div class="pill prog" title="{label(now, settings.mode)}: {Math.floor(p.frac * 100)}% passed">
+  <DotGrid mode={settings.mode} frac={p.frac} {dot} gap={vertical ? 1 : year ? 1.5 : 2} />
+  <span class="txt">{#if size !== 'small' && !vertical}<span class="dim">{label(now, settings.mode)}</span> {/if}<b>{Math.floor(p.frac * 100)}%</b></span>
 </div>
 
 <style>
-  .col { display: flex; flex-direction: column; gap: 3px; min-width: 52px; }
-  .txt { font-size: 12px; font-variant-numeric: tabular-nums; }
-  .track { height: 4px; border-radius: 2px; background: var(--track); overflow: hidden; }
-  .fill { display: block; height: 100%; border-radius: 2px; background: var(--accent); transition: width 0.6s var(--ease); }
+  .prog { gap: 8px; }
+  .txt { font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 </style>
