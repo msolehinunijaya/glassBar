@@ -81,5 +81,7 @@
 
 <style>
   .popup { padding: 14px; overflow: auto; }
+  /* flow-root: a last child's bottom margin stays inside, so the measured height is exact */
+  .content { display: flow-root; }
   .popup.hover { padding: 8px; }
 </style>
