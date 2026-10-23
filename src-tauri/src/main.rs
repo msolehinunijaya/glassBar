@@ -4,6 +4,7 @@ mod alerts;
 mod bar;
 mod config;
 mod db;
+mod net;
 mod platform;
 mod widgets;
 
@@ -132,6 +133,7 @@ fn main() {
             widgets::focus::timers_list, widgets::focus::timer_add, widgets::focus::timer_pause,
             widgets::focus::timer_resume, widgets::focus::timer_delete,
             widgets::focus::sw_get, widgets::focus::sw_toggle, widgets::focus::sw_lap, widgets::focus::sw_reset,
+            widgets::location::location_get, widgets::location::location_search, widgets::weather::weather_get,
             alerts::alerts_list, alerts::alerts_mark_read, alerts::alerts_dismiss, alerts::alerts_clear,
             widgets::apps::apps_list, widgets::apps::app_icon, widgets::apps::app_activate,
             widgets::apps::app_close, widgets::apps::app_launch,

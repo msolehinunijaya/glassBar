@@ -27,6 +27,13 @@ export interface PomoCfg { workMin: number; shortMin: number; longMin: number; e
 export interface PomoState { pomo: { phase: Phase; done: number; endsAt: number | null; pausedMs: number | null }; cfg: PomoCfg; label: string }
 export interface Timer { id: number; label: string; durationMs: number; endsAt: number | null; remainingMs: number | null }
 export interface Stopwatch { startedAt: number | null; accMs: number; laps: number[] }
+export interface Place { lat: number; lon: number; name: string; source: 'windows' | 'ip' | 'manual' }
+export interface Weather {
+  fetchedAt: number; unit: 'c' | 'f'; place: Place | null; offline: boolean;
+  current: { temp: number; code: number; isDay: boolean };
+  hourly: { time: number; temp: number; code: number }[];
+  daily: { date: number; min: number; max: number; code: number }[];
+}
 export type Sound = { kind: 'chime' } | { kind: 'azan'; src: string };
 
 export interface AppWindow { id: number; title: string; exe: string; active: boolean; minimized: boolean }
@@ -94,6 +101,10 @@ export const ipc = {
   swToggle: () => invoke<Stopwatch>('sw_toggle'),
   swLap: () => invoke<Stopwatch>('sw_lap'),
   swReset: () => invoke<Stopwatch>('sw_reset'),
+  // location + weather
+  locationGet: (force = false) => invoke<Place | null>('location_get', { force }),
+  locationSearch: (query: string) => invoke<Place[]>('location_search', { query }),
+  weatherGet: (force = false) => invoke<Weather | null>('weather_get', { force }),
   // apps
   appsList: () => invoke<AppWindow[]>('apps_list'),
   appIcon: (exe: string) => invoke<string | null>('app_icon', { exe }),

@@ -115,6 +115,11 @@ pub trait Radios: Send + Sync {
     fn set(&self, kind: Option<RadioKind>, on: bool) -> Res<()>;
 }
 
+pub trait Location: Send + Sync {
+    /// Device position (lat, lon) from the OS location service.
+    fn locate(&self) -> Res<(f64, f64)>;
+}
+
 pub trait Display: Send + Sync {
     fn mode(&self) -> Option<DisplayMode>;
     fn set_mode(&self, m: DisplayMode) -> Res<()>;
@@ -136,3 +141,5 @@ pub fn media() -> &'static dyn Media { &win::WinMedia }
 pub fn radios() -> &'static dyn Radios { &win::WinRadios }
 #[cfg(windows)]
 pub fn display() -> &'static dyn Display { &win::WinDisplay }
+#[cfg(windows)]
+pub fn location() -> &'static dyn Location { &win::WinLocation }

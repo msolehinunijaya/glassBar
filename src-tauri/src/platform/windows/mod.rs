@@ -2,6 +2,7 @@
 mod appbar;
 mod audio;
 mod display;
+mod location;
 mod media;
 mod radios;
 mod system;
@@ -15,6 +16,7 @@ pub struct WinAudio;
 pub struct WinMedia;
 pub struct WinRadios;
 pub struct WinDisplay;
+pub struct WinLocation;
 
 /// Join this thread to the COM multithreaded apartment (no-op if already joined).
 pub(crate) fn com_init() {
@@ -74,4 +76,8 @@ impl Display for WinDisplay {
     fn set_mode(&self, m: DisplayMode) -> Res<()> { display::set_mode(m) }
     fn brightness(&self) -> Option<u32> { display::brightness() }
     fn set_brightness(&self, v: u32) -> Res<()> { display::set_brightness(v) }
+}
+
+impl Location for WinLocation {
+    fn locate(&self) -> Res<(f64, f64)> { location::locate() }
 }

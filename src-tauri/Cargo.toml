@@ -19,6 +19,7 @@ image = { version = "0.25", default-features = false, features = ["png"] }
 windows-core = "0.62"
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 drag = "2"
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
 rusqlite = { version = "0.40", features = ["bundled"] }
 tauri-plugin-notification = "2"
 
@@ -56,5 +57,6 @@ features = [
   "Foundation_Collections",
   "Media_Control",
   "Devices_Radios",
+  "Devices_Geolocation",
   "Storage_Streams",
 ]
