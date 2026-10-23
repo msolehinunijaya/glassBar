@@ -54,7 +54,7 @@ Example: `<div class="side"><span class="side-k">CPU</span><span class="side-v">
 
 ## 4. Styling
 
-Use the tokens from `src/styles/glass.css` so the widget follows the theme:
+Follow **[DESIGN_RULES.md](DESIGN_RULES.md)** (tokens, compact card, flyout, rows, controls, side dock). Use the tokens from `src/styles/glass.css` so the widget follows the theme:
 
 - **Colors:** `--fg`, `--fg-dim`, `--accent`, `--pill`, `--pill-hover`, `--line`, `--line-soft`, `--track`
 - **Shape:** `--radius-pill` (14px), `--radius-card` (20px), `--gap`
