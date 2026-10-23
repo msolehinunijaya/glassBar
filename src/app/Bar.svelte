@@ -195,7 +195,9 @@
     startHold(e);
     if (!edit || e.button !== 0 || (e.target as HTMLElement).closest('.badge')) return;
     const el = e.currentTarget as HTMLElement;
-    el.setPointerCapture(e.pointerId);
+    // Track the pointer on the window, not with pointer capture on the slot: reordering
+    // moves the slot's DOM node, which silently drops capture and ended the drag after
+    // the first swap.
     const start = { x: e.clientX, y: e.clientY };
     const before = placed.map((w) => w.instance).join();
     let grab = { dx: 0, dy: 0 };
@@ -233,8 +235,9 @@
     const reset = () => {
       clearTimeout(pickTimer);
       cancelAnimationFrame(raf);
-      el.removeEventListener('pointermove', move);
-      el.removeEventListener('lostpointercapture', up);
+      removeEventListener('pointermove', move);
+      removeEventListener('pointerup', up);
+      removeEventListener('pointercancel', up);
       removeEventListener('keydown', onKey);
       dragId = null;
       ghost = null;
@@ -243,7 +246,6 @@
       if (k.key !== 'Escape') return;
       order = null; // back to where it was
       reset();
-      el.releasePointerCapture(e.pointerId);
     };
     const up = async () => {
       const final = order;
@@ -260,8 +262,9 @@
         order = null;
       }
     };
-    el.addEventListener('pointermove', move);
-    el.addEventListener('lostpointercapture', up); // pointerup and pointercancel
+    addEventListener('pointermove', move);
+    addEventListener('pointerup', up);
+    addEventListener('pointercancel', up);
     addEventListener('keydown', onKey);
   }
 </script>
