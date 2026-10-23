@@ -6,7 +6,7 @@ import type { Edge } from './geometry';
 export type WidgetSize = 'small' | 'medium' | 'large';
 export interface WidgetInst { id: string; instance: string; size: WidgetSize; settings: any }
 export interface BarCfg {
-  edge: Edge; monitor: number; length: number; size: 'compact' | 'normal' | 'large';
+  edge: Edge; monitor: number | null; length: number; size: 'compact' | 'normal' | 'large';
   floating: { x: number; y: number } | null; reserveSpace: boolean;
   nativeTaskbar: 'show' | 'autohide' | 'hidden';
 }

@@ -123,7 +123,16 @@ fn main() {
             ("popup", WindowEvent::Focused(false)) => bar::popup_hidden(w.app_handle()),
             ("bar", WindowEvent::ScaleFactorChanged { .. })
                 if w.app_handle().state::<AppState>().dragging.load(std::sync::atomic::Ordering::Relaxed) => {}
-            ("bar", WindowEvent::ThemeChanged(_) | WindowEvent::ScaleFactorChanged { .. }) => bar::apply(w.app_handle()),
+            ("bar", WindowEvent::ThemeChanged(_)) => bar::apply(w.app_handle()),
+            // Windows applies its own DPI resize after this event returns, which would undo
+            // a size set here; re-apply a moment later instead.
+            ("bar", WindowEvent::ScaleFactorChanged { .. }) => {
+                let a = w.app_handle().clone();
+                std::thread::spawn(move || {
+                    std::thread::sleep(std::time::Duration::from_millis(120));
+                    bar::apply(&a);
+                });
+            }
             _ => {}
         })
         .invoke_handler(tauri::generate_handler![

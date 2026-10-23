@@ -62,9 +62,9 @@ fn monitor_rect(m: &tauri::Monitor) -> Rect {
     Rect { x: m.position().x, y: m.position().y, w: m.size().width as i32, h: m.size().height as i32 }
 }
 
-fn bar_monitor(app: &AppHandle, idx: usize) -> Option<tauri::Monitor> {
+fn bar_monitor(app: &AppHandle, idx: Option<usize>) -> Option<tauri::Monitor> {
     let mons = app.available_monitors().ok()?;
-    mons.get(idx).cloned()
+    idx.and_then(|i| mons.get(i).cloned())
         .or_else(|| app.primary_monitor().ok().flatten())
         .or_else(|| mons.into_iter().next())
 }

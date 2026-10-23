@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { availableMonitors, getCurrentWindow } from '@tauri-apps/api/window';
+  import { availableMonitors, getCurrentWindow, primaryMonitor } from '@tauri-apps/api/window';
   import { Menu } from '@tauri-apps/api/menu';
   import { flip } from 'svelte/animate';
   import { onMount } from 'svelte';
@@ -81,8 +81,8 @@
     const startLen = bar.length;
     let span = 0;
     let length = startLen;
-    availableMonitors().then((mons) => {
-      const m = mons[bar.monitor] ?? mons[0];
+    Promise.all([availableMonitors(), primaryMonitor()]).then(([mons, primary]) => {
+      const m = (bar.monitor !== null ? mons[bar.monitor] : primary) ?? mons[0];
       span = (vertical ? m.size.height : m.size.width) / m.scaleFactor;
     });
     const move = (ev: PointerEvent) => {

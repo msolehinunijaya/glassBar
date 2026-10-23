@@ -33,7 +33,8 @@ pub struct Pos { pub x: i32, pub y: i32 }
 #[serde(rename_all = "camelCase", default)]
 pub struct BarCfg {
     pub edge: Edge,
-    pub monitor: usize,
+    /// Index into the monitor list; None = the main (primary) display.
+    pub monitor: Option<usize>,
     /// Fraction (0.2..=1.0) of the screen edge the bar spans.
     pub length: f64,
     pub size: BarSize,
@@ -46,7 +47,7 @@ pub struct BarCfg {
 impl Default for BarCfg {
     fn default() -> Self {
         // Top + taskbar shown: safe first run, nothing hidden if the app is killed.
-        Self { edge: Edge::Top, monitor: 0, length: 0.7, size: BarSize::Normal, floating: None,
+        Self { edge: Edge::Top, monitor: None, length: 0.7, size: BarSize::Normal, floating: None,
                reserve_space: true, native_taskbar: TaskbarMode::Show }
     }
 }
@@ -186,7 +187,8 @@ impl Config {
 /// Load config; a missing file gives defaults, a corrupt one is backed up first.
 pub fn load(path: &Path) -> Config {
     let Ok(text) = std::fs::read_to_string(path) else { return Config::default() };
-    match serde_json::from_str::<Config>(&text) {
+    // Notepad and PowerShell may add a UTF-8 byte-order mark; JSON parsers reject it.
+    match serde_json::from_str::<Config>(text.trim_start_matches('\u{feff}')) {
         Ok(c) => c.normalized(),
         Err(e) => {
             eprintln!("config: {e}; backing up to config.bad.json");
@@ -306,6 +308,26 @@ mod tests {
         c.active_profile = "B".into();
         assert_eq!(c.widget_settings("solat")["v"], 2);
         assert!(c.widget_settings("nope").is_null());
+    }
+
+    #[test]
+    fn load_tolerates_utf8_bom() {
+        let d = tmp("bom");
+        let p = d.join("config.json");
+        let mut c = Config::default();
+        c.theme.accent = "#ABCDEF".into();
+        let mut bytes = vec![0xEF, 0xBB, 0xBF];
+        bytes.extend(export(&c).into_bytes());
+        std::fs::write(&p, bytes).unwrap();
+        assert_eq!(load(&p).theme.accent, "#ABCDEF");
+        assert!(!d.join("config.bad.json").exists());
+    }
+
+    #[test]
+    fn default_bar_uses_the_primary_monitor() {
+        assert_eq!(Config::default().profile().bar.monitor, None);
+        let c = import(r#"{"profiles":{"P":{"bar":{"monitor":1}}},"activeProfile":"P"}"#).unwrap();
+        assert_eq!(c.profile().bar.monitor, Some(1));
     }
 
     #[test]

@@ -71,7 +71,8 @@
         </div>
         <p class="hint">Or drag the bar anywhere: it snaps to the nearest edge, or floats if dropped mid-screen.</p>
         <div class="field"><span>Monitor</span>
-          <select value={bar.monitor} onchange={(e) => setBar((b) => { b.monitor = +e.currentTarget.value; b.floating = null; })}>
+          <select value={bar.monitor ?? ''} onchange={(e) => setBar((b) => { b.monitor = e.currentTarget.value === '' ? null : +e.currentTarget.value; b.floating = null; })}>
+            <option value="">Main display</option>
             {#each monitors as m, i (i)}<option value={i}>{i + 1}: {m.name ?? 'Display'} ({m.size.width}×{m.size.height})</option>{/each}
           </select>
         </div>
