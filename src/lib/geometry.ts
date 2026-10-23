@@ -53,3 +53,14 @@ export function indexAt(centers: number[], p: number): number {
 export function insertIndex(otherCenters: number[], p: number): number {
   return otherCenters.filter((c) => c < p).length;
 }
+
+type Box = { left: number; right: number; top: number; bottom: number };
+/** How many items are cut off before and after the visible part of a scrolling row/column
+ *  (partly hidden counts too). A 2 px tolerance absorbs sub-pixel layout. */
+export function hiddenCounts(items: Box[], view: Box, vertical: boolean): { before: number; after: number } {
+  const [a, b] = vertical ? (['top', 'bottom'] as const) : (['left', 'right'] as const);
+  return {
+    before: items.filter((r) => r[a] < view[a] - 2).length,
+    after: items.filter((r) => r[b] > view[b] + 2).length,
+  };
+}

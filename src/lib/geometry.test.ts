@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { reorder, snap, indexAt } from './geometry';
+import { hiddenCounts, reorder, snap, indexAt } from './geometry';
 
 const mons = [{ x: 0, y: 0, w: 1920, h: 1080 }, { x: 1920, y: 0, w: 1920, h: 1080 }];
 
@@ -79,5 +79,18 @@ describe('insertIndex (free drag)', () => {
     expect(insertIndex([50, 150, 250], 10)).toBe(0);
     expect(insertIndex([50, 150, 250], 120)).toBe(1);
     expect(insertIndex([50, 150, 250], 999)).toBe(3);
+  });
+});
+
+describe('hiddenCounts', () => {
+  const box = (top: number, bottom: number) => ({ left: 0, right: 40, top, bottom });
+  it('counts items cut off at each end of a column', () => {
+    const items = [box(-60, -10), box(-5, 30), box(35, 80), box(90, 130), box(120, 170)];
+    expect(hiddenCounts(items, box(0, 125), true)).toEqual({ before: 2, after: 2 });
+    expect(hiddenCounts([box(0, 40), box(45, 90)], box(0, 125), true)).toEqual({ before: 0, after: 0 });
+  });
+  it('uses left/right for a row', () => {
+    const r = (left: number, right: number) => ({ left, right, top: 0, bottom: 40 });
+    expect(hiddenCounts([r(-30, 10), r(20, 60), r(90, 140)], r(0, 100), false)).toEqual({ before: 1, after: 1 });
   });
 });

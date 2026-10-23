@@ -2,10 +2,10 @@
   import { availableMonitors, getCurrentWindow, primaryMonitor } from '@tauri-apps/api/window';
   import { flip } from 'svelte/animate';
   import { onMount } from 'svelte';
-  import { Check, Maximize2, Plus, X } from '@lucide/svelte';
+  import { Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Maximize2, Plus, X } from '@lucide/svelte';
   import { profile, store, update } from '../lib/config.svelte';
   import { events, ipc, type WidgetInst, type WidgetSize } from '../lib/ipc';
-  import { insertIndex, snap } from '../lib/geometry';
+  import { hiddenCounts, insertIndex, snap } from '../lib/geometry';
   import { GALLERY, openPopup } from '../lib/popup';
   import { chargerTone, chime, deviceTone, playFile, shutter, tick } from '../lib/sound';
   // Bundled adzan: "Beautiful adhan" by Adam-synagda, Wikimedia Commons, CC0.
@@ -167,6 +167,34 @@
     return () => { scroller.removeEventListener('wheel', onWheel); cancelAnimationFrame(raf); };
   });
 
+  // ---- More widgets than fit: fade the cut-off end(s) and show "▾ 6" there (click scrolls) ----
+  let more = $state({ before: 0, after: 0 });
+  let measureRaf = 0;
+  function measure() {
+    cancelAnimationFrame(measureRaf);
+    measureRaf = requestAnimationFrame(() => {
+      if (!scroller) return;
+      const slots = [...scroller.querySelectorAll<HTMLElement>(':scope > .slot')].map((s) => s.getBoundingClientRect());
+      const next = hiddenCounts(slots, scroller.getBoundingClientRect(), vertical);
+      if (next.before !== more.before || next.after !== more.after) more = next;
+    });
+  }
+  $effect(() => {
+    shown.length; vertical; // re-measure when widgets or the edge change
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(scroller);
+    for (const s of scroller.children) ro.observe(s);
+    scroller.addEventListener('scroll', measure, { passive: true });
+    return () => { ro.disconnect(); scroller.removeEventListener('scroll', measure); cancelAnimationFrame(measureRaf); };
+  });
+  function page(dir: -1 | 1) {
+    const by = (vertical ? scroller.clientHeight : scroller.clientWidth) * 0.8 * dir;
+    scroller.scrollBy({ [vertical ? 'top' : 'left']: by, behavior: 'smooth' });
+  }
+  const Back = $derived(vertical ? ChevronUp : ChevronLeft);
+  const Fwd = $derived(vertical ? ChevronDown : ChevronRight);
+
   // ---- Widgets ----
   function onSlotClick(w: WidgetInst, el: HTMLElement) {
     if (swallowClick) { swallowClick = false; return; } // the click that ended a long-press
@@ -304,7 +332,8 @@
      onpointerenter={onEnter} data-size={bar.size} data-side={bar.sideWidth ?? 'regular'}>
   <div class="handle start" onpointerdown={(e) => onHandleDown(e, -1)}></div>
 
-  <div class="scroller" bind:this={scroller}>
+  <div class="scrollbox">
+  <div class="scroller" bind:this={scroller} class:fade-before={more.before > 0} class:fade-after={more.after > 0}>
     {#each shown as w (w.instance)}
       {@const m = widgets[w.id]}
       <!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -330,6 +359,17 @@
     {#if placed.length === 0}
       <span class="dim empty">Right-click → Edit widgets</span>
     {/if}
+  </div>
+  {#if more.before}
+    <button class="more before" title="{more.before} more" aria-label="Show {more.before} more widgets" onpointerdown={(e) => e.stopPropagation()} onclick={() => page(-1)}>
+      <Back size={12} strokeWidth={2.6} /><span>{more.before}</span>
+    </button>
+  {/if}
+  {#if more.after}
+    <button class="more after" title="{more.after} more" aria-label="Show {more.after} more widgets" onpointerdown={(e) => e.stopPropagation()} onclick={() => page(1)}>
+      <Fwd size={12} strokeWidth={2.6} /><span>{more.after}</span>
+    </button>
+  {/if}
   </div>
 
   {#if ghost && dragId}
@@ -376,6 +416,29 @@
     min-height: 0;
   }
   .vertical .scroller { flex-direction: column; }
+  .scrollbox { flex: 1; position: relative; display: flex; min-width: 0; min-height: 0; }
+  /* Cut-off ends fade out, so it's clear the row/column goes on. */
+  .scroller { --fb: 0px; --fa: 0px; }
+  .scroller.fade-before { --fb: 26px; }
+  .scroller.fade-after { --fa: 26px; }
+  .scroller.fade-before, .scroller.fade-after {
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 var(--fb), #000 calc(100% - var(--fa)), transparent);
+    mask-image: linear-gradient(to right, transparent, #000 var(--fb), #000 calc(100% - var(--fa)), transparent);
+  }
+  .vertical .scroller.fade-before, .vertical .scroller.fade-after {
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 var(--fb), #000 calc(100% - var(--fa)), transparent);
+    mask-image: linear-gradient(to bottom, transparent, #000 var(--fb), #000 calc(100% - var(--fa)), transparent);
+  }
+  .more {
+    position: absolute; z-index: 3; display: flex; align-items: center; gap: 1px;
+    padding: 2px 6px 2px 4px; border-radius: 999px; font-size: 10px; font-weight: 600; font-variant-numeric: tabular-nums;
+    background: rgb(var(--tint)); border: 1px solid var(--line); box-shadow: var(--shadow); color: var(--fg);
+  }
+  .more:hover { background: var(--accent); color: #fff; border-color: transparent; }
+  .more.before { left: 0; top: 50%; translate: 0 -50%; }
+  .more.after { right: 0; top: 50%; translate: 0 -50%; }
+  .vertical .more.before { left: 50%; top: 0; translate: -50% 0; }
+  .vertical .more.after { left: 50%; top: auto; bottom: 0; translate: -50% 0; }
 
   /* Jumped to from a notification: a soft accent ring pulses 3 times (~2 s), then fades. */
   .slot:global(.jump) > :global(*) { animation: jumpglow 0.7s ease-in-out 3; border-radius: var(--radius-pill); }
