@@ -6,6 +6,7 @@ export default defineWidget<Record<string, never>>({
   id: 'start',
   name: 'Start & Search',
   description: 'Windows Start menu and Search buttons',
+  category: 'apps',
   icon: Search,
   sizes: ['small'],
   defaultSize: 'small',

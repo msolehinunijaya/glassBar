@@ -15,6 +15,7 @@ export default defineWidget<QuickSettings>({
   id: 'quicksettings',
   name: 'Quick Settings',
   description: 'Wi-Fi, Bluetooth, volume, battery and power mode, hotspot, airplane mode, display, brightness, keyboard language, system tray icons',
+  category: 'connectivity',
   icon: SlidersHorizontal,
   sizes: ['small'],
   defaultSize: 'small',

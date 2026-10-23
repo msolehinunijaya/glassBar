@@ -12,6 +12,7 @@ export default defineWidget<TimerSettings>({
   id: 'timer',
   name: 'Timer & Stopwatch',
   description: 'Countdown timers with presets, stopwatch with laps',
+  category: 'productivity',
   icon: AlarmClock,
   sizes: ['small', 'medium'],
   defaultSize: 'small',

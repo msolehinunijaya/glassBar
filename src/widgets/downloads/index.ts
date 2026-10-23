@@ -12,6 +12,7 @@ export default defineWidget<DownloadsSettings>({
   id: 'downloads',
   name: 'Downloads',
   description: 'Your latest downloads: open with a click, show in folder, drag into other apps',
+  category: 'apps',
   icon: Download,
   sizes: ['small', 'medium', 'large'],
   defaultSize: 'medium',

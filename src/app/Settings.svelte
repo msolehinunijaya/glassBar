@@ -1,13 +1,12 @@
 <script lang="ts">
   import { chargerTone, deviceTone } from '../lib/sound';
   import { availableMonitors, type Monitor } from '@tauri-apps/api/window';
-  import { ArrowDown, ArrowUp, ChevronDown, Copy, Trash2 } from '@lucide/svelte';
-  import { profile, store, update, updateWidgetSettings } from '../lib/config.svelte';
+  import { Copy, Trash2 } from '@lucide/svelte';
+  import { profile, store, update } from '../lib/config.svelte';
   import { events, ipc, type Config } from '../lib/ipc';
-  import { reorder } from '../lib/geometry';
-  import { addWidget, available, settingsOf, widgets } from '../widgets/registry';
   import Updates from './Updates.svelte';
   import LocationSettings from './LocationSettings.svelte';
+  import WidgetManager from './widgets/WidgetManager.svelte';
 
   const sections = ['Bar', 'Appearance', 'Widgets', 'Location', 'Notifications', 'Sounds', 'Profiles', 'Startup', 'Updates', 'Backup'] as const;
   import { SOURCE_WIDGET } from '../lib/notify';
@@ -25,15 +24,10 @@
   const set = (f: (c: Config) => void) => update(f);
   const setBar = (f: (b: Config['profiles'][string]['bar']) => void) => set((c) => f(c.profiles[c.activeProfile].bar));
 
-  let open = $state<string | null>(null);
   let newName = $state('');
   let exported = $state('');
   let importText = $state('');
   let message = $state('');
-
-  function moveWidget(i: number, d: number) {
-    set((c) => { const p = c.profiles[c.activeProfile]; p.widgets = reorder(p.widgets, i, i + d); });
-  }
 
   function renameProfile(from: string, to: string) {
     to = to.trim();
@@ -142,39 +136,7 @@
       </div>
 
     {:else if section === 'Widgets'}
-      <div class="group">
-        {#each profile().widgets as w, i (w.instance)}
-          {@const m = widgets[w.id]}
-          {#if m}
-            <div class="wrow">
-              <span class="wico"><m.icon size={16} /></span>
-              <b>{m.name}</b>
-              <select value={w.size} onchange={(e) => set((c) => (c.profiles[c.activeProfile].widgets[i].size = e.currentTarget.value as typeof w.size))}>
-                {#each m.sizes as s (s)}<option value={s}>{s}</option>{/each}
-              </select>
-              <button class="icon-btn" disabled={i === 0} onclick={() => moveWidget(i, -1)} aria-label="Move up"><ArrowUp size={14} /></button>
-              <button class="icon-btn" disabled={i === profile().widgets.length - 1} onclick={() => moveWidget(i, 1)} aria-label="Move down"><ArrowDown size={14} /></button>
-              {#if m.SettingsForm}
-                <button class="icon-btn" class:rot={open === w.instance} onclick={() => (open = open === w.instance ? null : w.instance)} aria-label="Widget settings"><ChevronDown size={14} /></button>
-              {/if}
-              <button class="icon-btn" onclick={() => set((c) => c.profiles[c.activeProfile].widgets.splice(i, 1))} aria-label="Remove"><Trash2 size={14} /></button>
-            </div>
-            {#if open === w.instance && m.SettingsForm}
-              <div class="wform"><m.SettingsForm instance={w.instance} settings={settingsOf(m, w)} save={(p) => updateWidgetSettings(w.instance, p)} /></div>
-            {/if}
-          {/if}
-        {/each}
-      </div>
-      <h2>Add a widget</h2>
-      <div class="gallery">
-        {#each available(profile().widgets) as m (m.id)}
-          <button class="gcard" onclick={() => addWidget(m.id)}>
-            <span class="wico"><m.icon size={18} /></span>
-            <b>{m.name}</b>
-            <span class="hint">{m.description}</span>
-          </button>
-        {/each}
-      </div>
+      <WidgetManager />
 
     {:else if section === 'Location'}
       <LocationSettings />
@@ -334,7 +296,12 @@
     .wico { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; background: var(--accent); color: #fff; flex: none; }
     .wform { padding: 4px 0 12px 36px; display: flex; flex-direction: column; gap: 8px; }
     .wform label { display: flex; align-items: center; gap: 8px; }
-    .rot { transform: rotate(180deg); }
+    /* On/off switch (a checkbox with role="switch"). */
+    .switch { appearance: none; flex: none; width: 34px; height: 20px; border-radius: 999px; background: var(--track); position: relative; transition: background 0.2s var(--ease); margin: 0; }
+    .switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3); transition: translate 0.2s var(--ease); }
+    .switch:checked { background: var(--accent); }
+    .switch:checked::after { translate: 14px 0; }
+    .switch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
     .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
     .gcard { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 14px; text-align: left; border-radius: 14px; background: var(--panel); border: 1px solid var(--line-soft); transition: transform 0.3s var(--spring); }
     .gcard:hover { transform: translateY(-2px); }

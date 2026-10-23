@@ -1,3 +1,4 @@
+import type { CategoryId } from './categories';
 // The widget contract. A widget is a folder in src/widgets/<id>/ whose index.ts
 // default-exports `defineWidget({...})`. See docs/WIDGET_SDK.md.
 import type { Component } from 'svelte';
@@ -29,6 +30,8 @@ export interface WidgetManifest<S = any> {
   id: string;
   name: string;
   description: string;
+  /** Settings › Widgets category (see categories.ts); unknown or missing = Other. */
+  category?: CategoryId;
   icon: Component<any>;
   sizes: WidgetSize[];
   defaultSize: WidgetSize;

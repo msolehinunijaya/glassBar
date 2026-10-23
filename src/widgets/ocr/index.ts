@@ -22,6 +22,7 @@ export default defineWidget<OcrSettings>({
   id: 'ocr',
   name: 'Capture',
   description: 'Screenshot (screen, area, window, scrolling page), screen recording, OCR Snap and clipboard history',
+  category: 'apps',
   icon: Aperture,
   sizes: ['medium'],
   defaultSize: 'medium',

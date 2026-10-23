@@ -47,6 +47,7 @@ export default defineWidget<ClockSettings>({
   id: 'clock',
   name: 'Clock & Date',
   description: 'Time and date in your format, calendar, world clocks with day/night, weather',
+  category: 'productivity',
   icon: Clock,
   sizes: ['small', 'medium', 'large'],
   defaultSize: 'medium',

@@ -10,6 +10,7 @@ export default defineWidget<NotifSettings>({
   id: 'notifications',
   name: 'Notifications',
   description: 'Alert history from timers, prayers, to-dos; Do Not Disturb',
+  category: 'media',
   icon: Bell,
   sizes: ['small'],
   defaultSize: 'small',

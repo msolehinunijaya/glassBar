@@ -11,6 +11,7 @@ export default defineWidget<ProgressSettings>({
   id: 'progress',
   name: 'Time Progress',
   description: 'How much of the day, month or year has passed',
+  category: 'productivity',
   icon: Hourglass,
   sizes: ['small', 'medium'],
   defaultSize: 'small',

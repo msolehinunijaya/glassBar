@@ -10,6 +10,7 @@ export default defineWidget<AiSettings>({
   id: 'ai',
   name: 'AI Usage',
   description: 'Ask Claude a quick question; see tokens used today and this month',
+  category: 'ai',
   icon: Sparkles,
   sizes: ['small', 'medium'],
   defaultSize: 'small',

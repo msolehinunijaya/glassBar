@@ -13,6 +13,7 @@ export default defineWidget<MusicSettings>({
   id: 'music',
   name: 'Music',
   description: 'Now playing from Spotify, browsers and any media app',
+  category: 'media',
   icon: Music,
   sizes: ['small', 'medium', 'large'],
   defaultSize: 'medium',

@@ -10,6 +10,7 @@ export default defineWidget<ScreenTimeSettings>({
   id: 'screentime',
   name: 'Screen Time',
   description: "Today's usage, top apps, 7-day graph (records only while placed)",
+  category: 'system',
   icon: Hourglass,
   sizes: ['small', 'medium'],
   defaultSize: 'small',

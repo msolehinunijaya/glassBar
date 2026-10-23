@@ -11,6 +11,7 @@ export default defineWidget<CurrencySettings>({
   id: 'currency',
   name: 'Currency Converter',
   description: 'Live exchange rates (indicative, not bank rates)',
+  category: 'info',
   icon: ArrowLeftRight,
   sizes: ['small', 'medium'],
   defaultSize: 'medium',

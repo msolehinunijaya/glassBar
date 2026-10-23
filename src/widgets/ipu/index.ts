@@ -20,6 +20,7 @@ export default defineWidget<IpuSettings>({
   id: 'ipu',
   name: 'IPU (Air Quality)',
   description: 'Air Pollutant Index: nearest JAS/DOE station, or browse by state/station',
+  category: 'info',
   icon: Wind,
   sizes: ['small', 'medium'],
   defaultSize: 'small',

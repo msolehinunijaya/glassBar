@@ -63,8 +63,12 @@ pub struct WidgetInst {
     pub size: String,
     #[serde(default)]
     pub settings: serde_json::Value,
+    /// Off = kept in the layout with its settings, but not on the dock and not running.
+    #[serde(default = "yes")]
+    pub enabled: bool,
 }
 fn medium() -> String { "medium".into() }
+fn yes() -> bool { true }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase", default)]
@@ -73,7 +77,7 @@ pub struct Profile { pub bar: BarCfg, pub widgets: Vec<WidgetInst> }
 impl Default for Profile {
     fn default() -> Self {
         let w = |id: &str, size: &str| WidgetInst {
-            id: id.into(), instance: format!("{id}-1"), size: size.into(), settings: serde_json::Value::Null,
+            id: id.into(), instance: format!("{id}-1"), size: size.into(), settings: serde_json::Value::Null, enabled: true
         };
         Self { bar: BarCfg::default(), widgets: vec![
             w("start", "small"), w("apps", "large"), w("music", "medium"),
@@ -203,7 +207,7 @@ impl Config {
             // Put the new Start/Search button at the far left, once.
             for p in self.profiles.values_mut() {
                 if !p.widgets.iter().any(|w| w.id == "start") {
-                    p.widgets.insert(0, WidgetInst { id: "start".into(), instance: "start-1".into(), size: "small".into(), settings: serde_json::Value::Null });
+                    p.widgets.insert(0, WidgetInst { id: "start".into(), instance: "start-1".into(), size: "small".into(), settings: serde_json::Value::Null, enabled: true });
                 }
             }
         }
@@ -308,7 +312,7 @@ impl Config {
                     for (k, v) in old.and_then(|w| w.settings.as_object()).into_iter().flatten() { s[k] = v.clone(); }
                 }
                 let size = p.widgets[at].size.clone();
-                p.widgets[at] = WidgetInst { id: "productivity".into(), instance: "productivity-1".into(), size, settings: s };
+                p.widgets[at] = WidgetInst { id: "productivity".into(), instance: "productivity-1".into(), size, settings: s, enabled: true };
                 p.widgets.retain(|w| !PARTS.iter().any(|(id, _)| *id == w.id));
             }
         }
@@ -353,7 +357,7 @@ impl Config {
 
     /// Is widget `id` placed in any profile?
     pub fn uses(&self, id: &str) -> bool {
-        self.profiles.values().any(|p| p.widgets.iter().any(|w| w.id == id))
+        self.profiles.values().any(|p| p.widgets.iter().any(|w| w.id == id && w.enabled))
     }
 
     /// Settings of the first `id` instance, active profile first; Null if none.
@@ -428,6 +432,18 @@ mod tests {
     }
 
     #[test]
+    fn disabled_widgets_stay_but_do_not_run() {
+        let c: Config = serde_json::from_value(serde_json::json!({ "profiles": { "Default": { "widgets": [
+            { "id": "sysmon", "instance": "sysmon-1" },
+            { "id": "ipu", "instance": "ipu-1", "enabled": false, "settings": { "alerts": false } },
+        ] } }, "activeProfile": "Default" })).unwrap();
+        let w = &c.profiles["Default"].widgets;
+        assert!(w[0].enabled, "old configs without the flag load as on");
+        assert!(c.uses("sysmon") && !c.uses("ipu"));
+        assert_eq!(w[1].settings["alerts"], false, "settings are kept while off");
+    }
+
+    #[test]
     fn missing_file_gives_defaults() {
         let d = tmp("missing");
         let c = load(&d.join("config.json"));
@@ -494,7 +510,7 @@ mod tests {
         assert!(c.uses("clock"));
         assert!(!c.uses("todo"));
         let mut other = Profile::default();
-        other.widgets.push(WidgetInst { id: "todo".into(), instance: "todo-1".into(), size: "medium".into(), settings: serde_json::Value::Null });
+        other.widgets.push(WidgetInst { id: "todo".into(), instance: "todo-1".into(), size: "medium".into(), settings: serde_json::Value::Null, enabled: true });
         c.profiles.insert("Work".into(), other);
         assert!(c.uses("todo"));
     }
@@ -502,7 +518,7 @@ mod tests {
     #[test]
     fn widget_settings_prefers_active_profile() {
         let mut c = Config::default();
-        let w = |v: i64| WidgetInst { id: "solat".into(), instance: format!("solat-{v}"), size: "small".into(), settings: serde_json::json!({ "v": v }) };
+        let w = |v: i64| WidgetInst { id: "solat".into(), instance: format!("solat-{v}"), size: "small".into(), settings: serde_json::json!({ "v": v }), enabled: true };
         let mut a = Profile::default();
         a.widgets.push(w(1));
         let mut b = Profile::default();
@@ -562,7 +578,7 @@ mod tests {
 
     #[test]
     fn v3_folds_the_disk_widget_into_the_system_monitor() {
-        let w = |id: &str| WidgetInst { id: id.into(), instance: format!("{id}-1"), size: "small".into(), settings: serde_json::Value::Null };
+        let w = |id: &str| WidgetInst { id: id.into(), instance: format!("{id}-1"), size: "small".into(), settings: serde_json::Value::Null, enabled: true };
         // With a system monitor already placed: disk goes, the monitor shows disk.
         let mut c = Config { version: 2, ..Config::default() };
         c.profiles.get_mut("Default").unwrap().widgets = vec![w("sysmon"), w("disk"), w("clock")];
@@ -580,7 +596,7 @@ mod tests {
 
     #[test]
     fn v4_moves_the_tray_widget_into_quick_settings() {
-        let w = |id: &str| WidgetInst { id: id.into(), instance: format!("{id}-1"), size: "small".into(), settings: serde_json::Value::Null };
+        let w = |id: &str| WidgetInst { id: id.into(), instance: format!("{id}-1"), size: "small".into(), settings: serde_json::Value::Null, enabled: true };
         let mut c = Config { version: 3, ..Config::default() };
         c.profiles.get_mut("Default").unwrap().widgets = vec![w("quicksettings"), w("tray"), w("clock")];
         let c = c.normalized();
@@ -596,7 +612,7 @@ mod tests {
 
     #[test]
     fn v8_combines_pomodoro_todo_and_notes() {
-        let w = |id: &str, s: serde_json::Value| WidgetInst { id: id.into(), instance: format!("{id}-1"), size: "medium".into(), settings: s };
+        let w = |id: &str, s: serde_json::Value| WidgetInst { id: id.into(), instance: format!("{id}-1"), size: "medium".into(), settings: s, enabled: true };
         let mut c = Config { version: 7, ..Config::default() };
         c.profiles.get_mut("Default").unwrap().widgets = vec![
             w("clock", serde_json::Value::Null), w("pomodoro", serde_json::json!({ "workMin": 50 })),
@@ -615,7 +631,7 @@ mod tests {
 
     #[test]
     fn v7_moves_volume_into_quick_settings_only_where_it_was() {
-        let w = |id: &str, s: serde_json::Value| WidgetInst { id: id.into(), instance: format!("{id}-1"), size: "small".into(), settings: s };
+        let w = |id: &str, s: serde_json::Value| WidgetInst { id: id.into(), instance: format!("{id}-1"), size: "small".into(), settings: s, enabled: true };
         let mut c = Config { version: 6, ..Config::default() };
         c.profiles.get_mut("Default").unwrap().widgets = vec![w("sound", serde_json::json!({ "layout": "icon", "wheel": true })), w("quicksettings", serde_json::Value::Null)];
         let ws = c.normalized().profiles["Default"].widgets.clone();
@@ -630,7 +646,7 @@ mod tests {
 
     #[test]
     fn v6_folds_battery_into_quick_settings_and_weather_into_the_clock() {
-        let w = |id: &str, s: serde_json::Value| WidgetInst { id: id.into(), instance: format!("{id}-1"), size: "small".into(), settings: s };
+        let w = |id: &str, s: serde_json::Value| WidgetInst { id: id.into(), instance: format!("{id}-1"), size: "small".into(), settings: s, enabled: true };
         let mut c = Config { version: 5, ..Config::default() };
         c.profiles.get_mut("Default").unwrap().widgets = vec![
             w("quicksettings", serde_json::json!({ "trayOnDock": true })), w("battery", serde_json::json!({ "style": "liquid" })),
@@ -652,7 +668,7 @@ mod tests {
 
     #[test]
     fn v5_moves_the_language_widget_into_quick_settings() {
-        let w = |id: &str| WidgetInst { id: id.into(), instance: format!("{id}-1"), size: "small".into(), settings: serde_json::Value::Null };
+        let w = |id: &str| WidgetInst { id: id.into(), instance: format!("{id}-1"), size: "small".into(), settings: serde_json::Value::Null, enabled: true };
         let mut c = Config { version: 4, ..Config::default() };
         c.profiles.get_mut("Default").unwrap().widgets = vec![w("lang"), w("quicksettings"), w("clock")];
         let ws = c.normalized().profiles["Default"].widgets.clone();

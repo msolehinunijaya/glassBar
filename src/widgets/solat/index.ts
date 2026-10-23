@@ -11,6 +11,7 @@ export default defineWidget<SolatSettings>({
   id: 'solat',
   name: 'Waktu Solat',
   description: 'Prayer times (JAKIM zones, worldwide fallback), countdown, alerts',
+  category: 'info',
   icon: Moon,
   sizes: ['small', 'medium', 'large'],
   defaultSize: 'medium',

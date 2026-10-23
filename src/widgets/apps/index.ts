@@ -19,6 +19,7 @@ export default defineWidget<AppsSettings>({
   id: 'apps',
   name: 'App Launcher',
   description: 'Pinned and running apps, grouped by program',
+  category: 'apps',
   icon: LayoutGrid,
   sizes: ['small', 'medium', 'large'],
   defaultSize: 'large',

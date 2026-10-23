@@ -14,14 +14,16 @@ export const widgets: Record<string, WidgetManifest> = Object.fromEntries(
 
 export { settingsOf } from './types';
 
-/** Widgets not yet on the active profile's bar (each widget can be placed once). */
-export const available = (placed: { id: string }[]) =>
-  Object.values(widgets).filter((m) => !placed.some((w) => w.id === m.id));
+/** Widgets not on the active profile's dock: never added, or switched off (one of each kind). */
+export const available = (placed: { id: string; enabled?: boolean }[]) =>
+  Object.values(widgets).filter((m) => !placed.some((w) => w.id === m.id && w.enabled !== false));
 
-/** Append widget `id` to the active profile, unless it is already there. */
+/** Put widget `id` on the active profile's dock: switch it back on if it is there but off,
+ *  else append it with defaults. */
 export const addWidget = (id: string) =>
   update((c) => {
-    if (c.profiles[c.activeProfile].widgets.some((w) => w.id === id)) return;
+    const had = c.profiles[c.activeProfile].widgets.find((w) => w.id === id);
+    if (had) { had.enabled = true; return; }
     c.profiles[c.activeProfile].widgets.push({
       id, instance: `${id}-${Date.now().toString(36)}`, size: widgets[id].defaultSize, settings: {},
     });

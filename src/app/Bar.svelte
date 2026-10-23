@@ -13,6 +13,7 @@
   import { showMenu } from '../lib/menu';
   import { PredefinedMenuItem } from '@tauri-apps/api/menu';
   import { settingsOf, widgets } from '../widgets/registry';
+  import { visibleOnDock } from '../widgets/layout';
   import { jumpTarget } from '../lib/notify';
   import { PARTS, partPanel } from '../widgets/productivity/parts';
 
@@ -22,9 +23,8 @@
 
   const bar = $derived(profile().bar);
   const vertical = $derived(bar.edge === 'left' || bar.edge === 'right');
-  // The standalone Start & Search widget is hidden while the App Launcher shows it inline.
-  const inlineStart = $derived(profile().widgets.some((w) => w.id === 'apps' && (w.settings?.startPlacement ?? 'inline') === 'inline'));
-  const placed = $derived(profile().widgets.filter((w) => widgets[w.id] && !(w.id === 'start' && inlineStart)));
+  // Widgets that are on; the standalone Start & Search hides while the App Launcher shows it inline.
+  const placed = $derived(visibleOnDock(profile().widgets, widgets));
 
   // While dragging a widget in edit mode we show a local order, committed on drop.
   let order = $state<string[] | null>(null);
@@ -300,7 +300,7 @@
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="surface bar" class:vertical class:edit onpointerdown={onBarDown} oncontextmenu={onContext}
+<div class="surface bar dock" class:vertical class:edit onpointerdown={onBarDown} oncontextmenu={onContext}
      onpointerenter={onEnter} data-size={bar.size}>
   <div class="handle start" onpointerdown={(e) => onHandleDown(e, -1)}></div>
 
@@ -377,7 +377,6 @@
   }
   .vertical .scroller { flex-direction: column; }
 
-  .slot { position: relative; flex: none; display: flex; }
   /* Jumped to from a notification: a soft accent ring pulses 3 times (~2 s), then fades. */
   .slot:global(.jump) > :global(*) { animation: jumpglow 0.7s ease-in-out 3; border-radius: var(--radius-pill); }
   @keyframes jumpglow { 50% { box-shadow: 0 0 0 2px var(--accent), 0 0 16px color-mix(in srgb, var(--accent) 65%, transparent); } }
@@ -389,19 +388,7 @@
     border-radius: var(--radius-pill); box-shadow: 0 10px 26px rgba(0, 0, 0, 0.35);
     transition: transform 40ms linear; will-change: transform;
   }
-  .vertical .slot { justify-content: center; width: 100%; }
-  /* Left/right dock: every widget stacks its parts in a column that fits the bar's width.
-     Text wraps instead of being clipped; nothing is rotated. */
-  .vertical .slot > :global(.pill) {
-    width: 100%; height: auto; min-height: 34px; box-sizing: border-box;
-    flex-direction: column; justify-content: center; align-items: center;
-    padding: 6px 2px; gap: 3px; text-align: center; font-size: 11px; line-height: 1.15;
-  }
-  .vertical .slot > :global(.pill *) { min-width: 0 !important; }
-  .vertical .slot > :global(.pill > *) { max-width: 100%; flex-wrap: wrap; justify-content: center; text-align: center; }
-  .vertical .slot > :global(.pill svg), .vertical .slot > :global(.pill img) { flex: none; }
-  .vertical .slot > :global(.pill .b) { height: 34px; } /* Start/Search buttons */
-  .vertical .slot > :global(.apps) { gap: 2px; padding: 4px 2px; }
+  /* Slot and left/right column rules are shared with the Settings preview: glass.css (.dock). */
   .edit .slot { animation: jiggle 0.28s ease-in-out infinite; }
   .edit .slot:nth-child(2n) { animation-delay: -0.14s; }
 

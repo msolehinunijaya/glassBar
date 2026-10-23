@@ -4,7 +4,7 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import type { Edge } from './geometry';
 
 export type WidgetSize = 'small' | 'medium' | 'large';
-export interface WidgetInst { id: string; instance: string; size: WidgetSize; settings: any }
+export interface WidgetInst { id: string; instance: string; size: WidgetSize; settings: any; /** false = off: kept with its settings, not on the dock */ enabled?: boolean }
 export interface BarCfg {
   edge: Edge; monitor: number | null; length: number; size: 'compact' | 'normal' | 'large';
   floating: { x: number; y: number } | null; reserveSpace: boolean;

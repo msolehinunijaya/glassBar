@@ -142,3 +142,20 @@ input[type='range'].slider::-webkit-slider-thumb {
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
 }
+
+/* A dock's widget slots: the bar and the Settings › Widgets preview render the same way. */
+.dock .slot { position: relative; flex: none; display: flex; }
+.dock.vertical .slot { justify-content: center; width: 100%; }
+/* Left/right dock: every widget stacks its parts in a column that fits the bar's width.
+   Text wraps instead of being clipped; nothing is rotated. (.inert: the Settings preview wraps
+   each widget so it can't be clicked.) */
+.dock.vertical .pill:is(.slot > *, .slot > .inert > *) {
+  width: 100%; height: auto; min-height: 34px; box-sizing: border-box;
+  flex-direction: column; justify-content: center; align-items: center;
+  padding: 6px 2px; gap: 3px; text-align: center; font-size: 11px; line-height: 1.15;
+}
+.dock.vertical .pill:is(.slot > *, .slot > .inert > *) * { min-width: 0 !important; }
+.dock.vertical .pill:is(.slot > *, .slot > .inert > *) > * { max-width: 100%; flex-wrap: wrap; justify-content: center; text-align: center; }
+.dock.vertical .pill:is(.slot > *, .slot > .inert > *) svg, .dock.vertical .pill:is(.slot > *, .slot > .inert > *) img { flex: none; }
+.dock.vertical .pill:is(.slot > *, .slot > .inert > *) .b { height: 34px; } /* Start/Search buttons */
+.dock.vertical .apps:is(.slot > *, .slot > .inert > *) { gap: 2px; padding: 4px 2px; }

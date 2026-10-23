@@ -17,6 +17,7 @@ export default defineWidget<SysmonSettings>({
   id: 'sysmon',
   name: 'System Monitor',
   description: 'CPU, RAM, network and disk storage with live graphs',
+  category: 'system',
   icon: Activity,
   sizes: ['small', 'medium', 'large'],
   defaultSize: 'medium',

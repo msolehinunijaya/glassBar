@@ -12,6 +12,7 @@ export default defineWidget<ProductivitySettings>({
   id: 'productivity',
   name: 'Pomodoro · To-Do · Notes',
   description: 'Focus timer, to-dos and sticky notes in one widget; pick which show on the dock',
+  category: 'productivity',
   icon: ListChecks,
   sizes: ['small', 'medium', 'large'],
   defaultSize: 'medium',
