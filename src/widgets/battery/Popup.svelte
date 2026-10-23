@@ -5,8 +5,12 @@
   import { duration } from '../../lib/time';
   import type { PopupProps } from '../types';
   import BatteryIcon from './BatteryIcon.svelte';
+  import LiquidBattery from './LiquidBattery.svelte';
+  import OptionsPopover from '../../lib/OptionsPopover.svelte';
+  import { updateWidgetSettings } from '../../lib/config.svelte';
+  import type { BatterySettings } from './index';
 
-  let {}: PopupProps = $props();
+  let { instance, settings }: PopupProps<BatterySettings> = $props();
   const bat = live<Battery | null>('battery', ipc.batteryGet, null);
   let power = $state<PowerInfo | null>(null);
   let error = $state('');
@@ -26,7 +30,10 @@
 
 <h3>Battery</h3>
 {#if bat.v}
-  <div class="big"><BatteryIcon b={bat.v} size={30} /> <span>{bat.v.percent}%</span></div>
+  <div class="big">
+    {#if settings.style === 'liquid'}<LiquidBattery b={bat.v} height={40} />{:else}<BatteryIcon b={bat.v} size={30} />{/if}
+    <span>{bat.v.percent}%</span>
+  </div>
   <p class="dim status">
     {#if bat.v.charging}Charging{:else if bat.v.onAc}Plugged in{:else}On battery{/if}
     {#if bat.v.secsLeft && !bat.v.onAc} · about {duration(bat.v.secsLeft)} left{/if}
@@ -34,6 +41,12 @@
 {:else}
   <p class="dim">This PC runs on AC power (no battery found).</p>
 {/if}
+
+<div class="style">
+  <OptionsPopover title="Style" values={settings} save={(p) => updateWidgetSettings(instance, p)} options={[
+    { type: 'choice', key: 'style', label: 'Design', choices: [{ value: 'classic', label: 'Classic' }, { value: 'liquid', label: 'Liquid' }] },
+  ]} />
+</div>
 
 <h4 class="dim">Power mode</h4>
 <div class="seg">
@@ -58,6 +71,7 @@
   h4 { margin: 14px 2px 6px; font-size: 12px; font-weight: 500; }
   .big { display: flex; align-items: center; gap: 12px; font-size: 32px; font-weight: 600; }
   .status { margin: 4px 0 0; }
+  .style { margin-top: 10px; }
   .seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; padding: 3px; border-radius: 12px; background: var(--pill); }
   .seg button { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 2px; border-radius: 9px; font-size: 11px; }
   .seg .sel { background: var(--accent); color: #fff; }

@@ -1,11 +1,15 @@
 <script lang="ts">
-  import { Music, Pause, Play, SkipBack, SkipForward } from '@lucide/svelte';
+  import { Music, Pause, Play, Settings2, SkipBack, SkipForward } from '@lucide/svelte';
+  import { updateWidgetSettings } from '../../lib/config.svelte';
+  import OptionsPopover from '../../lib/OptionsPopover.svelte';
+  import type { MusicSettings } from './index';
   import { ipc } from '../../lib/ipc';
   import type { PopupProps } from '../types';
   import { fmt, liveMedia, positionAt, toggle } from './media.svelte';
   import Rhythm from './Rhythm.svelte';
 
-  let {}: PopupProps = $props();
+  let { instance, settings }: PopupProps<MusicSettings> = $props();
+  let showOptions = $state(false);
   const media = liveMedia();
   let now = $state(Date.now());
   $effect(() => { const t = setInterval(() => (now = Date.now()), 500); return () => clearInterval(t); });
@@ -21,6 +25,15 @@
   }
 </script>
 
+<button class="icon-btn gear" class:on={showOptions} onclick={() => (showOptions = !showOptions)} aria-label="Music widget options"><Settings2 size={16} /></button>
+{#if showOptions}
+  <div class="optwrap">
+    <OptionsPopover title="Music widget" values={settings} save={(p) => updateWidgetSettings(instance, p)} options={[
+      { type: 'choice', key: 'style', label: 'Design', choices: [{ value: 'classic', label: 'Classic' }, { value: 'mini', label: 'Mini' }] },
+      { type: 'toggle', key: 'showProgress', label: 'Show progress background', hint: 'Fill grows as the song plays' },
+    ]} />
+  </div>
+{/if}
 {#if media.m}
   <div class="art">
     {#if media.m.art}<img src={media.m.art} alt="Album art" />{:else}<Music size={48} />{/if}
@@ -47,6 +60,9 @@
 {/if}
 
 <style>
+  .gear { position: absolute; top: 10px; right: 10px; z-index: 2; }
+  .gear.on { color: var(--accent); }
+  .optwrap { margin: 28px 0 8px; }
   .art { width: 180px; height: 180px; margin: 4px auto 14px; border-radius: 18px; overflow: hidden; display: grid; place-items: center; background: var(--pill); box-shadow: var(--shadow); }
   .art img { width: 100%; height: 100%; object-fit: cover; }
   .meta { display: flex; flex-direction: column; text-align: center; gap: 2px; }

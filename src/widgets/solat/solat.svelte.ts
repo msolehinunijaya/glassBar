@@ -20,7 +20,9 @@ export function liveSolat(settings: () => SolatSettings) {
 
   $effect(() => {
     const left = next ? next.at - s.now : Infinity;
-    const wait = left <= 600_000 ? 1000 : 60_000 - (s.now % 60_000);
+    // Every second in the last 15 min and just after a prayer (flashing state); else on the minute.
+    const sincePrev = s.info ? Math.min(...s.info.days.flatMap((d) => d.times.map(([, t]) => (s.now >= t ? s.now - t : Infinity)))) : Infinity;
+    const wait = left <= 15 * 60_000 || sincePrev <= 31 * 60_000 ? 1000 : 60_000 - (s.now % 60_000);
     const t = setTimeout(() => { s.now = Date.now(); }, Math.max(250, wait));
     return () => clearTimeout(t);
   });

@@ -3,14 +3,16 @@ import { defineWidget } from '../types';
 import Pill from './Pill.svelte';
 import Popup from './Popup.svelte';
 
-export default defineWidget<Record<string, never>>({
+export interface BatterySettings { style: 'classic' | 'liquid' }
+
+export default defineWidget<BatterySettings>({
   id: 'battery',
   name: 'Battery',
-  description: 'Charge level, charging animation, power mode',
+  description: 'Charge level (classic or liquid style), power mode',
   icon: BatteryMedium,
   sizes: ['small', 'medium'],
   defaultSize: 'small',
-  defaults: {},
+  defaults: { style: 'classic' },
   Pill,
-  Popup: { component: Popup, width: 320, height: 330 },
+  Popup: { component: Popup, width: 320, height: 420 },
 });

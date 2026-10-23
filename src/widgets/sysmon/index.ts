@@ -4,7 +4,7 @@ import Pill from './Pill.svelte';
 import Popup from './Popup.svelte';
 import SettingsForm from './SettingsForm.svelte';
 
-export interface SysmonSettings { gpu: boolean; network: boolean }
+export interface SysmonSettings { cpu: boolean; ram: boolean; network: boolean; gpu: boolean }
 
 export default defineWidget<SysmonSettings>({
   id: 'sysmon',
@@ -13,8 +13,8 @@ export default defineWidget<SysmonSettings>({
   icon: Activity,
   sizes: ['small', 'medium', 'large'],
   defaultSize: 'medium',
-  defaults: { gpu: false, network: true },
+  defaults: { cpu: true, ram: true, network: false, gpu: false },
   Pill,
-  Popup: { component: Popup, width: 340, height: 380 },
+  Popup: { component: Popup, width: 340, height: 460 },
   SettingsForm,
 });

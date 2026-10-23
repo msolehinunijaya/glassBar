@@ -3,14 +3,20 @@
   import { live } from '../../lib/live.svelte';
   import type { PillProps } from '../types';
   import BatteryIcon from './BatteryIcon.svelte';
+  import type { BatterySettings } from './index';
+  import LiquidBattery from './LiquidBattery.svelte';
 
-  let { size }: PillProps = $props();
+  let { size, settings }: PillProps<BatterySettings> = $props();
   const bat = live<Battery | null>('battery', ipc.batteryGet, null);
 </script>
 
 <div class="pill" title={bat.v ? `${bat.v.percent}%${bat.v.charging ? ', charging' : ''}` : 'AC power'}>
-  <BatteryIcon b={bat.v} />
-  {#if bat.v}<span class="n">{bat.v.percent}%</span>{:else if size !== 'small'}<span class="dim">AC power</span>{/if}
+  {#if bat.v && settings.style === 'liquid'}
+    <LiquidBattery b={bat.v} />
+  {:else}
+    <BatteryIcon b={bat.v} />
+    {#if bat.v}<span class="n">{bat.v.percent}%</span>{:else if size !== 'small'}<span class="dim">AC power</span>{/if}
+  {/if}
 </div>
 
 <style>
