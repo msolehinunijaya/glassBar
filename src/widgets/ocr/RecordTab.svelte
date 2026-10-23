@@ -9,6 +9,7 @@
   }
 </script>
 
+<div class="grp act">
 <div class="opts">
   <button class="opt" onclick={() => rec('area')}>
     <SquareDashed size={22} />
@@ -22,6 +23,7 @@
   </button>
 </div>
 <p class="dim small">Uses Windows' own recorders. If nothing happens, update Snipping Tool from the Microsoft Store, or turn on Game Bar in Settings › Gaming.</p>
+</div>
 
 <style>
   .opts { display: flex; flex-direction: column; gap: 8px; }

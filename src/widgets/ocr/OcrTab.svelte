@@ -26,6 +26,7 @@
   }
 </script>
 
+<div class="grp act">
 <button class="go" onclick={snap}><ScanText size={16} /> Snap text <span class="k">{hotkeyLabel(activeKey || settings.hotkey)}</span></button>
 {#if hotkeyError}<p class="err small">{hotkeyError}. Pick another in the widget settings.</p>{/if}
 
@@ -39,7 +40,9 @@
   <button class:sel={settings.engine === 'ai'} onclick={() => updateWidgetSettings(instance, { engine: 'ai' })}>Claude (AI)</button>
 </div>
 {#if settings.engine === 'ai'}<p class="dim small">The selection is sent to Anthropic. Needs your API key (AI Usage widget settings).</p>{/if}
+</div>
 
+<div class="grp hist">
 <div class="head"><h4 class="dim">History</h4>{#if hist.v.length}<button class="link" onclick={() => ipc.ocrHistoryDelete(null)}>Clear</button>{/if}</div>
 <div class="list">
   {#each hist.v as i (i.id)}
@@ -54,6 +57,7 @@
   {:else}
     <p class="dim small empty">Nothing captured yet.</p>
   {/each}
+</div>
 </div>
 
 <style>

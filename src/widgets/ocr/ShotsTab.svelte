@@ -33,6 +33,7 @@
   ] as const;
 </script>
 
+<div class="grp act">
 <div class="modes">
   {#each modes as [k, label, Icon] (k)}
     <button class="mode" onclick={() => take(k)} title={k === 'scroll' ? 'Pick a window (e.g. a browser): it scrolls to the end and the page is captured as one tall image' : label}>
@@ -44,7 +45,9 @@
   <select value={String(settings.keepDays)} onchange={(e) => updateWidgetSettings(instance, { keepDays: +e.currentTarget.value })}>
     {#each [1, 3, 7, 14, 30] as d (d)}<option value={String(d)}>{d} day{d > 1 ? 's' : ''}</option>{/each}
   </select>, then deleted.</p>
+</div>
 
+<div class="grp hist">
 <div class="head">
   <h4 class="dim">Recent</h4>
   <span>
@@ -68,6 +71,7 @@
   {:else}
     <p class="dim small empty">No screenshots yet.</p>
   {/each}
+</div>
 </div>
 
 <style>

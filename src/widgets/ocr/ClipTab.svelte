@@ -22,6 +22,7 @@
   }
 </script>
 
+<div class="grp act">
 <div class="top">
   <label class="search"><Search size={13} /><input placeholder="Search copied text…" bind:value={q} /></label>
   <label class="dim sw" title="Record what you copy">On
@@ -31,6 +32,8 @@
 {#if !settings.clipHistory}
   <p class="dim small">Clipboard history is off. Nothing you copy is recorded.</p>
 {/if}
+</div>
+<div class="grp hist">
 <div class="head"><h4 class="dim">Recent copies</h4>{#if items.length}<button class="link" onclick={() => ipc.clipDelete(null)}>Clear</button>{/if}</div>
 <div class="list">
   {#each items as c (c.id)}
@@ -51,6 +54,7 @@
   {/each}
 </div>
 <p class="dim small">Keeps the last 200 copies. Passwords copied from password managers are skipped.</p>
+</div>
 
 <style>
   .top { display: flex; align-items: center; gap: 8px; }
