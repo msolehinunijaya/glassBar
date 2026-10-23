@@ -26,13 +26,14 @@
   {#if st && st.phase !== 'reached'}<span class="fill" style:transform="scaleX({st.progress})"></span>{/if}
   <Moon size={15} />
   {#if st?.phase === 'reached' && st.reached}
-    <span class="name">{st.reached.name}</span>
-    <span class="now">time now</span>
+    <span class="stack"><span class="name">{st.reached.name}</span><span class="now">time now</span></span>
     <button class="ok" onclick={ack} onpointerdown={(e) => e.stopPropagation()} aria-label="Acknowledge {st.reached.name}"><Check size={14} strokeWidth={3} /></button>
   {:else if st}
-    <span class="name">{st.next.name}</span>
-    {#if size !== 'small'}<span class="t">in {countdown(st.next.at - s.now)}</span>{/if}
-    {#if size === 'large'}<span class="dim">{at(st.next.at)}</span>{/if}
+    <!-- Stacked: name on top, countdown below (compact on the dock). -->
+    <span class="stack">
+      <span class="name">{st.next.name}</span>
+      {#if size !== 'small'}<span class="t">in {countdown(st.next.at - s.now)}{#if size === 'large'}<span class="dim"> · {at(st.next.at)}</span>{/if}</span>{/if}
+    </span>
   {:else}
     <span class="dim">–</span>
   {/if}
@@ -46,14 +47,16 @@
     background: color-mix(in srgb, var(--accent) 24%, transparent);
     transition: transform 1s linear, background 0.4s;
   }
-  .name { font-weight: 600; }
-  .t { font-variant-numeric: tabular-nums; }
+  .solat { gap: 6px; padding: 0 10px 0 8px; }
+  .stack { display: flex; flex-direction: column; line-height: 1.15; }
+  .name { font-weight: 600; font-size: 12px; }
+  .t { font-variant-numeric: tabular-nums; font-size: 10.5px; color: var(--fg-dim); white-space: nowrap; }
   .approaching .fill { background: color-mix(in srgb, #ffb340 40%, transparent); }
   .approaching { animation: soft 2.4s ease-in-out infinite; }
   @keyframes soft { 50% { box-shadow: inset 0 0 0 1px #ffb340, 0 0 10px rgba(255, 179, 64, 0.35); } }
   .reached { background: color-mix(in srgb, #30d158 30%, var(--pill)); animation: glow 1.1s ease-in-out infinite; }
   @keyframes glow { 50% { box-shadow: 0 0 0 2px #30d158, 0 0 16px rgba(48, 209, 88, 0.7); background: color-mix(in srgb, #30d158 55%, var(--pill)); } }
-  .now { font-size: 11px; }
+  .now { font-size: 10.5px; }
   .ok { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #30d158; color: #fff; transition: transform 0.3s var(--spring); }
   .ok:active { transform: scale(0.85); }
 </style>
