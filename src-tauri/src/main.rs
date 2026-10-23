@@ -81,24 +81,28 @@ fn main() {
         eprintln!("GlassBar panic: {msg}");
     }));
 
+    // Load state before any window exists: the webviews call get_config as soon as
+    // they load, and that can happen before `setup` runs.
+    let path = data_dir().join("config.json");
+    let state = AppState {
+        config: Mutex::new(config::load(&path)),
+        path,
+        popup: Mutex::new(Default::default()),
+        edit: AtomicBool::new(false),
+        dragging: AtomicBool::new(false),
+    };
+    // Never recreated over an existing file; a failure here is logged by the panic hook.
+    let database = db::open(&data_dir().join("glassbar.db")).expect("could not open glassbar.db");
+
     tauri::Builder::default()
+        .manage(state)
+        .manage(database)
         .plugin(tauri_plugin_single_instance::init(|app, _, _| { let _ = bar::open_settings(app); }))
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, None))
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .setup(|app| {
-            let path = data_dir().join("config.json");
-            let database = db::open(&data_dir().join("glassbar.db")).map_err(|e| format!("database: {e}"))?;
-            app.manage(database);
-            let cfg = config::load(&path);
-            app.manage(AppState {
-                config: Mutex::new(cfg),
-                path,
-                popup: Mutex::new(Default::default()),
-                edit: AtomicBool::new(false),
-                dragging: AtomicBool::new(false),
-            });
             let h = app.handle();
             let a = h.clone();
             platform::shell().init(&data_dir(), Box::new(move |e| match e {
