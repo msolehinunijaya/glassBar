@@ -29,6 +29,7 @@
 </script>
 
 <div class="pill clock {settings.appearance}" class:vertical class:stacked={show === 'both' && settings.layout === 'stacked'}
+     class:date-first={show === 'both' && settings.timeSide === 'right'}
      onpointerenter={enter} onpointerleave={leave} role="timer" title={day}>
   {#if show !== 'date'}
     <span class="time" class:big={settings.appearance === 'prominent' && !vertical}><Time now={clock.now} {settings} /></span>
@@ -44,6 +45,11 @@
   .time { font-weight: 600; }
   .date { white-space: nowrap; font-variant-numeric: tabular-nums; }
   .dot { margin: 0 -2px; }
+  /* date first: reverse the order (left/right, or top/bottom when stacked) */
+  .date-first .time { order: 3; }
+  .date-first .dot { order: 2; }
+  .date-first .date { order: 1; }
+  .date-first .zone { order: 4; }
   .vertical { padding: 0 4px; font-size: 11px; }
   .zone { font-size: 12px; }
   /* stacked: time above the date */

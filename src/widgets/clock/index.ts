@@ -25,6 +25,8 @@ export interface ClockSettings {
   /** What the pill shows (the small size always shows the time only). */
   show: 'time' | 'date' | 'both';
   layout: 'inline' | 'stacked';
+  /** Side by side: time on the left or right (stacked: time on top or below). */
+  timeSide: 'left' | 'right';
   /** Sun / moon next to each world clock. */
   dayNight: boolean;
   /** standard pill · prominent (bigger, bolder, accent panel) · popup (hover shows a large clock) */
@@ -44,7 +46,7 @@ export default defineWidget<ClockSettings>({
   defaultSize: 'medium',
   defaults: {
     hour12: false, ampm: 'PM', ampmSize: 'small', leadingZero: 'auto', showSeconds: false, worldSeconds: false,
-    dateStyle: 'weekday', dateSep: '/', weekday: 'none', datePattern: 'ddd, D MMM', show: 'both', layout: 'inline',
+    dateStyle: 'weekday', dateSep: '/', weekday: 'none', datePattern: 'ddd, D MMM', show: 'both', layout: 'inline', timeSide: 'left',
     dayNight: true, appearance: 'standard', zones: [], secondTz: '',
   },
   Pill,
