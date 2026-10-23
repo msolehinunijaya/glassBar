@@ -17,6 +17,7 @@ The MVP made GlassBar a working taskbar. Phase 2 turns it into the place where t
    - **Battery**
    - **Weather**
    - **Waktu Solat**
+   - **IPU (Air Pollutant Index)**
    - **System Monitor**
    - **Screen Time**
    - **Notifications**
@@ -98,6 +99,7 @@ The MVP made GlassBar a working taskbar. Phase 2 turns it into the place where t
 - **Network fetches live in Rust** and are cached:
   - Weather: refresh at most every 30 min.
   - Prayer times: once per day per zone.
+  - IPU: every 15 min (the data changes hourly).
   - All fetches work again after the network comes back.
 - **Installer.** It stays well under the 15 MB target; the MVP is ~2 MB.
 - **Network services.** All must be free and need no API key:
@@ -143,4 +145,8 @@ The MVP made GlassBar a working taskbar. Phase 2 turns it into the place where t
   - Waktu Solat uses cached times for today.
 - The updater finds a newer test release when one is published.
 - Idle CPU and the installer stay within the targets above.
-- Pure logic has unit tests: Pomodoro phase machine, prayer "next prayer" selection, screen-time accounting with idle gaps, note expiry, and DB migrations.
+- Pure logic has unit tests: Pomodoro phase machine, prayer "next prayer" selection, screen-time accounting with idle gaps, note expiry, DB migrations, and IPU nearest-station selection plus status bands.
+
+## Known risk
+
+The DOE map service is public but undocumented, so DOE could change it without notice. If it breaks, the IPU widget falls back to Open-Meteo AQI (labelled as such) until the endpoint is updated.
