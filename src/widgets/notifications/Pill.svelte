@@ -2,9 +2,10 @@
   import { Bell, BellOff } from '@lucide/svelte';
   import { store } from '../../lib/config.svelte';
   import type { PillProps } from '../types';
+  import type { NotifSettings } from './index';
   import { liveAlerts } from './alerts.svelte';
 
-  let {}: PillProps = $props();
+  let { settings }: PillProps<NotifSettings> = $props();
   const alerts = liveAlerts();
   const unread = $derived(alerts.list.filter((a) => !a.read).length);
 </script>
@@ -12,7 +13,7 @@
 <div class="pill" title={store.config?.dnd ? 'Do Not Disturb is on' : `${unread} unread`}>
   <span class="bell">
     {#if store.config?.dnd}<BellOff size={16} />{:else}<Bell size={16} />{/if}
-    {#if unread}<span class="badge">{unread > 99 ? '99+' : unread}</span>{/if}
+    {#if unread && settings.badge}<span class="badge">{unread > 99 ? '99+' : unread}</span>{/if}
   </span>
 </div>
 
