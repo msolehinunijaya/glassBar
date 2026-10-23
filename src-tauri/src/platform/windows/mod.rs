@@ -39,6 +39,16 @@ impl Shell for WinShell {
     }
     fn appbar_set(&self, edge: Edge, strip: Rect) -> Rect { appbar::set(edge, strip) }
     fn appbar_remove(&self) { appbar::remove() }
+    fn idle_ms(&self) -> u64 {
+        use windows::Win32::System::SystemInformation::GetTickCount;
+        use windows::Win32::UI::Input::KeyboardAndMouse::{GetLastInputInfo, LASTINPUTINFO};
+        let mut li = LASTINPUTINFO { cbSize: std::mem::size_of::<LASTINPUTINFO>() as u32, dwTime: 0 };
+        unsafe {
+            if !GetLastInputInfo(&mut li).as_bool() { return 0; }
+            GetTickCount().wrapping_sub(li.dwTime) as u64
+        }
+    }
+    fn foreground_exe(&self) -> Option<String> { windows_list::foreground_exe() }
     fn mouse_down(&self) -> bool {
         use windows::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_LBUTTON};
         unsafe { GetAsyncKeyState(VK_LBUTTON.0 as i32) as u16 & 0x8000 != 0 }

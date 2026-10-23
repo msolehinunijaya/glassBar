@@ -30,6 +30,12 @@ fn pid_of(w: HWND) -> u32 {
     pid
 }
 
+pub fn foreground_exe() -> Option<String> {
+    let w = unsafe { GetForegroundWindow() };
+    if w.is_invalid() { return None; }
+    Some(exe_path(pid_of(w))).filter(|p| !p.is_empty())
+}
+
 pub(crate) fn exe_path(pid: u32) -> String {
     unsafe {
         let Ok(proc) = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) else { return String::new() };

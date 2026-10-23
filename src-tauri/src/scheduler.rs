@@ -76,6 +76,7 @@ fn housekeeping(app: &AppHandle) {
     }
     crate::widgets::notes::housekeeping(app);
     crate::widgets::solat::refresh(app);
+    crate::widgets::screentime::housekeeping(app);
 }
 
 pub fn start(app: AppHandle) {

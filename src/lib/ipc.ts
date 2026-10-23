@@ -44,6 +44,7 @@ export interface IpuReading {
 }
 export interface Battery { percent: number; charging: boolean; onAc: boolean; secsLeft: number | null }
 export interface Sample { cpu: number; mem: number; gpu: number | null; rxBps: number; txBps: number; at: number }
+export interface ScreenToday { total: number; apps: { exe: string; name: string; seconds: number }[] }
 export type Sound = { kind: 'chime' } | { kind: 'azan'; src: string };
 
 export interface AppWindow { id: number; title: string; exe: string; active: boolean; minimized: boolean }
@@ -124,6 +125,9 @@ export const ipc = {
   // battery + system monitor
   batteryGet: () => invoke<Battery | null>('battery_get'),
   sysmonHistory: () => invoke<Sample[]>('sysmon_history'),
+  // screen time
+  screentimeToday: () => invoke<ScreenToday>('screentime_today'),
+  screentimeWeek: () => invoke<[string, number][]>('screentime_week'),
   // apps
   appsList: () => invoke<AppWindow[]>('apps_list'),
   appIcon: (exe: string) => invoke<string | null>('app_icon', { exe }),

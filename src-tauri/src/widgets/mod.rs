@@ -6,6 +6,7 @@ pub mod location;
 pub mod media;
 pub mod notes;
 pub mod quick;
+pub mod screentime;
 pub mod solat;
 pub mod sound;
 pub mod sysmon;

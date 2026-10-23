@@ -112,6 +112,7 @@ fn main() {
             scheduler::start(h.clone());
             widgets::ipu::start(h.clone());
             widgets::sysmon::start(h.clone());
+            widgets::screentime::start(h.clone());
             Ok(())
         })
         .on_window_event(|w, e| match (w.label(), e) {
@@ -139,6 +140,7 @@ fn main() {
             widgets::solat::solat_days, widgets::solat::solat_zones, widgets::solat::solat_test_sound,
             widgets::ipu::ipu_get,
             widgets::sysmon::sysmon_history, widgets::sysmon::battery_get,
+            widgets::screentime::screentime_today, widgets::screentime::screentime_week,
             alerts::alerts_list, alerts::alerts_mark_read, alerts::alerts_dismiss, alerts::alerts_clear,
             widgets::apps::apps_list, widgets::apps::app_icon, widgets::apps::app_activate,
             widgets::apps::app_close, widgets::apps::app_launch,

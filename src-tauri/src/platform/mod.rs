@@ -81,6 +81,10 @@ pub trait Shell: Send + Sync {
     fn set_taskbar(&self, mode: TaskbarMode);
     /// Is the left mouse button down right now (used to detect the end of a window drag)?
     fn mouse_down(&self) -> bool;
+    /// Milliseconds since the last keyboard/mouse input.
+    fn idle_ms(&self) -> u64;
+    /// Full path of the foreground window's program, if any.
+    fn foreground_exe(&self) -> Option<String>;
     fn list_windows(&self) -> Vec<AppWindow>;
     /// Calls `on_change` (debounced) whenever top-level windows change.
     fn watch_windows(&self, on_change: Box<dyn Fn() + Send>);
