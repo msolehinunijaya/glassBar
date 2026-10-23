@@ -1,4 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+mod scheduler;
 mod alerts;
 mod bar;
 mod config;
@@ -107,6 +108,7 @@ fn main() {
             bar::apply(h);
             if let Some(w) = app.get_webview_window("bar") { w.show()?; }
             widgets::start_watchers(h);
+            scheduler::start(h.clone());
             Ok(())
         })
         .on_window_event(|w, e| match (w.label(), e) {
@@ -120,6 +122,8 @@ fn main() {
             get_config, save_config, export_config, import_config, apply_bar, restore_taskbar,
             bar::popup_open, bar::popup_hide, bar::open_settings_cmd, bar::set_edit_mode,
             bar::bar_preview, bar::bar_drag, bar::mouse_down,
+            widgets::todo::todo_list, widgets::todo::todo_add, widgets::todo::todo_update,
+            widgets::todo::todo_delete, widgets::todo::todo_clear_done,
             alerts::alerts_list, alerts::alerts_mark_read, alerts::alerts_dismiss, alerts::alerts_clear,
             widgets::apps::apps_list, widgets::apps::app_icon, widgets::apps::app_activate,
             widgets::apps::app_close, widgets::apps::app_launch,

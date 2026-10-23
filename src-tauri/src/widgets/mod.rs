@@ -3,6 +3,7 @@ pub mod apps;
 pub mod media;
 pub mod quick;
 pub mod sound;
+pub mod todo;
 
 use tauri::{AppHandle, Emitter};
 

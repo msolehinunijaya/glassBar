@@ -17,6 +17,7 @@ window-vibrancy = "0.6"
 base64 = "0.22"
 image = { version = "0.25", default-features = false, features = ["png"] }
 windows-core = "0.62"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 rusqlite = { version = "0.40", features = ["bundled"] }
 tauri-plugin-notification = "2"
 

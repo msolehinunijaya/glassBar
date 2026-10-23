@@ -20,6 +20,7 @@ export interface Config {
 }
 
 export interface Alert { id: number; source: string; title: string; body: string; at: number; missed: boolean; read: boolean }
+export interface Todo { id: number; text: string; done: boolean; dueAt: number | null; createdAt: number }
 export type Sound = { kind: 'chime' } | { kind: 'azan'; src: string };
 
 export interface AppWindow { id: number; title: string; exe: string; active: boolean; minimized: boolean }
@@ -56,6 +57,12 @@ export const ipc = {
   alertsMarkRead: () => invoke<void>('alerts_mark_read'),
   alertsDismiss: (id: number) => invoke<void>('alerts_dismiss', { id }),
   alertsClear: () => invoke<void>('alerts_clear'),
+  // to-do
+  todoList: () => invoke<Todo[]>('todo_list'),
+  todoAdd: (text: string, dueAt: number | null) => invoke<void>('todo_add', { text, dueAt }),
+  todoUpdate: (t: Todo) => invoke<void>('todo_update', { id: t.id, text: t.text, done: t.done, dueAt: t.dueAt }),
+  todoDelete: (id: number) => invoke<void>('todo_delete', { id }),
+  todoClearDone: () => invoke<void>('todo_clear_done'),
   // apps
   appsList: () => invoke<AppWindow[]>('apps_list'),
   appIcon: (exe: string) => invoke<string | null>('app_icon', { exe }),
