@@ -3,14 +3,27 @@
   import type { PopupProps } from '../types';
   import { BANDS, bandOf } from './bands';
   import type { IpuSettings } from './index';
-  import { label, liveIpu } from './ipu.svelte';
+  import { label, liveIpu, selectionKey } from './ipu.svelte';
+  import { updateWidgetSettings } from '../../lib/config.svelte';
+  import IpuLocation from './IpuLocation.svelte';
 
-  let { settings }: PopupProps<IpuSettings> = $props();
-  const ipu = liveIpu(() => settings.station);
+  let { instance, settings }: PopupProps<IpuSettings> = $props();
+  const ipu = liveIpu(() => selectionKey(settings));
+  let browsing = $state(false);
+  const where = $derived(ipu.r?.kind === 'aqi_us' ? (ipu.r.place?.name ?? '') : ipu.r?.station ? `Malaysia · ${ipu.r.station.state}` : '');
   const time = (ms: number) => new Intl.DateTimeFormat(undefined, { weekday: 'short', hour: '2-digit', minute: '2-digit' }).format(ms);
   const km = (d: number | null) => (d == null ? '' : d < 1 ? '<1 km' : `${Math.round(d)} km`);
 </script>
 
+<div class="where">
+  <span class="dim small">{where || 'Air quality'}</span>
+  <button class="change" onclick={() => (browsing = !browsing)}>{browsing ? 'Done' : 'Change location'}</button>
+</div>
+{#if browsing}
+  <div class="card browse">
+    <IpuLocation {settings} save={(p) => updateWidgetSettings(instance, p)} stations={ipu.r?.stations ?? []} />
+  </div>
+{/if}
 {#if ipu.r}
   {@const r = ipu.r}
   {@const b = BANDS[r.band]}
@@ -43,6 +56,9 @@
 {/if}
 
 <style>
+  .where { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .change { font-size: 12px; color: var(--accent); }
+  .browse { padding: 10px; margin-bottom: 10px; }
   .hero { display: flex; flex-direction: column; align-items: center; padding: 18px; border-radius: 20px; margin-bottom: 12px;
           background: color-mix(in srgb, var(--c) 30%, var(--pill)); border: 1px solid color-mix(in srgb, var(--c) 60%, transparent); }
   .lbl { font-size: 12px; font-weight: 500; opacity: 0.8; }

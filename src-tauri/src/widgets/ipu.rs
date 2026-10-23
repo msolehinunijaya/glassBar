@@ -95,8 +95,8 @@ pub struct IpuReading {
     pub place: Option<Place>,
     pub fetched_at: i64,
     pub offline: bool,
-    /// All stations from the last DOE fetch (for the station picker).
-    pub stations: Vec<(String, String)>,
+    /// All stations from the last DOE fetch (for the country/state/station browser).
+    pub stations: Vec<Station>,
 }
 
 fn us_aqi(p: &Place) -> Option<IpuReading> {
@@ -107,28 +107,52 @@ fn us_aqi(p: &Place) -> Option<IpuReading> {
                       place: Some(p.clone()), fetched_at: now_ms(), offline: false, stations: vec![] })
 }
 
+pub enum Choice {
+    /// A DOE station (and its distance from the user, if known).
+    Station(Station, Option<f64>),
+    /// No suitable DOE station: use the worldwide AQI (US) at the user's place.
+    Aqi,
+}
+
+/// Which source to show. `country`: "auto" (from location), "MY" (Malaysia forced).
+pub fn choose(country: &str, pick: Option<&str>, place: Option<(f64, f64)>, stations: &[Station]) -> Choice {
+    let dist = |s: &Station| place.map(|(lat, lon)| km(lat, lon, s.lat, s.lon));
+    if let Some(s) = pick.and_then(|id| stations.iter().find(|s| s.id == id && s.api.is_some())) {
+        return Choice::Station(s.clone(), dist(s));
+    }
+    let ranked = place.map(|(lat, lon)| nearest(stations, lat, lon)).unwrap_or_default();
+    match (ranked.first(), country) {
+        (Some((s, d)), _) if *d <= MAX_STATION_KM => Choice::Station(s.clone(), Some(*d)),
+        (Some((s, d)), "MY") => Choice::Station(s.clone(), Some(*d)),
+        (None, "MY") => stations.iter().filter(|s| s.api.is_some()).min_by(|a, b| a.name.cmp(&b.name))
+            .map(|s| Choice::Station(s.clone(), None)).unwrap_or(Choice::Aqi),
+        _ => Choice::Aqi,
+    }
+}
+
 fn fetch(app: &AppHandle) -> Option<IpuReading> {
-    let place = location::current(app, false);
-    let pick = app.state::<crate::AppState>().config.lock().unwrap().widget_settings("ipu")["station"]
-        .as_str().filter(|s| !s.is_empty() && *s != "auto").map(String::from);
+    let s = app.state::<crate::AppState>().config.lock().unwrap().widget_settings("ipu");
+    let country = s["country"].as_str().unwrap_or("auto").to_string();
     let stations = get_json(DOE_URL).map(|v| parse_doe(&v)).unwrap_or_default();
-    let list: Vec<(String, String)> = stations.iter().map(|s| (s.id.clone(), s.name.clone())).collect();
-    let chosen = pick.as_ref().and_then(|id| stations.iter().find(|s| &s.id == id && s.api.is_some()));
-    let ranked = place.as_ref().map(|p| nearest(&stations, p.lat, p.lon)).unwrap_or_default();
-    let (station, dist) = match chosen {
-        Some(s) => (Some(s.clone()), place.as_ref().map(|p| km(p.lat, p.lon, s.lat, s.lon))),
-        None => match ranked.first() {
-            Some((s, d)) if *d <= MAX_STATION_KM => (Some(s.clone()), Some(*d)),
-            _ => (None, None),
-        },
-    };
-    match station {
-        Some(s) => Some(IpuReading {
-            kind: "ipu".into(), value: s.api.unwrap_or(0.0), band: band(s.api.unwrap_or(0.0)),
-            nearby: ranked.into_iter().filter(|(x, _)| x.id != s.id).take(3).collect(),
-            station: Some(s), distance_km: dist, place, fetched_at: now_ms(), offline: false, stations: list,
+    // Another country: IPU (DOE) only covers Malaysia, so show that city's AQI (US), labelled as such.
+    if country == "other" {
+        if let (Some(lat), Some(lon)) = (s["city"]["lat"].as_f64(), s["city"]["lon"].as_f64()) {
+            let name = s["city"]["name"].as_str().unwrap_or("Selected city").to_string();
+            let p = Place { lat, lon, name, source: "manual".into(), tz: None };
+            return us_aqi(&p).map(|r| IpuReading { stations, ..r });
+        }
+    }
+    let place = location::current(app, false);
+    let pick = s["station"].as_str().filter(|x| !x.is_empty() && *x != "auto");
+    let coords = place.as_ref().map(|p| (p.lat, p.lon));
+    match choose(if country == "MY" { "MY" } else { "auto" }, pick, coords, &stations) {
+        Choice::Station(st, dist) => Some(IpuReading {
+            kind: "ipu".into(), value: st.api.unwrap_or(0.0), band: band(st.api.unwrap_or(0.0)),
+            nearby: coords.map(|(lat, lon)| nearest(&stations, lat, lon)).unwrap_or_default()
+                .into_iter().filter(|(x, _)| x.id != st.id).take(3).collect(),
+            station: Some(st), distance_km: dist, place, fetched_at: now_ms(), offline: false, stations,
         }),
-        None => place.as_ref().and_then(us_aqi).map(|r| IpuReading { stations: list, ..r }),
+        Choice::Aqi => place.as_ref().and_then(us_aqi).map(|r| IpuReading { stations, ..r }),
     }
 }
 
@@ -186,6 +210,23 @@ mod tests {
 
     fn st(name: &str, lat: f64, lon: f64, api: Option<f64>) -> Station {
         Station { id: name.into(), name: name.into(), state: String::new(), lat, lon, api, class: String::new(), pollutant: String::new(), at: 0 }
+    }
+
+    #[test]
+    fn choose_respects_country_and_station() {
+        let s = parse_doe(&serde_json::from_str(DOE).unwrap());
+        let kl = Some((3.139, 101.687));
+        let london = Some((51.5, -0.12));
+        // auto: nearest DOE station when close, worldwide AQI when far from Malaysia
+        assert!(matches!(choose("auto", None, kl, &s), Choice::Station(_, Some(d)) if d < 15.0));
+        assert!(matches!(choose("auto", None, london, &s), Choice::Aqi));
+        // Malaysia chosen explicitly: always a DOE station, even from far away / no location
+        assert!(matches!(choose("MY", None, london, &s), Choice::Station(..)));
+        assert!(matches!(choose("MY", None, None, &s), Choice::Station(..)));
+        // a picked station wins
+        assert!(matches!(choose("MY", Some("CA16W"), london, &s), Choice::Station(st, _) if st.id == "CA16W"));
+        // unknown station id falls back to nearest
+        assert!(matches!(choose("MY", Some("nope"), kl, &s), Choice::Station(..)));
     }
 
     #[test]

@@ -40,7 +40,7 @@ export type Band = 'good' | 'moderate' | 'unhealthy' | 'very_unhealthy' | 'hazar
 export interface Station { id: string; name: string; state: string; lat: number; lon: number; api: number | null; class: string; pollutant: string; at: number }
 export interface IpuReading {
   kind: 'ipu' | 'aqi_us'; value: number; band: Band; station: Station | null; distanceKm: number | null;
-  nearby: [Station, number][]; place: Place | null; fetchedAt: number; offline: boolean; stations: [string, string][];
+  nearby: [Station, number][]; place: Place | null; fetchedAt: number; offline: boolean; stations: Station[];
 }
 export interface Battery { percent: number; charging: boolean; onAc: boolean; secsLeft: number | null }
 export type PowerMode = 'efficiency' | 'balanced' | 'performance';

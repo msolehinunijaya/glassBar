@@ -4,10 +4,10 @@
   import type { PillProps } from '../types';
   import { BANDS } from './bands';
   import type { IpuSettings } from './index';
-  import { label, liveIpu } from './ipu.svelte';
+  import { label, liveIpu, selectionKey } from './ipu.svelte';
 
   let { size, settings }: PillProps<IpuSettings> = $props();
-  const ipu = liveIpu(() => settings.station);
+  const ipu = liveIpu(() => selectionKey(settings));
   const band = $derived(ipu.r ? BANDS[ipu.r.band] : null);
   // Dark text on the light colours (yellow, green), white on the rest.
   const ink = $derived(ipu.r && ['unhealthy', 'moderate'].includes(ipu.r.band) ? '#1c1c1e' : '#fff');
