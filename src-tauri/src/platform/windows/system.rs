@@ -31,6 +31,7 @@ unsafe extern "system" fn proc(h: HWND, msg: u32, wp: WPARAM, lp: LPARAM) -> LRE
                 .then(|| SystemEvent::Device(wp.0 as u32 == DBT_DEVICEARRIVAL))
         }
         WM_POWERBROADCAST if wp.0 as u32 == PBT_APMPOWERSTATUSCHANGE => Some(SystemEvent::PowerChanged),
+        WM_CLIPBOARDUPDATE => Some(SystemEvent::Clipboard),
         appbar::APPBAR_MSG if wp.0 as u32 == ABN_FULLSCREENAPP => Some(SystemEvent::Fullscreen(lp.0 != 0)),
         WM_ENDSESSION if wp.0 != 0 => {
             // Logoff/shutdown: the process may die right after this returns, so clean up here.
@@ -72,6 +73,8 @@ pub fn start(on_event: Box<dyn Fn(SystemEvent) + Send>) {
                 dbcc_classguid: windows::core::GUID::from_u128(0xA5DCBF10_6530_11D2_901F_00C04FB951ED),
                 ..Default::default()
             };
+            // Clipboard changes (for clipboard history): event-driven, no polling.
+            let _ = windows::Win32::System::DataExchange::AddClipboardFormatListener(h);
             let _ = RegisterDeviceNotificationW(windows::Win32::Foundation::HANDLE(h.0), &mut filter as *mut _ as *const _, DEVICE_NOTIFY_WINDOW_HANDLE);
         }
         TASKBAR_CREATED.store(RegisterWindowMessageW(w!("TaskbarCreated")), Ordering::Relaxed);
@@ -83,4 +86,14 @@ pub fn start(on_event: Box<dyn Fn(SystemEvent) + Send>) {
         }
     });
     let _ = ready_rx.recv();
+}
+
+/// True when the app that copied asked not to be recorded: password managers and secure
+/// fields set these standard formats (the same ones Windows clipboard history honours).
+pub fn clipboard_is_private() -> bool {
+    use windows::Win32::System::DataExchange::{IsClipboardFormatAvailable, RegisterClipboardFormatW};
+    ["ExcludeClipboardContentFromMonitorProcessing", "CanIncludeInClipboardHistory", "Clipboard Viewer Ignore"].iter().any(|n| unsafe {
+        let f = RegisterClipboardFormatW(&windows::core::HSTRING::from(*n));
+        f != 0 && IsClipboardFormatAvailable(f).is_ok()
+    })
 }

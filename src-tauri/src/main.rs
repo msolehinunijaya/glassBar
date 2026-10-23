@@ -119,6 +119,7 @@ fn main() {
                 SystemEvent::DisplayChanged | SystemEvent::ShellRestarted => bar::apply(&a),
                 SystemEvent::PowerChanged => { let _ = a.emit("battery:changed", ()); widgets::sound::power_event(&a); }
                 SystemEvent::Device(on) => widgets::sound::device_event(&a, on),
+                SystemEvent::Clipboard => widgets::clipboard::on_change(&a),
                 // Step back from always-on-top while a game or video is fullscreen.
                 SystemEvent::Fullscreen(on) => {
                     if let Some(w) = a.get_webview_window("bar") { let _ = w.set_always_on_top(!on); }
@@ -127,6 +128,7 @@ fn main() {
             widgets::ocr::register_hotkey(h);
             widgets::sound::charger_init();
             widgets::screenshots::prune(h);
+            widgets::clipboard::prune(h);
             widgets::quick::sync_tray(h);
             let n = h.clone();
             platform::wireless().watch_network(Box::new(move || { let _ = n.emit("wifi:changed", ()); }));
@@ -198,7 +200,7 @@ fn main() {
             widgets::apps::app_pin_target, widgets::apps::app_browse, widgets::apps::apps_installed, widgets::apps::paths_exist,
             widgets::ai::ai_key_status, widgets::ai::ai_key_set, widgets::ai::ai_key_clear, widgets::ai::ai_usage, widgets::ai::ai_ask,
             widgets::ocr::ocr_hotkey_status, widgets::ocr::ocr_snap_start, widgets::ocr::ocr_shot, widgets::ocr::ocr_snap_cancel,
-            widgets::ocr::ocr_snap_finish, widgets::screenshots::shots_list, widgets::screenshots::shots_copy,
+            widgets::ocr::ocr_snap_finish, widgets::screenshots::shots_list, widgets::clipboard::clip_list, widgets::clipboard::clip_copy, widgets::clipboard::clip_delete, widgets::screenshots::shots_copy,
             widgets::screenshots::shots_delete, widgets::screenshots::shots_open, widgets::screenshots::shot_fullscreen, widgets::quick::record_screen, widgets::ocr::ocr_history, widgets::ocr::ocr_history_delete, widgets::ocr::ocr_copy,
             widgets::quick::wifi_list, widgets::quick::wifi_connect, widgets::quick::wifi_disconnect,
             widgets::quick::bt_list, widgets::quick::bt_pair, widgets::quick::bt_unpair, widgets::quick::open_settings_uri,

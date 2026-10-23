@@ -11,7 +11,6 @@ use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_clipboard_manager::ClipboardExt;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
-use tauri_plugin_notification::NotificationExt;
 
 pub const DEFAULT_HOTKEY: &str = "Super+Shift+T";
 const FALLBACK_HOTKEY: &str = "Control+Alt+T";
@@ -203,7 +202,7 @@ pub async fn ocr_snap_finish(app: AppHandle, x: u32, y: u32, w: u32, h: u32, win
             }
             Ok("saved".into())
         }).await?;
-        if let Err(e) = &r { let _ = app.notification().builder().title("Screenshot").body(e).show(); }
+        if let Err(e) = &r { let _ = app.emit("capture:done", json!({ "kind": "error", "text": e })); }
         return r;
     }
     let a = app.clone();
@@ -221,14 +220,11 @@ pub async fn ocr_snap_finish(app: AppHandle, x: u32, y: u32, w: u32, h: u32, win
             let _ = c.execute("DELETE FROM ocr_history WHERE id NOT IN (SELECT id FROM ocr_history ORDER BY id DESC LIMIT 200)", []);
         }
         if o.auto_copy { a.clipboard().write_text(text.clone()).map_err(|e| e.to_string())?; }
-        if o.toast {
-            let first: String = text.lines().next().unwrap_or("").chars().take(80).collect();
-            let title = if o.auto_copy { "Text copied" } else { "Text captured" };
-            let _ = a.notification().builder().title(title).body(first).show();
-        }
+        let shown: String = text.chars().take(400).collect();
+        let _ = a.emit("capture:done", json!({ "kind": "ocr", "text": shown, "copied": o.auto_copy, "lines": text.lines().count() }));
         Ok(text)
     }).await?;
-    if let Err(e) = &r { let _ = app.notification().builder().title("OCR Snap").body(e).show(); }
+    if let Err(e) = &r { let _ = app.emit("capture:done", json!({ "kind": "error", "text": e })); }
     let _ = app.emit("ocr:changed", ());
     r
 }

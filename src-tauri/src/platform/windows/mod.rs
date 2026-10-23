@@ -84,6 +84,7 @@ impl Shell for WinShell {
     fn appbar_remove(&self) { appbar::remove() }
     fn thumbs_show(&self, dest: isize, items: &[(isize, Rect)]) -> Vec<isize> { thumbs::show(dest, items) }
     fn thumbs_clear(&self) { thumbs::clear() }
+    fn clipboard_is_private(&self) -> bool { system::clipboard_is_private() }
     fn press_keys(&self, keys: &[u16]) {
         use windows::Win32::UI::Input::KeyboardAndMouse::*;
         let key = |vk: u16, up: bool| INPUT {

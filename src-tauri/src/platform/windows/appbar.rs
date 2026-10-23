@@ -1,10 +1,9 @@
 //! AppBar registration, native taskbar hiding, and window glass styling.
 use super::super::{Glass, Rect};
-use super::wide;
 use crate::config::{Edge, TaskbarMode};
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
-use windows::core::{BOOL, PCWSTR};
+use windows::core::BOOL;
 use windows::Win32::Foundation::{HWND, LPARAM, RECT};
 use windows::Win32::Graphics::Dwm::{
     DwmSetWindowAttribute, DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_DONOTROUND, DWMWCP_ROUND,

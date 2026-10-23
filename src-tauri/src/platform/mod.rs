@@ -66,6 +66,8 @@ pub enum SystemEvent {
     Fullscreen(bool),
     /// A USB device was connected (true) or removed (false).
     Device(bool),
+    /// Something was copied (clipboard contents changed).
+    Clipboard,
     /// Plugged in / unplugged / battery level changed (instant, from Windows).
     PowerChanged,
 }
@@ -96,6 +98,8 @@ pub trait Shell: Send + Sync {
     fn thumbs_show(&self, dest: isize, items: &[(isize, Rect)]) -> Vec<isize>;
     /// Remove every thumbnail (must run whenever the preview hides).
     fn thumbs_clear(&self);
+    /// The current clipboard contents were marked private by the app that copied them.
+    fn clipboard_is_private(&self) -> bool;
     /// Press keys together (in order) and release them: e.g. [LWIN] opens Start.
     fn press_keys(&self, keys: &[u16]);
     /// Installed input languages; `active` = the one in the last app you used.

@@ -8,6 +8,25 @@ export const chime = () => tones([[880, 0], [1318.5, 0.18]], 0.25);
 export const deviceTone = (connected: boolean, volume = 0.4) =>
   tones(connected ? [[660, 0], [990, 0.09]] : [[990, 0], [660, 0.09]], 0.2 * Math.max(0, Math.min(1, volume)), 0.22);
 
+/** Camera shutter for screenshots: a short filtered noise burst. Quiet. */
+export async function shutter() {
+  ctx ??= new AudioContext();
+  clearTimeout(idle);
+  await ctx.resume();
+  const t = ctx.currentTime, len = 0.09;
+  const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * len), ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 3);
+  const src = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+  src.buffer = buf; f.type = 'bandpass'; f.frequency.value = 2600; g.gain.value = 0.35;
+  src.connect(f).connect(g).connect(ctx.destination);
+  src.start(t);
+  idle = setTimeout(() => ctx?.suspend(), 1500);
+}
+
+/** OCR done: a soft high tick. */
+export const tick = () => tones([[1568, 0]], 0.12, 0.12);
+
 /** Charger plugged in: bright rising C–E–G. Unplugged: soft falling E–A, lower and rounder. */
 export const chargerTone = (plugged: boolean, volume = 0.4) => {
   const v = 0.22 * Math.max(0, Math.min(1, volume));

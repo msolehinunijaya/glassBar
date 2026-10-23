@@ -11,7 +11,6 @@ use std::path::PathBuf;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_clipboard_manager::ClipboardExt;
-use tauri_plugin_notification::NotificationExt;
 
 fn dir() -> PathBuf { crate::data_dir().join("screenshots") }
 
@@ -52,12 +51,8 @@ pub fn save(app: &AppHandle, bgra: Vec<u8>, w: u32, h: u32, kind: &str) -> Resul
         c.last_insert_rowid()
     };
     app.clipboard().write_image(&tauri::image::Image::new_owned(px, w, h)).map_err(|e| e.to_string())?;
-    let toast = {
-        let st = app.state::<crate::AppState>();
-        let c = st.config.lock().unwrap();
-        c.widget_settings("ocr")["toast"] != false && !c.dnd
-    };
-    if toast { let _ = app.notification().builder().title("Screenshot copied").body(format!("{w} × {h} · saved to history")).show(); }
+    // Feedback card by the dock (preview + "Copied"), instead of a Windows notification.
+    let _ = app.emit("capture:done", serde_json::json!({ "kind": "shot", "id": id, "thumb": thumb, "w": w, "h": h, "shotKind": kind }));
     prune(app);
     let _ = app.emit("shots:changed", ());
     Ok(id)

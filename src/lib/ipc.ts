@@ -50,6 +50,11 @@ export interface Rates { base: string; rates: Record<string, number>; rateTime: 
 export interface WinRect { id: number; title: string; x: number; y: number; w: number; h: number }
 export interface SnapView { img: string; purpose: 'ocr' | 'region' | 'window' | 'scroll'; windows: WinRect[] }
 export interface ShotItem { id: number; at: number; w: number; h: number; kind: 'full' | 'region' | 'window' | 'scroll'; thumb: string }
+export interface ClipItem { id: number; at: number; kind: 'text' | 'image'; text: string | null; thumb: string | null; w: number | null; h: number | null }
+export type CaptureDone =
+  | { kind: 'shot'; id: number; thumb: string; w: number; h: number; shotKind: string }
+  | { kind: 'ocr'; text: string; copied: boolean; lines: number }
+  | { kind: 'error'; text: string };
 export interface OcrItem { id: number; at: number; text: string; mode: 'text' | 'code' | 'terminal'; engine: 'windows' | 'ai' }
 export interface AiUsage { day: string; dayIn: number; dayOut: number; dayRequests: number; month: string; monthIn: number; monthOut: number }
 export interface PinTarget { path: string; args: string }
@@ -189,6 +194,9 @@ export const ipc = {
   shotsDelete: (id: number | null) => invoke<void>('shots_delete', { id }),
   shotsOpen: (id: number | null) => invoke<void>('shots_open', { id }),
   recordScreen: (kind: 'area' | 'app') => invoke<void>('record_screen', { kind }),
+  clipList: (query: string | null = null) => invoke<ClipItem[]>('clip_list', { query }),
+  clipCopy: (id: number) => invoke<void>('clip_copy', { id }),
+  clipDelete: (id: number | null) => invoke<void>('clip_delete', { id }),
   ocrSnapCancel: () => invoke<void>('ocr_snap_cancel'),
   ocrHistory: () => invoke<OcrItem[]>('ocr_history'),
   ocrHistoryDelete: (id: number | null) => invoke<void>('ocr_history_delete', { id }),
@@ -226,6 +234,7 @@ export const ipc = {
 
 export const events = {
   configChanged: (cb: (c: Config) => void) => listen<Config>('config:changed', (e) => cb(e.payload)),
+  captureDone: (cb: (d: CaptureDone) => void) => listen<CaptureDone>('capture:done', (e) => cb(e.payload)),
   editMode: (cb: (on: boolean) => void) => listen<boolean>('editmode', (e) => cb(e.payload)),
   popupShow: (cb: (instance: string) => void) => listen<string>('popup:show', (e) => cb(e.payload)),
   popupHide: (cb: () => void) => listen('popup:hide', () => cb()),

@@ -6,10 +6,15 @@
   import { settingsOf, widgets } from '../widgets/registry';
   import Gallery from './Gallery.svelte';
   import WindowPreviews from './WindowPreviews.svelte';
+  import Feedback from '../widgets/ocr/Feedback.svelte';
+  import type { CaptureDone } from '../lib/ipc';
 
   // Which widget's panel is showing. Cleared when Rust hides the popup, so hidden
   // panels stop their timers. (Rust sends hide before the next show, so no race.)
   let instance = $state<string | null>(null);
+  /** "__feedback": the card shown right after a screenshot / OCR snap. */
+  const FEEDBACK = '__feedback';
+  let feedback = $state<CaptureDone | null>(null);
   const close = () => ipc.popupHide();
   const WINDOWS = '__windows:';
   /** "__hover:<instance>" = that widget's panel opened by hovering (closes on mouse-out). */
@@ -29,6 +34,7 @@
       events.popupShow((i) => { instance = i; stay(); }),
       events.popupHide(() => { instance = null; }),
       events.popupLeave(leaveSoon),
+      events.captureDone((d) => (feedback = d)),
     ];
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && close();
     addEventListener('keydown', onKey);
@@ -40,6 +46,8 @@
 <div class="surface popup" class:hover onpointerenter={stay} onpointerleave={leaveSoon}>
   {#if instance?.startsWith(WINDOWS)}
     {#key instance}<WindowPreviews appKey={instance.slice(WINDOWS.length)} {close} />{/key}
+  {:else if instance === FEEDBACK && feedback}
+    {#key feedback}<Feedback data={feedback} {close} />{/key}
   {:else if instance === GALLERY}
     <Gallery {close} />
   {:else if w && m?.Popup}

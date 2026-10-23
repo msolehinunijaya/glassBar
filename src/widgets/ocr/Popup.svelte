@@ -1,6 +1,7 @@
 <script lang="ts">
   // Capture: Screenshot | Screen Recording | OCR Snap. Opens on the tab used last.
-  import { Camera, ScanText, Video } from '@lucide/svelte';
+  import { Camera, ClipboardList, ScanText, Video } from '@lucide/svelte';
+  import ClipTab from './ClipTab.svelte';
   import { updateWidgetSettings } from '../../lib/config.svelte';
   import type { PopupProps } from '../types';
   import type { OcrSettings } from './index';
@@ -9,7 +10,7 @@
   import ShotsTab from './ShotsTab.svelte';
 
   let { instance, settings }: PopupProps<OcrSettings> = $props();
-  const tabs = [['shot', 'Screenshot', Camera], ['record', 'Recording', Video], ['ocr', 'OCR Snap', ScanText]] as const;
+  const tabs = [['shot', 'Screenshot', Camera], ['record', 'Recording', Video], ['ocr', 'OCR', ScanText], ['clip', 'Clipboard', ClipboardList]] as const;
 </script>
 
 <div class="tabs">
@@ -19,10 +20,11 @@
 </div>
 {#if settings.tab === 'record'}<RecordTab />
 {:else if settings.tab === 'ocr'}<OcrTab {instance} {settings} />
+{:else if settings.tab === 'clip'}<ClipTab {instance} {settings} />
 {:else}<ShotsTab {instance} {settings} />{/if}
 
 <style>
-  .tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; padding: 3px; border-radius: 12px; background: var(--pill); margin-bottom: 12px; }
-  .tabs button { display: flex; align-items: center; justify-content: center; gap: 5px; padding: 7px 4px; border-radius: 9px; font-size: 12px; font-weight: 500; }
+  .tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; padding: 3px; border-radius: 12px; background: var(--pill); margin-bottom: 12px; }
+  .tabs button { display: flex; align-items: center; justify-content: center; gap: 4px; padding: 7px 2px; border-radius: 9px; font-size: 11.5px; font-weight: 500; }
   .tabs .sel { background: var(--accent); color: #fff; }
 </style>
