@@ -1,57 +1,103 @@
-//! Where the user is, for Weather, Waktu Solat and IPU.
-//! Order: manual (when auto is off) → Windows location (if allowed) → IP lookup. Cached 6 h.
-//! Coordinates are rounded to ~110 m: plenty for weather, prayer times and air quality,
-//! and nothing more precise is stored or sent to those services.
+//! The one shared location for Weather, sunrise/sunset, Waktu Solat, IPU and the world clock.
+//! Modes: auto (Windows Location, then IP) | windows | ip | manual. Never made up: when every
+//! source fails the status is Unavailable with the reason, and widgets get no place.
+//! Re-checked on start, every 30 min (auto/windows), on wake and on a network change; widgets
+//! hear `location:changed` only when the place really changes (new name, or moved > 1 km).
 use crate::config::LocationCfg;
 use crate::db::{kv_get, kv_set, now_ms, Db};
 use crate::net::{enc, get_json};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use tauri::{AppHandle, Manager};
+use std::sync::mpsc::{channel, RecvTimeoutError, Sender};
+use std::sync::{Mutex, OnceLock};
+use std::time::Duration;
+use tauri::{AppHandle, Emitter, Manager};
 
-const TTL_MS: i64 = 6 * 3_600_000;
+const RECHECK_MS: i64 = 30 * 60_000;
+/// Retry an Unavailable result this soon (it isn't a known place, so nothing is reloaded).
+const RETRY_MS: i64 = 5 * 60_000;
+const KEY: &str = "location";
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
 pub struct Place {
     pub lat: f64,
     pub lon: f64,
+    /// "Town, State, Country"; empty when no source could name it.
     pub name: String,
     /// "windows" | "ip" | "manual"
     pub source: String,
-    /// IANA time zone, when known (city search results include it).
+    /// IANA time zone, when the source gave one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tz: Option<String>,
-    /// Windows' own accuracy estimate in metres (device location only).
+    /// Accuracy radius in metres, exactly as the source reported it (Windows only).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub accuracy: Option<f64>,
-    /// How Windows found it ("GPS", "Wi-Fi"…), or why we fell back to the IP.
+    /// How Windows found it ("GPS", "Wi-Fi"…).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub via: Option<String>,
+    /// Why Automatic fell back to IP.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub note: Option<String>,
 }
 
-/// ~110 m grid.
-pub fn round3(x: f64) -> f64 { (x * 1000.0).round() / 1000.0 }
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct Status {
+    pub mode: String,
+    /// None = Unavailable.
+    pub place: Option<Place>,
+    /// Why it is Unavailable.
+    pub reason: Option<String>,
+    /// The last place that worked (shown in Settings only, never handed to widgets).
+    pub last_known: Option<Place>,
+    /// When this was checked (ms).
+    pub at: i64,
+}
 
-pub fn resolve_location(cfg: &LocationCfg, windows: Result<crate::platform::Fix, String>, ip: Option<Place>) -> Option<Place> {
-    if !cfg.auto {
-        return match (cfg.lat, cfg.lon) {
-            (Some(lat), Some(lon)) => Some(Place { lat, lon, name: cfg.name.clone(), source: "manual".into(), ..Default::default() }),
-            _ => None,
-        };
+/// ~11 m grid.
+pub fn round4(x: f64) -> f64 { (x * 10_000.0).round() / 10_000.0 }
+
+pub fn valid_lat_lon(lat: f64, lon: f64) -> bool {
+    lat.is_finite() && lon.is_finite() && (-90.0..=90.0).contains(&lat) && (-180.0..=180.0).contains(&lon)
+}
+
+/// Widgets reload only for this: a place appeared or vanished, got a new name, or moved > 1 km.
+pub fn is_real_change(old: Option<&Place>, new: Option<&Place>) -> bool {
+    match (old, new) {
+        (None, None) => false,
+        (Some(a), Some(b)) => a.name != b.name || super::ipu::km(a.lat, a.lon, b.lat, b.lon) > 1.0,
+        _ => true,
     }
-    match windows {
-        Ok(f) if cfg.use_device => Some(Place {
-            lat: round3(f.lat), lon: round3(f.lon), name: "Current location".into(), source: "windows".into(),
-            accuracy: f.accuracy_m.map(|a| a.max(110.0).round()), note: Some(f.via.into()), ..Default::default()
-        }),
-        w => ip.map(|p| Place {
-            lat: round3(p.lat), lon: round3(p.lon),
-            note: Some(match w {
-                Err(e) if cfg.use_device => format!("Device location unavailable: {e}"),
-                _ => "Device location is off in GlassBar".into(),
+}
+
+/// Mode → source order. `windows` and `ip` are only called when the mode needs them.
+pub fn resolve(cfg: &LocationCfg, windows: impl FnOnce() -> Result<Place, String>, ip: impl FnOnce() -> Result<Place, String>) -> Result<Place, String> {
+    match cfg.mode.as_str() {
+        "manual" => match (cfg.lat, cfg.lon) {
+            (Some(lat), Some(lon)) if valid_lat_lon(lat, lon) => Ok(Place {
+                lat, lon, name: cfg.name.clone(), source: "manual".into(), tz: cfg.tz.clone(), ..Default::default()
             }),
-            ..p
+            _ => Err("No manual location set yet. Search for a city or enter coordinates.".into()),
+        },
+        "windows" => windows(),
+        "ip" => ip(),
+        _ => windows().or_else(|we| match ip() {
+            Ok(p) => Ok(Place { note: Some(format!("Using IP because {}", lower_first(&we))), ..p }),
+            Err(ie) => Err(format!("{we}. IP lookup also failed: {ie}.")),
         }),
+    }
+}
+
+fn lower_first(s: &str) -> String {
+    let mut c = s.chars();
+    // Keep proper names ("Windows Location") as they are.
+    match c.next() { Some(f) if !s.starts_with("Windows") && !s.starts_with("IP") => f.to_lowercase().chain(c).collect(), _ => s.to_string() }
+}
+
+pub fn from_fix(f: crate::platform::Fix, name: Option<String>) -> Place {
+    Place {
+        lat: round4(f.lat), lon: round4(f.lon), name: name.unwrap_or_default(), source: "windows".into(),
+        accuracy: f.accuracy_m.filter(|a| a.is_finite() && *a > 0.0).map(f64::round), via: Some(f.via.into()), ..Default::default()
     }
 }
 
@@ -60,51 +106,122 @@ pub fn parse_ip(v: &Value) -> Option<Place> {
     if v["success"] == false || v["error"] == true { return None; }
     let lat = v["latitude"].as_f64()?;
     let lon = v["longitude"].as_f64()?;
-    let city = v["city"].as_str().unwrap_or_default();
-    let region = v["region"].as_str().unwrap_or_default();
-    let name = [city, region].iter().filter(|s| !s.is_empty()).cloned().collect::<Vec<_>>().join(", ");
-    Some(Place { lat, lon, name, source: "ip".into(), ..Default::default() })
+    let country = v["country"].as_str().filter(|c| c.len() > 2).or(v["country_name"].as_str());
+    let name = [v["city"].as_str(), v["region"].as_str(), country].into_iter().flatten()
+        .filter(|s| !s.is_empty()).collect::<Vec<_>>().join(", ");
+    let tz = v["timezone"]["id"].as_str().or(v["timezone"].as_str()).map(String::from);
+    Some(Place { lat: round4(lat), lon: round4(lon), name, source: "ip".into(), tz, ..Default::default() })
 }
 
-fn ip_lookup() -> Option<Place> {
-    ["https://ipwho.is/", "https://ipapi.co/json/"].iter().find_map(|u| get_json(u).ok().as_ref().and_then(parse_ip))
+fn ip_lookup() -> Result<Place, String> {
+    ["https://ipwho.is/", "https://ipapi.co/json/"].iter()
+        .find_map(|u| get_json(u).ok().as_ref().and_then(parse_ip))
+        .ok_or_else(|| "no answer from the IP location services (offline?)".into())
 }
 
-#[derive(Serialize, Deserialize)]
-struct Cached { place: Place, at: i64 }
+fn windows_lookup() -> Result<Place, String> {
+    let f = crate::platform::location().locate()?;
+    Ok(from_fix(f, crate::platform::location().place_name(f.lat, f.lon).ok()))
+}
 
-/// Current place (blocking: may call Windows location and the network).
-pub fn current(app: &AppHandle, force: bool) -> Option<Place> {
+fn read(app: &AppHandle) -> Option<Status> {
+    let db = app.state::<Db>();
+    let c = db.0.lock().unwrap();
+    kv_get(&c, KEY).and_then(|s| serde_json::from_str(&s).ok())
+}
+
+fn fresh(s: &Status, cfg: &LocationCfg, now: i64) -> bool {
+    let age = now - s.at;
+    s.mode == cfg.mode && match (cfg.mode.as_str(), &s.place) {
+        ("manual", _) => false, // instant, and must follow edits
+        (_, None) => age < RETRY_MS,
+        ("ip", _) => true, // only start-up and network changes re-check the IP
+        _ => age < RECHECK_MS,
+    }
+}
+
+static BUSY: Mutex<()> = Mutex::new(());
+
+/// The current status; checks the sources when the cached one is stale (or `force`).
+/// Blocking: may wait for Windows Location and the network.
+pub fn status(app: &AppHandle, force: bool) -> Status {
+    let _one_at_a_time = BUSY.lock().unwrap_or_else(|e| e.into_inner());
     let cfg = app.state::<crate::AppState>().config.lock().unwrap().location.clone();
-    if !cfg.auto { return resolve_location(&cfg, Err(String::new()), None); }
-    let cached: Option<Cached> = {
+    let old = read(app);
+    if let Some(s) = old.as_ref().filter(|s| !force && fresh(s, &cfg, now_ms())) { return s.clone(); }
+    let r = resolve(&cfg, windows_lookup, ip_lookup);
+    let last_known = r.as_ref().ok().cloned().or_else(|| old.as_ref().and_then(|o| o.place.clone().or(o.last_known.clone())));
+    let new = Status { mode: cfg.mode.clone(), reason: r.as_ref().err().cloned(), place: r.ok(), last_known, at: now_ms() };
+    {
         let db = app.state::<Db>();
-        let c = db.0.lock().unwrap();
-        kv_get(&c, "place").and_then(|s| serde_json::from_str(&s).ok())
-    };
-    if let Some(c) = &cached {
-        // A cached device fix doesn't count once the user turned device location off.
-        let allowed = cfg.use_device || c.place.source != "windows";
-        if !force && allowed && now_ms() - c.at < TTL_MS { return Some(c.place.clone()); }
+        kv_set(&db.0.lock().unwrap(), KEY, &serde_json::to_string(&new).unwrap());
     }
-    let win = if cfg.use_device { crate::platform::location().locate() } else { Err("off".into()) };
-    let place = resolve_location(&cfg, win.clone(), if win.is_err() || !cfg.use_device { ip_lookup() } else { None });
-    match place {
-        Some(p) => {
-            let db = app.state::<Db>();
-            kv_set(&db.0.lock().unwrap(), "place", &serde_json::to_string(&Cached { place: p.clone(), at: now_ms() }).unwrap());
-            Some(p)
+    if is_real_change(old.as_ref().and_then(|o| o.place.as_ref()), new.place.as_ref()) {
+        let _ = app.emit("location:changed", &new);
+    }
+    let _ = app.emit("location:status", &new);
+    new
+}
+
+/// The place for widgets, or why there is none.
+pub fn current(app: &AppHandle) -> Result<Place, String> {
+    let s = status(app, false);
+    s.place.ok_or_else(|| s.reason.unwrap_or_else(|| "Location unavailable".into()))
+}
+
+static POKE: OnceLock<Sender<()>> = OnceLock::new();
+
+/// Re-check soon (network change, wake from sleep, location settings changed).
+pub fn poke() { if let Some(tx) = POKE.get() { let _ = tx.send(()); } }
+
+pub fn start(app: AppHandle) {
+    let (tx, rx) = channel();
+    let _ = POKE.set(tx);
+    std::thread::spawn(move || {
+        status(&app, true);
+        loop {
+            match rx.recv_timeout(Duration::from_secs(60)) {
+                Ok(()) => {
+                    // Network changes come in bursts; let them settle, then check once.
+                    std::thread::sleep(Duration::from_secs(3));
+                    while rx.try_recv().is_ok() {}
+                    status(&app, true);
+                }
+                Err(RecvTimeoutError::Timeout) => { status(&app, false); }
+                Err(RecvTimeoutError::Disconnected) => return,
+            }
         }
-        None => cached.map(|c| c.place), // offline: last known place
-    }
+    });
 }
 
 #[tauri::command]
-pub async fn location_get(app: AppHandle, force: bool) -> Option<Place> {
-    crate::widgets::blocking(move || current(&app, force)).await.ok().flatten()
+pub async fn location_status(app: AppHandle, force: bool) -> Result<Status, String> {
+    crate::widgets::blocking(move || status(&app, force)).await
 }
 
-/// City search for the manual location picker (Open-Meteo geocoding).
+/// Forget the cached location and any manual place; back to Automatic.
+#[tauri::command]
+pub async fn location_clear(app: AppHandle) -> Result<Status, String> {
+    {
+        let db = app.state::<Db>();
+        let c = db.0.lock().unwrap();
+        kv_set(&c, KEY, "");
+        kv_set(&c, "place", ""); // cache key before v0.2
+    }
+    let mut cfg = app.state::<crate::AppState>().config.lock().unwrap().clone();
+    cfg.location = LocationCfg::default();
+    crate::commit(&app, cfg)?;
+    crate::widgets::blocking(move || status(&app, true)).await
+}
+
+/// Show the point on OpenStreetMap in the browser (only when the user asks).
+#[tauri::command]
+pub fn location_open_map(lat: f64, lon: f64) -> Result<(), String> {
+    if !valid_lat_lon(lat, lon) { return Err("bad coordinates".into()); }
+    crate::platform::shell().launch(&format!("https://www.openstreetmap.org/?mlat={lat}&mlon={lon}#map=13/{lat}/{lon}"), "")
+}
+
+/// City search for a manual location (Open-Meteo geocoding).
 #[tauri::command]
 pub async fn location_search(query: String) -> Result<Vec<Place>, String> {
     if query.trim().len() < 2 { return Ok(vec![]); }
@@ -113,7 +230,7 @@ pub async fn location_search(query: String) -> Result<Vec<Place>, String> {
         Ok(v["results"].as_array().map(|a| a.iter().filter_map(|r| {
             let name = [r["name"].as_str(), r["admin1"].as_str(), r["country"].as_str()]
                 .iter().flatten().cloned().collect::<Vec<_>>().join(", ");
-            Some(Place { lat: r["latitude"].as_f64()?, lon: r["longitude"].as_f64()?, name, source: "manual".into(),
+            Some(Place { lat: round4(r["latitude"].as_f64()?), lon: round4(r["longitude"].as_f64()?), name, source: "manual".into(),
                          tz: r["timezone"].as_str().map(String::from), ..Default::default() })
         }).collect()).unwrap_or_default())
     }).await?
@@ -122,49 +239,99 @@ pub async fn location_search(query: String) -> Result<Vec<Place>, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
     use crate::platform::Fix;
-    fn ip() -> Place { Place { lat: 3.0812, lon: 101.5834, name: "Petaling".into(), source: "ip".into(), ..Default::default() } }
-    fn fix() -> Result<Fix, String> { Ok(Fix { lat: 3.123456, lon: 101.654321, accuracy_m: Some(35.0), via: "Wi-Fi" }) }
-    const OFF: fn() -> Result<Fix, String> = || Err("Windows location is off".into());
+
+    fn ip() -> Result<Place, String> { Ok(Place { lat: 3.0812, lon: 101.5834, name: "Petaling, Selangor, Malaysia".into(), source: "ip".into(), ..Default::default() }) }
+    fn win() -> Result<Place, String> { Ok(from_fix(Fix { lat: 3.123456, lon: 101.654321, accuracy_m: Some(35.4), via: "Wi-Fi" }, Some("Kuala Lumpur".into()))) }
+    fn off() -> Result<Place, String> { Err("Windows Location is turned off for desktop apps".into()) }
+    fn down() -> Result<Place, String> { Err("offline".into()) }
+    fn never() -> Result<Place, String> { panic!("source should not be asked") }
+    fn mode(m: &str) -> LocationCfg { LocationCfg { mode: m.into(), ..Default::default() } }
 
     #[test]
-    fn resolve_prefers_manual_when_auto_off() {
-        let cfg = LocationCfg { auto: false, lat: Some(1.5), lon: Some(103.7), name: "Johor Bahru".into(), ..Default::default() };
-        let p = resolve_location(&cfg, fix(), Some(ip())).unwrap();
-        assert_eq!((p.lat, p.name.as_str(), p.source.as_str()), (1.5, "Johor Bahru", "manual"));
+    fn auto_prefers_windows() {
+        let p = resolve(&mode("auto"), win, never).unwrap();
+        assert_eq!((p.source.as_str(), p.lat, p.lon), ("windows", 3.1235, 101.6543));
+        assert_eq!((p.accuracy, p.via.as_deref(), p.name.as_str()), (Some(35.0), Some("Wi-Fi"), "Kuala Lumpur"));
     }
 
     #[test]
-    fn resolve_uses_windows_then_ip() {
-        let cfg = LocationCfg::default();
-        let w = resolve_location(&cfg, fix(), Some(ip())).unwrap();
-        assert_eq!((w.source.as_str(), w.lat, w.lon, w.note.as_deref()), ("windows", 3.123, 101.654, Some("Wi-Fi")));
-        assert_eq!(w.accuracy, Some(110.0), "never claims better than the stored precision");
-        let i = resolve_location(&cfg, OFF(), Some(ip())).unwrap();
-        assert_eq!((i.source.as_str(), i.lat), ("ip", 3.081));
-        assert!(i.note.unwrap().contains("Windows location is off"));
-    }
-
-    #[test]
-    fn device_location_toggle_off_uses_ip() {
-        let cfg = LocationCfg { use_device: false, ..Default::default() };
-        let p = resolve_location(&cfg, fix(), Some(ip())).unwrap();
+    fn auto_falls_back_to_ip_and_says_why() {
+        let p = resolve(&mode("auto"), off, ip).unwrap();
         assert_eq!(p.source, "ip");
-        assert_eq!(p.note.as_deref(), Some("Device location is off in GlassBar"));
+        assert_eq!(p.note.as_deref(), Some("Using IP because Windows Location is turned off for desktop apps"));
+        assert_eq!(p.accuracy, None, "IP gives no accuracy, so none is claimed");
     }
 
     #[test]
-    fn resolve_falls_back_to_none() {
-        assert!(resolve_location(&LocationCfg::default(), OFF(), None).is_none());
-        let manual_without_coords = LocationCfg { auto: false, ..Default::default() };
-        assert!(resolve_location(&manual_without_coords, fix(), None).is_none());
+    fn auto_is_unavailable_when_both_fail() {
+        let e = resolve(&mode("auto"), off, down).unwrap_err();
+        assert!(e.contains("turned off") && e.contains("offline"), "{e}");
     }
 
     #[test]
-    fn parse_ipwho() {
-        let v = serde_json::json!({"success": true, "city": "Petaling", "region": "Selangor", "latitude": 3.08, "longitude": 101.58});
-        assert_eq!(parse_ip(&v).unwrap().name, "Petaling, Selangor");
+    fn single_source_modes_never_fall_back() {
+        assert!(resolve(&mode("windows"), off, never).is_err());
+        assert_eq!(resolve(&mode("ip"), never, ip).unwrap().source, "ip");
+        assert!(resolve(&mode("ip"), never, down).is_err());
+    }
+
+    #[test]
+    fn manual_uses_exactly_what_was_set() {
+        let cfg = LocationCfg { mode: "manual".into(), lat: Some(1.4927), lon: Some(103.7414), name: "Johor Bahru".into(), tz: Some("Asia/Kuala_Lumpur".into()), ..Default::default() };
+        let p = resolve(&cfg, never, never).unwrap();
+        assert_eq!((p.lat, p.lon, p.name.as_str(), p.source.as_str(), p.tz.as_deref()), (1.4927, 103.7414, "Johor Bahru", "manual", Some("Asia/Kuala_Lumpur")));
+        assert!(resolve(&mode("manual"), never, never).is_err());
+        let bad = LocationCfg { mode: "manual".into(), lat: Some(91.0), lon: Some(0.0), ..Default::default() };
+        assert!(resolve(&bad, never, never).is_err());
+    }
+
+    #[test]
+    fn real_change_is_a_new_name_or_more_than_1_km() {
+        let a = ip().unwrap();
+        assert!(!is_real_change(Some(&a), Some(&Place { lat: a.lat + 0.005, ..a.clone() })), "~550 m, same name");
+        assert!(is_real_change(Some(&a), Some(&Place { lat: a.lat + 0.02, ..a.clone() })), "~2.2 km");
+        assert!(is_real_change(Some(&a), Some(&Place { name: "Shah Alam".into(), ..a.clone() })));
+        assert!(!is_real_change(Some(&a), Some(&Place { accuracy: Some(20.0), via: Some("GPS".into()), ..a.clone() })));
+        assert!(is_real_change(None, Some(&a)) && is_real_change(Some(&a), None) && !is_real_change(None, None));
+    }
+
+    #[test]
+    fn lat_lon_validation() {
+        assert!(valid_lat_lon(90.0, -180.0) && valid_lat_lon(-90.0, 180.0) && valid_lat_lon(0.0, 0.0));
+        assert!(!valid_lat_lon(90.1, 0.0) && !valid_lat_lon(0.0, -180.5) && !valid_lat_lon(f64::NAN, 0.0));
+    }
+
+    #[test]
+    fn parse_ip_services() {
+        let v = serde_json::json!({"success": true, "city": "Petaling", "region": "Selangor", "country": "Malaysia",
+                                   "latitude": 3.081234, "longitude": 101.58, "timezone": {"id": "Asia/Kuala_Lumpur"}});
+        let p = parse_ip(&v).unwrap();
+        assert_eq!((p.name.as_str(), p.lat, p.tz.as_deref()), ("Petaling, Selangor, Malaysia", 3.0812, Some("Asia/Kuala_Lumpur")));
+        let v = serde_json::json!({"city": "Ipoh", "region": "Perak", "country": "MY", "country_name": "Malaysia",
+                                   "latitude": 4.6, "longitude": 101.1, "timezone": "Asia/Kuala_Lumpur"});
+        let p = parse_ip(&v).unwrap();
+        assert_eq!((p.name.as_str(), p.tz.as_deref()), ("Ipoh, Perak, Malaysia", Some("Asia/Kuala_Lumpur")));
         assert!(parse_ip(&serde_json::json!({"success": false})).is_none());
+    }
+
+    /// Live check of Windows' map service: `cargo test place_name_live -- --ignored`.
+    #[test]
+    #[ignore]
+    fn place_name_live() {
+        println!("{:?}", crate::platform::location().place_name(3.1478, 101.6953));
+    }
+
+    #[test]
+    fn freshness_per_mode() {
+        let ok = |m: &str, at| Status { mode: m.into(), place: ip().ok(), at, ..Default::default() };
+        let now = 100 * RECHECK_MS;
+        assert!(fresh(&ok("auto", now - RECHECK_MS + 1), &mode("auto"), now));
+        assert!(!fresh(&ok("auto", now - RECHECK_MS), &mode("auto"), now));
+        assert!(fresh(&ok("ip", 0), &mode("ip"), now), "IP only re-checks on start and network change");
+        assert!(!fresh(&ok("ip", now), &mode("auto"), now), "a mode switch re-checks");
+        assert!(!fresh(&ok("manual", now), &mode("manual"), now));
+        let none = Status { mode: "ip".into(), at: now - RETRY_MS, ..Default::default() };
+        assert!(!fresh(&none, &mode("ip"), now), "Unavailable is retried");
     }
 }

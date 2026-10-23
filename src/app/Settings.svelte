@@ -3,15 +3,20 @@
   import { availableMonitors, type Monitor } from '@tauri-apps/api/window';
   import { ArrowDown, ArrowUp, ChevronDown, Copy, Trash2 } from '@lucide/svelte';
   import { profile, store, update, updateWidgetSettings } from '../lib/config.svelte';
-  import { ipc, type Config } from '../lib/ipc';
+  import { events, ipc, type Config } from '../lib/ipc';
   import { reorder } from '../lib/geometry';
   import { addWidget, available, settingsOf, widgets } from '../widgets/registry';
   import Updates from './Updates.svelte';
+  import LocationSettings from './LocationSettings.svelte';
 
-  const sections = ['Bar', 'Appearance', 'Widgets', 'Notifications', 'Sounds', 'Profiles', 'Startup', 'Updates', 'Backup'] as const;
+  const sections = ['Bar', 'Appearance', 'Widgets', 'Location', 'Notifications', 'Sounds', 'Profiles', 'Startup', 'Updates', 'Backup'] as const;
   import { SOURCE_WIDGET } from '../lib/notify';
   const BANNER_SOURCES = [...Object.entries(SOURCE_WIDGET).map(([k, v]) => [k, v.label] as const), ['update', 'Updates'] as const];
-  let section = $state<(typeof sections)[number]>('Bar');
+  type Section = (typeof sections)[number];
+  const asSection = (s: string | null) => sections.find((x) => x === s);
+  // Opened on a section (e.g. from a widget's location label): ?section=… or, when already open, an event.
+  let section = $state<Section>(asSection(new URLSearchParams(location.search).get('section')) ?? 'Bar');
+  events.settingsSection((s) => { const x = asSection(s); if (x) section = x; });
   let monitors = $state<Monitor[]>([]);
   availableMonitors().then((m) => (monitors = m));
 
@@ -171,6 +176,9 @@
         {/each}
       </div>
 
+    {:else if section === 'Location'}
+      <LocationSettings />
+
     {:else if section === 'Profiles'}
       <div class="group">
         {#each Object.keys(c.profiles) as name (name)}
@@ -297,35 +305,39 @@
   nav button:hover { background: var(--pill); }
   nav .sel { background: var(--accent); color: #fff; }
   main { flex: 1; overflow: auto; padding: 18px 28px 40px; }
-  h1 { font-size: 22px; font-weight: 600; margin: 0 0 16px; }
-  h2 { font-size: 15px; font-weight: 600; margin: 22px 0 10px; }
-  .group { background: var(--panel); border-radius: 14px; padding: 6px 16px; margin-bottom: 14px; display: flex; flex-direction: column; gap: 8px; border: 1px solid var(--line-soft); }
-  .field { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 8px 0; }
-  .field + .field { border-top: 1px solid var(--line-soft); }
-  .field.off { opacity: 0.5; }
-  .field input[type='range'] { width: 220px; }
-  .hint.warn { color: #ff9f0a; }
-  .hint { font-size: 12px; color: var(--fg-dim); margin: -4px 0 6px; }
-  .seg { display: flex; gap: 2px; padding: 3px; border-radius: 10px; background: var(--pill); }
-  .seg button { padding: 5px 12px; border-radius: 8px; text-transform: capitalize; }
-  .seg .sel { background: var(--accent); color: #fff; }
-  select, input:not([type]), textarea, .grow { padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line-soft); background: var(--settings-bg); }
-  textarea { width: 100%; font-family: Consolas, monospace; font-size: 12px; resize: vertical; }
+  /* Used by widget panels in every window too. */
   :global(.btn) { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 9px; background: var(--accent); color: #fff; }
   :global(.btn:disabled) { opacity: 0.5; }
-  /* Choice buttons (Notifications): plain, the chosen one in the accent colour. */
-  .segs { display: inline-flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
-  .segs .btn { background: var(--pill); color: var(--fg); padding: 6px 10px; font-size: 12px; }
-  .segs .btn.on { background: var(--accent); color: #fff; }
-  .wrow { display: flex; align-items: center; gap: 8px; padding: 6px 0; }
-  .wrow b { flex: 1; font-weight: 500; }
-  .grow { flex: 1; }
-  .wico { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; background: var(--accent); color: #fff; flex: none; }
-  .wform { padding: 4px 0 12px 36px; display: flex; flex-direction: column; gap: 8px; }
-  .wform :global(label) { display: flex; align-items: center; gap: 8px; }
-  .rot { transform: rotate(180deg); }
-  .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
-  .gcard { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 14px; text-align: left; border-radius: 14px; background: var(--panel); border: 1px solid var(--line-soft); transition: transform 0.3s var(--spring); }
-  .gcard:hover { transform: translateY(-2px); }
-  .gcard .hint { margin: 0; }
+  /* Shared by every section component (Location, About, widget manager…). */
+  .settings :global {
+    h1 { font-size: 22px; font-weight: 600; margin: 0 0 16px; }
+    h2 { font-size: 15px; font-weight: 600; margin: 22px 0 10px; }
+    .group { background: var(--panel); border-radius: 14px; padding: 6px 16px; margin-bottom: 14px; display: flex; flex-direction: column; gap: 8px; border: 1px solid var(--line-soft); }
+    .field { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 8px 0; }
+    .field + .field { border-top: 1px solid var(--line-soft); }
+    .field.off { opacity: 0.5; }
+    .field input[type='range'] { width: 220px; }
+    .hint.warn { color: #ff9f0a; }
+    .hint { font-size: 12px; color: var(--fg-dim); margin: -4px 0 6px; }
+    .seg { display: flex; gap: 2px; padding: 3px; border-radius: 10px; background: var(--pill); }
+    .seg button { padding: 5px 12px; border-radius: 8px; text-transform: capitalize; }
+    .seg .sel { background: var(--accent); color: #fff; }
+    select, input:not([type]), textarea, .grow { padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line-soft); background: var(--settings-bg); }
+    textarea { width: 100%; font-family: Consolas, monospace; font-size: 12px; resize: vertical; }
+    /* Choice buttons (Notifications): plain, the chosen one in the accent colour. */
+    .segs { display: inline-flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+    .segs .btn { background: var(--pill); color: var(--fg); padding: 6px 10px; font-size: 12px; }
+    .segs .btn.on { background: var(--accent); color: #fff; }
+    .wrow { display: flex; align-items: center; gap: 8px; padding: 6px 0; }
+    .wrow b { flex: 1; font-weight: 500; }
+    .grow { flex: 1; }
+    .wico { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; background: var(--accent); color: #fff; flex: none; }
+    .wform { padding: 4px 0 12px 36px; display: flex; flex-direction: column; gap: 8px; }
+    .wform label { display: flex; align-items: center; gap: 8px; }
+    .rot { transform: rotate(180deg); }
+    .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+    .gcard { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 14px; text-align: left; border-radius: 14px; background: var(--panel); border: 1px solid var(--line-soft); transition: transform 0.3s var(--spring); }
+    .gcard:hover { transform: translateY(-2px); }
+    .gcard .hint { margin: 0; }
+  }
 </style>

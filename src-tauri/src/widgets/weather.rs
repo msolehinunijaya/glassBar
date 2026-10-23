@@ -102,13 +102,13 @@ fn fetch(p: &Place, unit: &str) -> Result<Weather, String> {
 fn get(app: &AppHandle, force: bool) -> Option<Weather> {
     let unit = app.state::<crate::AppState>().config.lock().unwrap()
         .widget_settings("clock")["weatherUnit"].as_str().unwrap_or("c").to_string();
-    let place = location::current(app, false);
+    let place = location::current(app).ok();
     let cached: Option<Weather> = {
         let db = app.state::<Db>();
         let c = db.0.lock().unwrap();
         kv_get(&c, "weather").and_then(|s| serde_json::from_str(&s).ok())
     };
-    let fresh = |w: &Weather| now_ms() - w.fetched_at < TTL_MS && w.unit == unit && w.place == place;
+    let fresh = |w: &Weather| now_ms() - w.fetched_at < TTL_MS && w.unit == unit && !location::is_real_change(w.place.as_ref(), place.as_ref());
     if let Some(w) = &cached { if !force && fresh(w) { return Some(w.clone()); } }
     match place.as_ref().map(|p| fetch(p, &unit)) {
         Some(Ok(w)) => {
@@ -116,7 +116,9 @@ fn get(app: &AppHandle, force: bool) -> Option<Weather> {
             kv_set(&db.0.lock().unwrap(), "weather", &serde_json::to_string(&w).unwrap());
             Some(w)
         }
-        _ => cached.map(|w| Weather { offline: true, ..w }),
+        // Only the same place's old forecast, marked offline; never another place's.
+        Some(Err(_)) => cached.filter(|w| !location::is_real_change(w.place.as_ref(), place.as_ref())).map(|w| Weather { offline: true, ..w }),
+        None => None, // location unavailable: nothing rather than a guess
     }
 }
 

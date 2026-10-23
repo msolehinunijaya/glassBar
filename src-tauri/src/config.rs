@@ -105,20 +105,26 @@ impl Default for Theme {
 pub struct Startup { pub launch_at_login: bool }
 impl Default for Startup { fn default() -> Self { Self { launch_at_login: false } } }
 
-/// Shared location for Weather, Waktu Solat and IPU.
+/// The one shared location (Weather, sunrise/sunset, Waktu Solat, IPU, world clock).
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase", default)]
 pub struct LocationCfg {
-    /// Detect automatically (Windows location, then IP). False = use lat/lon below.
-    pub auto: bool,
-    /// Ask Windows' location service (GPS/Wi-Fi). Off = approximate location from the IP only.
-    pub use_device: bool,
+    /// "auto" (Windows Location, then IP) | "windows" | "ip" | "manual".
+    pub mode: String,
+    /// Manual location (mode "manual").
     pub lat: Option<f64>,
     pub lon: Option<f64>,
     pub name: String,
+    /// IANA time zone of the manual location, when the city search gave one.
+    pub tz: Option<String>,
+    /// Before v9: auto + useDevice. Read once for the migration, never written.
+    #[serde(skip_serializing)]
+    pub auto: Option<bool>,
+    #[serde(skip_serializing)]
+    pub use_device: Option<bool>,
 }
 impl Default for LocationCfg {
-    fn default() -> Self { Self { auto: true, use_device: true, lat: None, lon: None, name: String::new() } }
+    fn default() -> Self { Self { mode: "auto".into(), lat: None, lon: None, name: String::new(), tz: None, auto: None, use_device: None } }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -170,7 +176,7 @@ impl Default for Config {
 
 /// v2 added the Start/Search button widget.
 /// v3 folded the Disk widget into the System Monitor; v4 the Tray widget into Quick Settings.
-pub const CURRENT_VERSION: u32 = 8;
+pub const CURRENT_VERSION: u32 = 9;
 
 /// Migration helper: widget `from` became part of widget `into`. Its settings (mapped by
 /// `map`) are merged into the existing `into` widget, or it turns into one in place.
@@ -306,6 +312,21 @@ impl Config {
                 p.widgets.retain(|w| !PARTS.iter().any(|(id, _)| *id == w.id));
             }
         }
+        if self.version < 9 {
+            // Location "detect automatically" + "use device location" became one mode.
+            let l = &mut self.location;
+            l.mode = match (l.auto, l.use_device) {
+                (Some(false), _) => "manual",
+                (_, Some(false)) => "ip",
+                _ => "auto",
+            }.into();
+        }
+        self.location.auto = None;
+        self.location.use_device = None;
+        if !matches!(self.location.mode.as_str(), "auto" | "windows" | "ip" | "manual") { self.location.mode = "auto".into(); }
+        if !matches!((self.location.lat, self.location.lon), (Some(a), Some(o)) if crate::widgets::location::valid_lat_lon(a, o)) {
+            (self.location.lat, self.location.lon) = (None, None);
+        }
         self.version = CURRENT_VERSION;
         if self.profiles.is_empty() {
             self.profiles.insert("Default".into(), Profile::default());
@@ -386,6 +407,24 @@ mod tests {
         let _ = std::fs::remove_dir_all(&d);
         std::fs::create_dir_all(&d).unwrap();
         d
+    }
+
+    #[test]
+    fn v9_turns_auto_and_use_device_into_a_mode() {
+        let mode = |loc: serde_json::Value| {
+            let c: Config = serde_json::from_value(serde_json::json!({ "version": 8, "location": loc })).unwrap();
+            c.normalized().location
+        };
+        assert_eq!(mode(serde_json::json!({ "auto": true, "useDevice": true })).mode, "auto");
+        assert_eq!(mode(serde_json::json!({ "auto": true, "useDevice": false })).mode, "ip");
+        let m = mode(serde_json::json!({ "auto": false, "useDevice": true, "lat": 3.1, "lon": 101.7, "name": "KL" }));
+        assert_eq!((m.mode.as_str(), m.lat, m.name.as_str()), ("manual", Some(3.1), "KL"));
+        assert_eq!((m.auto, m.use_device), (None, None));
+        assert!(!serde_json::to_string(&m).unwrap().contains("useDevice"));
+        assert_eq!(mode(serde_json::json!({})).mode, "auto");
+        let bad: Config = serde_json::from_value(serde_json::json!({ "location": { "mode": "x", "lat": 95.0, "lon": 0.0 } })).unwrap();
+        let bad = bad.normalized().location;
+        assert_eq!((bad.mode.as_str(), bad.lat), ("auto", None));
     }
 
     #[test]

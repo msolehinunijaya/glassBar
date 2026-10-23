@@ -6,6 +6,7 @@
   import { label, liveIpu, selectionKey } from './ipu.svelte';
   import { updateWidgetSettings } from '../../lib/config.svelte';
   import IpuLocation from './IpuLocation.svelte';
+  import LocationTag from '../../lib/LocationTag.svelte';
 
   let { instance, settings }: PopupProps<IpuSettings> = $props();
   const ipu = liveIpu(() => selectionKey(settings));
@@ -47,12 +48,13 @@
       </div>
     {/each}
   {/if}
-  {#if r.place?.source === 'ip'}<p class="src dim">Approximate location from your IP.</p>{/if}
+  {#if settings.country !== 'other'}<LocationTag />{/if}
   <p class="src dim">Data: {r.kind === 'ipu' ? 'JAS/DOE APIMS, updated hourly' : 'Open-Meteo (US AQI scale, not IPU)'}</p>
 {:else if ipu.loading}
   <p class="dim empty">Loading air quality…</p>
 {:else}
   <p class="dim empty">No reading available. Check your internet connection or set a location.</p>
+  {#if settings.country !== 'other'}<LocationTag />{/if}
 {/if}
 
 <style>

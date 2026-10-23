@@ -7,6 +7,7 @@
   import type { SolatSettings } from './index';
   import { countdown } from './next';
   import { liveSolat } from './solat.svelte';
+  import LocationTag from '../../lib/LocationTag.svelte';
 
   let { instance, settings }: PopupProps<SolatSettings> = $props();
   let showOpts = $state(false);
@@ -36,8 +37,8 @@
     <MapPin size={12} />
     {s.info.zoneName ?? s.info.place?.name ?? 'Your location'}
     {#if today.source === 'aladhan'} · Aladhan (MWL){/if}
-    {#if s.info.place?.source === 'ip' && !s.info.zoneName?.length} · Approximate location from your IP{/if}
   </div>
+  {#if settings.zone === 'auto'}<LocationTag />{/if}
   <div class="dim small">
     {new Intl.DateTimeFormat(undefined, { dateStyle: 'full' }).format(new Date(today.date + 'T12:00'))}
     {#if today.hijri} · {today.hijri} H{/if}
@@ -58,6 +59,7 @@
   </div>
 {:else if s.error}
   <p class="err">{s.error}</p>
+  {#if settings.zone === 'auto'}<LocationTag />{/if}
 {:else}
   <p class="dim empty">Loading prayer times…</p>
 {/if}

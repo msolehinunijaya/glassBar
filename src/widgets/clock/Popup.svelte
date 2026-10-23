@@ -5,6 +5,7 @@
   import Time from './ClockTime.svelte';
   import { date, timeText } from './prefs.svelte';
   import { dayState, type DayState } from './solar';
+  import { useLocation } from '../../lib/location.svelte';
   import { updateWidgetSettings } from '../../lib/config.svelte';
   import { ipc, type Place } from '../../lib/ipc';
   import type { PopupProps } from '../types';
@@ -44,13 +45,22 @@
   const day = (tz: string) => date(clock.now, settings, tz);
   // Day/night per city (real sunrise/sunset when the city has coordinates), on the clock's tick.
   const icons: Record<DayState, typeof Sun> = { day: Sun, night: Moon, sunrise: Sunrise, sunset: Sunset };
+  // A city in your own time zone without its own coordinates uses the shared location.
+  const here = useLocation();
+  const pcTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const coordsOf = (z: Zone) => {
+    if (z.lat != null && z.lon != null) return { lat: z.lat, lon: z.lon };
+    const p = here.s?.place;
+    return p && z.tz === (p.tz ?? pcTz) ? { lat: p.lat, lon: p.lon } : undefined;
+  };
   function light(z: Zone) {
-    const info = dayState(clock.now.getTime(), z.tz, z.lat != null && z.lon != null ? { lat: z.lat, lon: z.lon } : undefined);
+    const c = coordsOf(z);
+    const info = dayState(clock.now.getTime(), z.tz, c);
     const name = { day: 'Day', night: 'Night', sunrise: 'Sunrise', sunset: 'Sunset' }[info.state];
     const next = info.state === 'day' || info.state === 'sunset'
       ? (info.nextSet ? ` · sunset at ${timeText(new Date(info.nextSet), settings, false, z.tz)}` : '')
       : (info.nextRise ? ` · sunrise at ${timeText(new Date(info.nextRise), settings, false, z.tz)}` : '');
-    const how = z.lat == null ? ' (approximate: 6 AM–6 PM)' : '';
+    const how = !c ? ' (approximate: 6 AM–6 PM)' : z.lat == null ? ' (your location)' : '';
     return { ...info, icon: icons[info.state], tip: name + next + how };
   }
 

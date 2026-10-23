@@ -12,7 +12,8 @@ export interface BarCfg {
 }
 export interface Profile { bar: BarCfg; widgets: WidgetInst[] }
 export interface Theme { mode: 'auto' | 'light' | 'dark'; accent: string; blur: number; opacity: number; nativeBlur: boolean }
-export interface LocationCfg { auto: boolean; useDevice: boolean; lat: number | null; lon: number | null; name: string }
+export type LocationMode = 'auto' | 'windows' | 'ip' | 'manual';
+export interface LocationCfg { mode: LocationMode; lat: number | null; lon: number | null; name: string; tz: string | null }
 export interface Config {
   version: number; activeProfile: string; profiles: Record<string, Profile>;
   theme: Theme; startup: { launchAtLogin: boolean };
@@ -37,7 +38,9 @@ export interface DlState { folder: string; items: DlItem[]; totalSize: number; e
 export interface RecycleDrive { root: string; size: number; items: number; free: number }
 export interface RecycleInfo { size: number; items: number; drives: RecycleDrive[] }
 export interface Stopwatch { startedAt: number | null; accMs: number; laps: number[] }
-export interface Place { lat: number; lon: number; name: string; source: 'windows' | 'ip' | 'manual'; tz?: string; accuracy?: number; note?: string }
+export interface Place { lat: number; lon: number; name: string; source: 'windows' | 'ip' | 'manual'; tz?: string; accuracy?: number; via?: string; note?: string }
+/** The shared location: `place` null = Unavailable (`reason` says why). */
+export interface LocationStatus { mode: LocationMode; place: Place | null; reason: string | null; lastKnown: Place | null; at: number }
 export interface Weather {
   fetchedAt: number; unit: 'c' | 'f'; place: Place | null; offline: boolean;
   current: { temp: number; code: number; isDay: boolean; feelsLike?: number | null; humidity?: number | null; windSpeed?: number | null; windDir?: number | null };
@@ -104,7 +107,7 @@ export const ipc = {
   mouseDown: () => invoke<boolean>('mouse_down'),
   restoreTaskbar: () => invoke<void>('restore_taskbar'),
   setEditMode: (on: boolean) => invoke<void>('set_edit_mode', { on }),
-  openSettings: () => invoke<void>('open_settings_cmd'),
+  openSettings: (section?: string) => invoke<void>('open_settings_cmd', { section: section ?? null }),
   popupOpen: (instance: string, anchor: DOMRect, width: number, height: number, focus = true) =>
     invoke<void>('popup_open', { instance, x: anchor.x, y: anchor.y, w: anchor.width, h: anchor.height, width, height, focus }),
   popupLeave: () => invoke<void>('popup_leave'),
@@ -166,7 +169,9 @@ export const ipc = {
   swLap: () => invoke<Stopwatch>('sw_lap'),
   swReset: () => invoke<Stopwatch>('sw_reset'),
   // location + weather
-  locationGet: (force = false) => invoke<Place | null>('location_get', { force }),
+  locationStatus: (force = false) => invoke<LocationStatus>('location_status', { force }),
+  locationClear: () => invoke<LocationStatus>('location_clear'),
+  locationOpenMap: (lat: number, lon: number) => invoke<void>('location_open_map', { lat, lon }),
   locationSearch: (query: string) => invoke<Place[]>('location_search', { query }),
   weatherGet: (force = false) => invoke<Weather | null>('weather_get', { force }),
   // waktu solat
@@ -277,6 +282,8 @@ export const events = {
   downloadsNew: (cb: (i: DlItem) => void) => listen<DlItem>('downloads:new', (e) => cb(e.payload)),
   bannerPush: (cb: (n: import('./notify').Note) => void) => listen<import('./notify').Note>('banner:push', (e) => cb(e.payload)),
   barJump: (cb: (j: { source: string; data: unknown; open: boolean }) => void) => listen<{ source: string; data: unknown; open: boolean }>('bar:jump', (e) => cb(e.payload)),
+  location: (cb: (s: LocationStatus) => void) => listen<LocationStatus>('location:status', (e) => cb(e.payload)),
+  settingsSection: (cb: (s: string) => void) => listen<string>('settings:section', (e) => cb(e.payload)),
   sysmonSample: (cb: (s: Sample) => void) => listen<Sample>('sysmon:sample', (e) => cb(e.payload)),
   soundPlay: (cb: (s: Sound) => void) => listen<Sound>('sound:play', (e) => cb(e.payload)),
   /** Any "<name>:changed" event from Rust (todos, notes, timers, ...). */

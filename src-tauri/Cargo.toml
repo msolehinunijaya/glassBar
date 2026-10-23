@@ -73,6 +73,7 @@ features = [
   "Media_Control",
   "Devices_Radios",
   "Devices_Geolocation",
+  "Services_Maps",
   "Networking_Connectivity",
   "Networking_NetworkOperators",
   "System_Power",

@@ -5,6 +5,7 @@
   import { compass, themeOf } from './sun';
   import { deg, liveWeather } from './weather.svelte';
   import SunArc from './SunArc.svelte';
+  import LocationTag from '../../lib/LocationTag.svelte';
   import WxIcon from './WxIcon.svelte';
 
   // The forecast panel, opened from the weather part of the clock (it has no settings of its own).
@@ -34,7 +35,6 @@
         <div class="place"><MapPin size={13} /> {w.place?.name || 'Unknown place'}</div>
         <div class="sub">
           {w.offline ? 'Offline · last updated' : 'Updated'} {time(w.fetchedAt)}
-          {#if w.place?.source === 'ip'} · approximate (IP){/if}
         </div>
       </div>
       <button class="icon-btn" class:spin={refreshing} onclick={refresh} aria-label="Refresh"><RefreshCw size={15} /></button>
@@ -74,8 +74,10 @@
 {:else if wx.loading}
   <p class="dim empty">Loading weather…</p>
 {:else}
-  <p class="dim empty">No weather yet. Check your internet connection, or set a city in Settings → Widgets → Clock & Date.</p>
+  <p class="dim empty">No weather yet. Check your internet connection, or set your location in Settings → Location.</p>
 {/if}
+
+<div class="loctag"><LocationTag /></div>
 
 <style>
   .hero { border-radius: 16px; padding: 12px 14px; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.2); }
@@ -101,4 +103,5 @@
   .spin :global(svg) { animation: spin 0.8s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
   .empty { text-align: center; padding: 60px 10px; }
+  .loctag { margin-top: 6px; }
 </style>

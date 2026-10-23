@@ -67,7 +67,7 @@ pub fn parse_doe(v: &Value) -> Vec<Station> {
     }).collect()).unwrap_or_default()
 }
 
-fn km(lat1: f64, lon1: f64, lat2: f64, lon2: f64) -> f64 {
+pub(crate) fn km(lat1: f64, lon1: f64, lat2: f64, lon2: f64) -> f64 {
     let (p1, p2) = (lat1.to_radians(), lat2.to_radians());
     let (dp, dl) = ((lat2 - lat1).to_radians(), (lon2 - lon1).to_radians());
     let a = (dp / 2.0).sin().powi(2) + p1.cos() * p2.cos() * (dl / 2.0).sin().powi(2);
@@ -142,7 +142,7 @@ fn fetch(app: &AppHandle) -> Option<IpuReading> {
             return us_aqi(&p).map(|r| IpuReading { stations, ..r });
         }
     }
-    let place = location::current(app, false);
+    let place = location::current(app).ok();
     let pick = s["station"].as_str().filter(|x| !x.is_empty() && *x != "auto");
     let coords = place.as_ref().map(|p| (p.lat, p.lon));
     match choose(if country == "MY" { "MY" } else { "auto" }, pick, coords, &stations) {

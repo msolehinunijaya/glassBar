@@ -466,13 +466,19 @@ pub fn popup_leave(app: AppHandle) { let _ = app.emit_to("popup", "popup:leave",
 
 // ---- Settings window, edit mode, tray ----
 
-pub fn open_settings(app: &AppHandle) -> tauri::Result<()> {
+pub fn open_settings(app: &AppHandle) -> tauri::Result<()> { open_settings_at(app, None) }
+
+/// Open Settings, optionally on one section ("Location"…).
+pub fn open_settings_at(app: &AppHandle, section: Option<String>) -> tauri::Result<()> {
+    let section = section.filter(|s| s.chars().all(|c| c.is_ascii_alphanumeric()));
     if let Some(w) = app.get_webview_window("settings") {
+        if let Some(s) = &section { let _ = app.emit_to("settings", "settings:section", s); }
         w.unminimize()?;
         w.show()?;
         return w.set_focus();
     }
-    WebviewWindowBuilder::new(app, "settings", WebviewUrl::App("index.html".into()))
+    let url = section.map_or("index.html".into(), |s| format!("index.html?section={s}"));
+    WebviewWindowBuilder::new(app, "settings", WebviewUrl::App(url.into()))
         .title("GlassBar Settings")
         .inner_size(880.0, 640.0)
         .min_inner_size(640.0, 480.0)
@@ -483,8 +489,8 @@ pub fn open_settings(app: &AppHandle) -> tauri::Result<()> {
 
 /// Async on purpose: creating a window inside a sync command deadlocks on Windows.
 #[tauri::command]
-pub async fn open_settings_cmd(app: AppHandle) -> Result<(), String> {
-    open_settings(&app).map_err(|e| e.to_string())
+pub async fn open_settings_cmd(app: AppHandle, section: Option<String>) -> Result<(), String> {
+    open_settings_at(&app, section).map_err(|e| e.to_string())
 }
 
 pub fn set_edit(app: &AppHandle, on: bool) {

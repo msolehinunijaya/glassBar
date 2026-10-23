@@ -53,7 +53,7 @@
 
 <div class="loc">
   <div class="seg">
-    <button class:sel={settings.country === 'auto'} onclick={() => setCountry('auto')}>My location</button>
+    <button class:sel={settings.country === 'auto'} onclick={() => setCountry('auto')}>Shared location</button>
     <button class:sel={settings.country === 'MY'} onclick={() => setCountry('MY')}>Malaysia</button>
     <button class:sel={settings.country === 'other'} onclick={() => setCountry('other')}>Other country</button>
   </div>

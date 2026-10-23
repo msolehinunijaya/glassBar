@@ -37,6 +37,7 @@ pub fn data_dir() -> PathBuf {
 pub fn commit(app: &AppHandle, cfg: Config) -> Result<(), String> {
     let cfg = cfg.normalized();
     let st = app.state::<AppState>();
+    let moved = st.config.lock().unwrap().location != cfg.location;
     config::save(&st.path, &cfg).map_err(|e| e.to_string())?;
     *st.config.lock().unwrap() = cfg.clone();
     bar::apply(app);
@@ -48,6 +49,7 @@ pub fn commit(app: &AppHandle, cfg: Config) -> Result<(), String> {
         let _ = if cfg.startup.launch_at_login { al.enable() } else { al.disable() };
     }
     let _ = app.emit("config:changed", &cfg);
+    if moved { widgets::location::poke(); }
     Ok(())
 }
 
@@ -119,6 +121,7 @@ fn main() {
             platform::shell().init(&data_dir(), Box::new(move |e| match e {
                 SystemEvent::DisplayChanged | SystemEvent::ShellRestarted => bar::apply(&a),
                 SystemEvent::PowerChanged => { let _ = a.emit("battery:changed", ()); widgets::sound::power_event(&a); }
+                SystemEvent::Resumed => widgets::location::poke(),
                 SystemEvent::Device(on) => widgets::sound::device_event(&a, on),
                 SystemEvent::Clipboard => widgets::clipboard::on_change(&a),
                 SystemEvent::WorkArea => bar::replace(&a),
@@ -135,7 +138,7 @@ fn main() {
             widgets::clipboard::prune(h);
             widgets::quick::sync_tray(h);
             let n = h.clone();
-            platform::wireless().watch_network(Box::new(move || { let _ = n.emit("wifi:changed", ()); }));
+            platform::wireless().watch_network(Box::new(move || { let _ = n.emit("wifi:changed", ()); widgets::location::poke(); }));
             bar::build_tray(h)?;
             bar::apply(h);
             if let Some(w) = app.get_webview_window("bar") { w.show()?; }
@@ -144,6 +147,7 @@ fn main() {
             bar::apply(h);
             widgets::start_watchers(h);
             scheduler::start(h.clone());
+            widgets::location::start(h.clone());
             widgets::ipu::start(h.clone());
             widgets::sysmon::start(h.clone());
             widgets::screentime::start(h.clone());
@@ -186,7 +190,7 @@ fn main() {
             widgets::downloads::downloads_recycle, widgets::downloads::downloads_drag, widgets::downloads::file_icon,
             widgets::downloads::recycle_info, widgets::downloads::recycle_empty,
             widgets::focus::sw_get, widgets::focus::sw_toggle, widgets::focus::sw_lap, widgets::focus::sw_reset,
-            widgets::location::location_get, widgets::location::location_search, widgets::weather::weather_get,
+            widgets::location::location_status, widgets::location::location_clear, widgets::location::location_open_map, widgets::location::location_search, widgets::weather::weather_get,
             widgets::solat::solat_days, widgets::solat::solat_zones, widgets::solat::solat_test_sound,
             widgets::ipu::ipu_get,
             widgets::sysmon::sysmon_history, widgets::sysmon::battery_get, widgets::sysmon::disks_list,

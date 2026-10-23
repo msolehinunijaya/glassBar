@@ -110,7 +110,7 @@ fn today_myt() -> NaiveDate { chrono::Utc::now().with_timezone(&myt()).date_naiv
 
 /// Today's and tomorrow's times (fetches when the cache doesn't cover them).
 pub fn days(app: &AppHandle) -> Result<Vec<PrayerDay>, String> {
-    let place = location::current(app, false);
+    let place = location::current(app).ok();
     let zone = zone_for(app, place.as_ref());
     match zone.as_deref() {
         Some(z) if !z.is_empty() => {
@@ -132,7 +132,7 @@ pub fn days(app: &AppHandle) -> Result<Vec<PrayerDay>, String> {
             Ok(all.into_iter().filter(|p| p.date >= want[0]).take(2).collect())
         }
         _ => {
-            let p = place.ok_or("Location unknown: pick a zone in Settings → Widgets → Waktu Solat")?;
+            let p = place.ok_or("Location unavailable: set it in Settings → Location, or pick a zone in the Waktu Solat options")?;
             set_active(app, "aladhan", "");
             let mut out = vec![];
             for offset in 0..2 {
@@ -167,7 +167,7 @@ pub async fn solat_days(app: AppHandle) -> Result<SolatInfo, String> {
         if days.is_empty() { return Err("No prayer times yet: check your internet connection.".to_string()); }
         let zone_name = days.first().filter(|d| !d.zone.is_empty()).and_then(|d| zone_name(&d.zone));
         crate::scheduler::poke(); // new times may be due soon
-        Ok(SolatInfo { days, zone_name, place: location::current(&app, false) })
+        Ok(SolatInfo { days, zone_name, place: location::current(&app).ok() })
     }).await?
 }
 

@@ -1,5 +1,4 @@
-import { ipc, type SolatInfo } from '../../lib/ipc';
-import { store } from '../../lib/config.svelte';
+import { events, ipc, type SolatInfo } from '../../lib/ipc';
 import { nextPrayer } from './next';
 import type { SolatSettings } from './index';
 
@@ -9,11 +8,12 @@ export function liveSolat(settings: () => SolatSettings) {
   const s = $state<{ info: SolatInfo | null; error: string; now: number }>({ info: null, error: '', now: Date.now() });
 
   $effect(() => {
-    settings().zone; JSON.stringify(store.config?.location); // refetch on zone/location change
+    settings().zone; // refetch on zone change (and below, when the shared location moves)
     const load = () => ipc.solatDays().then((i) => { s.info = i; s.error = ''; }).catch((e) => { s.error = String(e); });
     load();
     const t = setInterval(load, 30 * 60_000);
-    return () => clearInterval(t);
+    const off = events.changed('location', load);
+    return () => { clearInterval(t); off.then((f) => f()); };
   });
 
   const next = $derived(s.info ? nextPrayer(s.info.days, s.now, settings().showImsak) : null);

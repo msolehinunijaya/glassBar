@@ -1,6 +1,6 @@
 <script lang="ts">
   import { ipc } from '../../lib/ipc';
-  import LocationPicker from '../../lib/LocationPicker.svelte';
+  import LocationTag from '../../lib/LocationTag.svelte';
   import type { SettingsProps } from '../types';
   import type { SolatSettings } from './index';
 
@@ -11,11 +11,11 @@
 
 <label>Zone
   <select value={settings.zone} onchange={(e) => save({ zone: e.currentTarget.value })}>
-    <option value="auto">Auto (from my location)</option>
+    <option value="auto">Use shared location</option>
     {#each zones as [code, state, district] (code)}<option value={code}>{code} – {district} ({state})</option>{/each}
   </select>
 </label>
-{#if settings.zone === 'auto'}<LocationPicker />{/if}
+{#if settings.zone === 'auto'}<div>Shared location: <LocationTag /></div>{/if}
 <label><input type="checkbox" checked={settings.showImsak} onchange={(e) => save({ showImsak: e.currentTarget.checked })} /> Show Imsak</label>
 <label><input type="checkbox" checked={settings.alerts} onchange={(e) => save({ alerts: e.currentTarget.checked })} /> Alert at each prayer time</label>
 <label>At prayer time play

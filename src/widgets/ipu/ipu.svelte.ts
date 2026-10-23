@@ -1,5 +1,4 @@
-import { store } from '../../lib/config.svelte';
-import { ipc, type IpuReading } from '../../lib/ipc';
+import { events, ipc, type IpuReading } from '../../lib/ipc';
 
 /** Latest reading; Rust caches 15 min, this re-asks every 15 min.
  *  `key` = the location selection; when it changes, a fresh fetch is forced. */
@@ -7,12 +6,13 @@ export function liveIpu(key: () => string) {
   const s = $state<{ r: IpuReading | null; loading: boolean }>({ r: null, loading: true });
   let last = '';
   $effect(() => {
-    const changed = key() + JSON.stringify(store.config?.location);
+    const changed = key();
     const load = (force: boolean) => ipc.ipuGet(force).then((r) => { s.r = r; s.loading = false; });
     load(last !== '' && changed !== last);
     last = changed;
     const t = setInterval(() => load(false), 15 * 60_000);
-    return () => clearInterval(t);
+    const off = events.changed('location', () => load(true));
+    return () => { clearInterval(t); off.then((f) => f()); };
   });
   return s;
 }

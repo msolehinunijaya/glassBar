@@ -31,6 +31,7 @@ unsafe extern "system" fn proc(h: HWND, msg: u32, wp: WPARAM, lp: LPARAM) -> LRE
                 .then(|| SystemEvent::Device(wp.0 as u32 == DBT_DEVICEARRIVAL))
         }
         WM_POWERBROADCAST if wp.0 as u32 == PBT_APMPOWERSTATUSCHANGE => Some(SystemEvent::PowerChanged),
+        WM_POWERBROADCAST if wp.0 as u32 == PBT_APMRESUMEAUTOMATIC => Some(SystemEvent::Resumed),
         WM_CLIPBOARDUPDATE => Some(SystemEvent::Clipboard),
         WM_SETTINGCHANGE if wp.0 as u32 == SPI_SETWORKAREA.0 => Some(SystemEvent::WorkArea),
         appbar::APPBAR_MSG if wp.0 as u32 == ABN_POSCHANGED => Some(SystemEvent::WorkArea),

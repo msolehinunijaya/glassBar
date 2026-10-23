@@ -93,6 +93,8 @@ pub enum SystemEvent {
     WorkArea,
     /// Plugged in / unplugged / battery level changed (instant, from Windows).
     PowerChanged,
+    /// The PC woke from sleep or hibernation.
+    Resumed,
 }
 
 #[derive(Serialize, Clone, Debug)]
@@ -302,6 +304,8 @@ pub struct Fix { pub lat: f64, pub lon: f64, pub accuracy_m: Option<f64>, pub vi
 pub trait Location: Send + Sync {
     /// Device position from the OS location service (GPS, Wi-Fi, cell or IP, as Windows decides).
     fn locate(&self) -> Res<Fix>;
+    /// "Town, Region, Country" for a point, from Windows' own map service.
+    fn place_name(&self, lat: f64, lon: f64) -> Res<String>;
 }
 
 pub trait Display: Send + Sync {
