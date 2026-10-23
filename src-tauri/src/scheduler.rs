@@ -45,6 +45,7 @@ pub fn poke() {
 fn collect(app: &AppHandle) -> Vec<Due> {
     let mut v = crate::widgets::todo::due_items(app);
     v.extend(crate::widgets::focus::due_items(app));
+    v.extend(crate::widgets::solat::due_items(app));
     v.push(Due {
         key: format!("house:{}", chrono::Local::now().format("%Y-%m-%d")),
         at: 0, source: "house", title: String::new(), body: String::new(), sound: None,
@@ -60,7 +61,7 @@ fn handle(app: &AppHandle, d: &Due, missed: bool) {
             crate::alerts::notify(app, d.source, &d.title, &d.body, missed);
         }
         _ => match &d.sound {
-            Some(s) => crate::alerts::notify_with(app, d.source, &d.title, &d.body, missed, s.clone()),
+            Some(s) => crate::alerts::notify_with(app, d.source, &d.title, &d.body, missed, crate::widgets::solat::sound_payload(s)),
             None => crate::alerts::notify(app, d.source, &d.title, &d.body, missed),
         },
     }
@@ -74,6 +75,7 @@ fn housekeeping(app: &AppHandle) {
         let _ = c.execute("DELETE FROM fired WHERE at < ?1", [now_ms() - 30 * 86_400_000]);
     }
     crate::widgets::notes::housekeeping(app);
+    crate::widgets::solat::refresh(app);
 }
 
 pub fn start(app: AppHandle) {

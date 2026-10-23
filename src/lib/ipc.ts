@@ -34,6 +34,8 @@ export interface Weather {
   hourly: { time: number; temp: number; code: number }[];
   daily: { date: number; min: number; max: number; code: number }[];
 }
+export interface PrayerDay { date: string; zone: string; source: 'jakim' | 'aladhan'; hijri: string | null; times: [string, number][] }
+export interface SolatInfo { days: PrayerDay[]; zoneName: string | null; place: Place | null }
 export type Sound = { kind: 'chime' } | { kind: 'azan'; src: string };
 
 export interface AppWindow { id: number; title: string; exe: string; active: boolean; minimized: boolean }
@@ -105,6 +107,10 @@ export const ipc = {
   locationGet: (force = false) => invoke<Place | null>('location_get', { force }),
   locationSearch: (query: string) => invoke<Place[]>('location_search', { query }),
   weatherGet: (force = false) => invoke<Weather | null>('weather_get', { force }),
+  // waktu solat
+  solatDays: () => invoke<SolatInfo>('solat_days'),
+  solatZones: () => invoke<[string, string, string][]>('solat_zones'),
+  solatTestSound: (file: string) => invoke<void>('solat_test_sound', { file }),
   // apps
   appsList: () => invoke<AppWindow[]>('apps_list'),
   appIcon: (exe: string) => invoke<string | null>('app_icon', { exe }),
