@@ -8,7 +8,12 @@
   let {}: PopupProps = $props();
   let trash = $state(false);
   const notes = live<Note[]>('notes', () => ipc.notesList(trash), []);
-  $effect(() => { trash; ipc.notesList(trash).then((v) => (notes.v = v)); });
+  let firstRun = true;
+  $effect(() => {
+    trash; // live() already loaded the first list; reload only when the view changes
+    if (firstRun) { firstRun = false; return; }
+    ipc.notesList(trash).then((v) => (notes.v = v));
+  });
 
   let selectedId = $state<number | null>(null);
   const note = $derived(notes.v.find((n) => n.id === selectedId) ?? notes.v[0]);
@@ -22,14 +27,27 @@
   $effect(() => {
     if (note && note.id !== draftFor) { draft = note.text; draftFor = note.id; }
   });
+  // One pending text save at a time. It is flushed before switching notes, changing
+  // color/pin, or closing, so the last keystrokes are never lost.
+  let pending: { id: number; text: string } | null = null;
   let saveTimer: ReturnType<typeof setTimeout>;
+  function flush() {
+    clearTimeout(saveTimer);
+    if (!pending) return;
+    const p = pending;
+    pending = null;
+    const n = notes.v.find((x) => x.id === p.id);
+    if (n) ipc.noteUpdate({ ...n, text: p.text });
+  }
   function onInput(v: string) {
     draft = v;
-    const n = note;
+    if (!note) return;
+    pending = { id: note.id, text: v };
     clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => n && ipc.noteUpdate({ ...n, text: v }), 500);
+    saveTimer = setTimeout(flush, 500);
   }
-  $effect(() => () => { clearTimeout(saveTimer); if (note && draft !== note.text) ipc.noteUpdate({ ...note, text: draft }); });
+  $effect(() => () => flush());
+  function select(id: number) { flush(); selectedId = id; }
 
   $effect(() => {
     for (const name of note?.images ?? []) {
@@ -40,6 +58,7 @@
   });
 
   async function create() {
+    flush();
     const n = await ipc.noteCreate();
     selectedId = n.id;
   }
@@ -66,13 +85,13 @@
   <h3>{trash ? 'Trash' : 'Notes'}</h3>
   <div class="tools">
     {#if !trash}<button class="icon-btn" onclick={create} aria-label="New note"><Plus size={16} /></button>{/if}
-    <button class="icon-btn" class:on={trash} onclick={() => { trash = !trash; selectedId = null; }} aria-label="Trash"><Trash2 size={15} /></button>
+    <button class="icon-btn" class:on={trash} onclick={() => { flush(); trash = !trash; selectedId = null; }} aria-label="Trash"><Trash2 size={15} /></button>
   </div>
 </div>
 
 <div class="chips">
   {#each notes.v as n (n.id)}
-    <button class="chip" class:sel={n.id === note?.id} style:--c={COLORS[n.color] ?? COLORS.yellow} onclick={() => (selectedId = n.id)}>
+    <button class="chip" class:sel={n.id === note?.id} style:--c={COLORS[n.color] ?? COLORS.yellow} onclick={() => select(n.id)}>
       {#if n.pinned}<Pin size={10} />{/if}
       <span class="ellipsis">{n.text.split('\n')[0] || 'Empty note'}</span>
     </button>
@@ -101,11 +120,11 @@
     </div>
     <div class="bar">
       {#each Object.entries(COLORS) as [name, c] (name)}
-        <button class="dot" class:sel={note.color === name} style:background={c} onclick={() => ipc.noteUpdate({ ...note, text: draft, color: name })} aria-label={name}></button>
+        <button class="dot" class:sel={note.color === name} style:background={c} onclick={() => { flush(); ipc.noteUpdate({ ...note, text: draft, color: name }); }} aria-label={name}></button>
       {/each}
       <span class="grow"></span>
-      <button class="icon-btn" class:on={note.pinned} onclick={() => ipc.noteUpdate({ ...note, text: draft, pinned: !note.pinned })} aria-label="Pin"><Pin size={15} /></button>
-      <button class="icon-btn" onclick={() => ipc.noteDelete(note.id)} aria-label="Delete note"><Trash2 size={15} /></button>
+      <button class="icon-btn" class:on={note.pinned} onclick={() => { flush(); ipc.noteUpdate({ ...note, text: draft, pinned: !note.pinned }); }} aria-label="Pin"><Pin size={15} /></button>
+      <button class="icon-btn" onclick={() => { flush(); ipc.noteDelete(note.id); }} aria-label="Delete note"><Trash2 size={15} /></button>
     </div>
   {/if}
   {#if error}<p class="err">{error}</p>{/if}

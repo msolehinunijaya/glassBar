@@ -165,8 +165,18 @@ pub fn timer_pause(app: AppHandle, id: i64) {
 #[tauri::command]
 pub fn timer_resume(app: AppHandle, id: i64) {
     let _ = app.state::<Db>().0.lock().unwrap().execute(
-        "UPDATE timers SET ends_at = ?2 + remaining_ms, remaining_ms = NULL WHERE id = ?1 AND remaining_ms IS NOT NULL", params![id, now_ms()]);
+        "UPDATE timers SET ends_at = ?2 + remaining_ms, remaining_ms = NULL WHERE id = ?1 AND remaining_ms > 0", params![id, now_ms()]);
     timers_changed(&app);
+}
+
+/// Timer id from its scheduler key "timer:{id}:{ends_at}".
+pub fn timer_id(key: &str) -> Option<i64> { key.strip_prefix("timer:")?.split(':').next()?.parse().ok() }
+
+/// A timer ran out: mark it finished (ends_at NULL, remaining 0) so nothing keeps ticking.
+pub fn on_timer_due(app: &AppHandle, id: i64) {
+    let _ = app.state::<Db>().0.lock().unwrap()
+        .execute("UPDATE timers SET ends_at = NULL, remaining_ms = 0 WHERE id = ?1", [id]);
+    let _ = app.emit("timers:changed", ());
 }
 
 #[tauri::command]
@@ -282,6 +292,12 @@ mod tests {
         p.start(0, &c);
         for i in 1..=4 { p = p.finish(i * MIN, &c); } // work, short, work, short
         assert_eq!((p.phase, p.label(&c)), (Phase::Work, "3/4".to_string()));
+    }
+
+    #[test]
+    fn timer_id_from_due_key() {
+        assert_eq!(timer_id("timer:42:1792744673748"), Some(42));
+        assert_eq!(timer_id("pomo:1"), None);
     }
 
     #[test]

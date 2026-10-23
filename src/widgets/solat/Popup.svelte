@@ -18,9 +18,10 @@
     <MapPin size={12} />
     {s.info.zoneName ?? s.info.place?.name ?? 'Your location'}
     {#if today.source === 'aladhan'} · Aladhan (MWL){/if}
+    {#if s.info.place?.source === 'ip' && !s.info.zoneName?.length} · Approximate location from your IP{/if}
   </div>
   <div class="dim small">
-    {new Intl.DateTimeFormat(undefined, { dateStyle: 'full' }).format(new Date(today.date))}
+    {new Intl.DateTimeFormat(undefined, { dateStyle: 'full' }).format(new Date(today.date + 'T12:00'))}
     {#if today.hijri} · {today.hijri} H{/if}
   </div>
   {#if s.next}

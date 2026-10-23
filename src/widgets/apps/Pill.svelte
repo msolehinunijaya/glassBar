@@ -51,7 +51,10 @@
         action: () => { g.windows.forEach((w) => ipc.appClose(w.id)); } });
     }
     // Recent files that open with this app (best effort; Windows hides real jump lists).
-    const recent = await ipc.jumplist(g.path).catch(() => []);
+    const recent = await Promise.race([
+      ipc.jumplist(g.path).catch(() => []),
+      new Promise<[]>((ok) => setTimeout(() => ok([]), 400)),
+    ]);
     if (recent.length) {
       items.unshift(
         ...recent.map((r, i) => ({ id: `recent-${i}`, text: r.name, action: () => ipc.appLaunch(r.path) })),

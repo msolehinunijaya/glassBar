@@ -25,6 +25,14 @@ fn assoc_exe(ext: &str) -> String {
     exe
 }
 
+fn on_network_drive(path: &str) -> bool {
+    use windows::Win32::Storage::FileSystem::GetDriveTypeW;
+    let Some(drive) = path.get(..3).filter(|d| d.ends_with(":\\")) else { return false };
+    const DRIVE_REMOTE: u32 = 4;
+    let w = wide(drive);
+    unsafe { GetDriveTypeW(PCWSTR(w.as_ptr())) == DRIVE_REMOTE }
+}
+
 fn resolve(link: &IShellLinkW, file: &IPersistFile, lnk: &PathBuf) -> Option<String> {
     let w = wide(&lnk.to_string_lossy());
     unsafe {
@@ -48,8 +56,10 @@ pub fn recent_for(exe: &str, limit: usize) -> Vec<RecentItem> {
     let Ok(link) = (unsafe { CoCreateInstance::<_, IShellLinkW>(&ShellLink, None, CLSCTX_INPROC_SERVER) }) else { return vec![] };
     let Ok(file) = link.cast::<IPersistFile>() else { return vec![] };
     let mut out = Vec::new();
-    for (_, lnk) in lnks.into_iter().take(300) {
+    for (_, lnk) in lnks.into_iter().take(60) {
         let Some(target) = resolve(&link, &file, &lnk) else { continue };
+        // Never touch network locations: an offline share would stall the menu.
+        if crate::widgets::jumplist::is_network_path(&target) || on_network_drive(&target) { continue; }
         let p = PathBuf::from(&target);
         let Some(ext) = p.extension().map(|e| format!(".{}", e.to_string_lossy().to_lowercase())) else { continue };
         if !p.is_file() || !crate::widgets::jumplist::matches_exe(&assoc_exe(&ext), exe) { continue; }

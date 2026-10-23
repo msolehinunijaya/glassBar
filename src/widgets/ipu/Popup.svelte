@@ -34,6 +34,7 @@
       </div>
     {/each}
   {/if}
+  {#if r.place?.source === 'ip'}<p class="src dim">Approximate location from your IP.</p>{/if}
   <p class="src dim">Data: {r.kind === 'ipu' ? 'JAS/DOE APIMS, updated hourly' : 'Open-Meteo (US AQI scale, not IPU)'}</p>
 {:else if ipu.loading}
   <p class="dim empty">Loading air quality…</p>

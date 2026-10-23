@@ -77,6 +77,18 @@ pub fn next_prayer(day: &PrayerDay, now: i64, include_imsak: bool) -> Option<(St
         .cloned()
 }
 
+/// Which source/zone `days()` last resolved; only it produces alerts.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct Active { pub source: String, pub zone: String }
+
+pub fn active_days(cached: Vec<PrayerDay>, a: &Active) -> Vec<PrayerDay> {
+    cached.into_iter().filter(|d| d.source == a.source && d.zone == a.zone).collect()
+}
+
+fn set_active(app: &AppHandle, source: &str, zone: &str) {
+    kv_put(app, "solat:active", &serde_json::to_string(&Active { source: source.into(), zone: zone.into() }).unwrap());
+}
+
 fn settings(app: &AppHandle) -> Value { app.state::<crate::AppState>().config.lock().unwrap().widget_settings("solat") }
 
 fn kv(app: &AppHandle, key: &str) -> Option<String> { kv_get(&app.state::<Db>().0.lock().unwrap(), key) }
@@ -102,6 +114,7 @@ pub fn days(app: &AppHandle) -> Result<Vec<PrayerDay>, String> {
     let zone = zone_for(app, place.as_ref());
     match zone.as_deref() {
         Some(z) if !z.is_empty() => {
+            set_active(app, "jakim", z);
             let key = format!("solat:week:{z}");
             let today = today_myt();
             let want = [today.to_string(), today.succ_opt().unwrap().to_string()];
@@ -120,6 +133,7 @@ pub fn days(app: &AppHandle) -> Result<Vec<PrayerDay>, String> {
         }
         _ => {
             let p = place.ok_or("Location unknown: pick a zone in Settings → Widgets → Waktu Solat")?;
+            set_active(app, "aladhan", "");
             let mut out = vec![];
             for offset in 0..2 {
                 let date = (chrono::Local::now() + chrono::Duration::days(offset)).date_naive();
@@ -150,6 +164,7 @@ fn zone_name(code: &str) -> Option<String> {
 pub async fn solat_days(app: AppHandle) -> Result<SolatInfo, String> {
     crate::widgets::blocking(move || {
         let days = days(&app)?;
+        if days.is_empty() { return Err("No prayer times yet: check your internet connection.".to_string()); }
         let zone_name = days.first().filter(|d| !d.zone.is_empty()).and_then(|d| zone_name(&d.zone));
         crate::scheduler::poke(); // new times may be due soon
         Ok(SolatInfo { days, zone_name, place: location::current(&app, false) })
@@ -174,10 +189,12 @@ pub fn due_items(app: &AppHandle) -> Vec<Due> {
         if let Ok(list) = serde_json::from_str::<Vec<PrayerDay>>(&v) { cached.extend(list); }
         else if let Ok(d) = serde_json::from_str::<PrayerDay>(&v) { cached.push(d); }
     }
-    let want_zone = s["zone"].as_str().filter(|z| !z.is_empty() && *z != "auto").map(String::from);
+    let Some(active) = kv_get(&c, "solat:active").and_then(|s| serde_json::from_str::<Active>(&s).ok()) else { return vec![] };
+    drop(q);
+    drop(c);
+    let cached = active_days(cached, &active);
     let now = now_ms();
     cached.iter()
-        .filter(|d| want_zone.as_ref().is_none_or(|z| &d.zone == z))
         .flat_map(|d| d.times.iter().map(move |(n, t)| (d, n, *t)))
         .filter(|(_, n, t)| PRAYERS.contains(&n.as_str()) && *t > now - crate::scheduler::MISSED_AFTER_MS && *t < now + 2 * 86_400_000)
         .map(|(d, n, t)| Due {
@@ -194,8 +211,10 @@ pub fn due_items(app: &AppHandle) -> Vec<Due> {
 /// Turn {"kind":"azan","file":path} into a playable data: URL (falls back to the chime).
 pub fn sound_payload(v: &Value) -> Value {
     let Some(path) = v["file"].as_str() else { return v.clone() };
-    match std::fs::read(path) {
-        Ok(bytes) if bytes.len() < 30 * 1024 * 1024 => {
+    // Check the size before reading: a mistakenly chosen huge file must not be loaded.
+    let small = std::fs::metadata(path).map(|m| m.len() < 30 * 1024 * 1024).unwrap_or(false);
+    match if small { std::fs::read(path) } else { Err(std::io::ErrorKind::InvalidData.into()) } {
+        Ok(bytes) => {
             let mime = if path.to_lowercase().ends_with(".wav") { "audio/wav" } else { "audio/mpeg" };
             serde_json::json!({ "kind": "azan", "src": format!("data:{mime};base64,{}", base64::engine::general_purpose::STANDARD.encode(bytes)) })
         }
@@ -210,9 +229,17 @@ pub async fn solat_test_sound(app: AppHandle, file: String) {
     if let Ok(p) = p { let _ = app.emit_to("bar", "sound:play", p); }
 }
 
-/// Daily: refresh the cache so alerts work even if the widget popup is never opened.
+/// Daily: refresh the cache so alerts work even if the widget popup is never opened,
+/// and drop cached days for zones/dates no longer in use.
 pub fn refresh(app: &AppHandle) {
-    if app.state::<crate::AppState>().config.lock().unwrap().uses("solat") { let _ = days(app); }
+    if !app.state::<crate::AppState>().config.lock().unwrap().uses("solat") { return; }
+    let _ = days(app);
+    let active = kv(app, "solat:active").and_then(|s| serde_json::from_str::<Active>(&s).ok());
+    let keep = active.map(|a| format!("solat:week:{}", a.zone)).unwrap_or_default();
+    let today = chrono::Local::now().date_naive().to_string();
+    let _ = app.state::<Db>().0.lock().unwrap().execute(
+        "DELETE FROM kv WHERE (key LIKE 'solat:week:%' AND key <> ?1) OR (key LIKE 'solat:aladhan:%' AND substr(key, 15, 10) < ?2)",
+        rusqlite::params![keep, today]);
 }
 
 #[cfg(test)]
@@ -223,6 +250,22 @@ mod tests {
 
     fn ms(s: &str) -> i64 { chrono::DateTime::parse_from_rfc3339(s).unwrap().timestamp_millis() }
     fn at(day: &PrayerDay, name: &str) -> i64 { day.times.iter().find(|(n, _)| n == name).unwrap().1 }
+
+    #[test]
+    fn only_the_active_zone_alerts() {
+        let mut days = parse_jakim(&serde_json::from_str(WEEK).unwrap(), "WLY01");
+        let mut other = days[0].clone();
+        other.zone = "JHR02".into();
+        let mut aladhan = days[0].clone();
+        aladhan.zone = String::new();
+        aladhan.source = "aladhan".into();
+        days.push(other);
+        days.push(aladhan);
+        let active = Active { source: "jakim".into(), zone: "WLY01".into() };
+        let kept = active_days(days, &active);
+        assert_eq!(kept.len(), 8);
+        assert!(kept.iter().all(|d| d.zone == "WLY01" && d.source == "jakim"));
+    }
 
     #[test]
     fn parse_malay_dates() {

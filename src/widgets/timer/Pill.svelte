@@ -9,7 +9,7 @@
   let { size }: PillProps = $props();
   const timers = live<Timer[]>('timers', ipc.timersList, []);
   const sw = live<Stopwatch | null>('stopwatch', ipc.swGet, null);
-  const t = tickingNow(() => timers.v.some((x) => x.endsAt && x.endsAt > Date.now()) || !!sw.v?.startedAt);
+  const t = tickingNow(() => timers.v.some((x) => x.endsAt !== null) || !!sw.v?.startedAt);
   const next = $derived(timers.v.filter((x) => x.endsAt && x.endsAt > t.now).sort((a, b) => a.endsAt! - b.endsAt!)[0]);
 </script>
 

@@ -1,8 +1,11 @@
 // Alert sounds. The chime is synthesized, so no audio file ships with the app.
 let ctx: AudioContext | null = null;
+let idle: ReturnType<typeof setTimeout>;
 
-export function chime() {
+export async function chime() {
   ctx ??= new AudioContext();
+  clearTimeout(idle);
+  await ctx.resume();
   const t = ctx.currentTime;
   for (const [freq, at] of [[880, 0], [1318.5, 0.18]] as const) {
     const osc = ctx.createOscillator();
@@ -16,6 +19,8 @@ export function chime() {
     osc.start(t + at);
     osc.stop(t + at + 0.5);
   }
+  // A running AudioContext keeps the audio device (and a render thread) busy.
+  idle = setTimeout(() => ctx?.suspend(), 1500);
 }
 
 let current: HTMLAudioElement | null = null;

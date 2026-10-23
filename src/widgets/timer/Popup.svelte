@@ -28,6 +28,7 @@
   }
   const swElapsed = $derived(sw.v ? sw.v.accMs + (sw.v.startedAt ? t.now - sw.v.startedAt : 0) : 0);
   const left = (x: Timer) => (x.endsAt ? x.endsAt - t.now : x.remainingMs ?? 0);
+  const done = (x: Timer) => x.endsAt === null && x.remainingMs === 0;
 </script>
 
 <div class="seg">
@@ -48,12 +49,12 @@
   <div class="list">
     {#each timers.v as x (x.id)}
       {@const ms = left(x)}
-      <div class="row card" class:done={x.endsAt !== null && ms <= 0}>
+      <div class="row card" class:done={done(x)}>
         <div class="col">
-          <span class="big">{ms <= 0 && x.endsAt ? 'Done' : clock(ms)}</span>
+          <span class="big">{done(x) ? 'Done' : clock(ms)}</span>
           <span class="dim small">{x.label || clock(x.durationMs)}</span>
         </div>
-        {#if ms > 0 || x.remainingMs !== null}
+        {#if !done(x)}
           <button class="icon-btn" onclick={() => (x.endsAt ? ipc.timerPause(x.id) : ipc.timerResume(x.id))} aria-label={x.endsAt ? 'Pause' : 'Resume'}>
             {#if x.endsAt}<Pause size={16} />{:else}<Play size={16} />{/if}
           </button>

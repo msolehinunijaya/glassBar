@@ -6,10 +6,13 @@
   let query = $state('');
   let results = $state<Place[]>([]);
   let detected = $state<Place | null>(null);
+  let failed = $state(false);
   let timer: ReturnType<typeof setTimeout>;
   const loc = $derived(store.config!.location);
 
-  $effect(() => { if (loc.auto) ipc.locationGet(false).then((p) => (detected = p)); });
+  $effect(() => {
+    if (loc.auto) ipc.locationGet(false).then((p) => { detected = p; failed = !p; }).catch(() => (failed = true));
+  });
 
   function search(q: string) {
     query = q;
@@ -24,7 +27,11 @@
 
 <label><input type="checkbox" checked={loc.auto} onchange={(e) => update((c) => (c.location.auto = e.currentTarget.checked))} /> Detect my location automatically</label>
 {#if loc.auto}
-  <p class="hint">{detected ? `Detected: ${detected.name} (${detected.source === 'ip' ? 'approximate, from your IP' : 'Windows location'})` : 'Detecting…'}</p>
+  <p class="hint">
+    {#if detected}Detected: {detected.name} ({detected.source === 'ip' ? 'approximate, from your IP' : 'Windows location'})
+    {:else if failed}Couldn't detect your location. Search for your city below.
+    {:else}Detecting…{/if}
+  </p>
 {:else}
   <p class="hint">Using: {loc.name || 'not set'}</p>
 {/if}

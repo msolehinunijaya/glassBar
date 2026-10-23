@@ -9,6 +9,9 @@ use tauri::{AppHandle, Manager};
 
 /// Alerts later than this when we notice them are recorded as missed (no toast/sound).
 pub const MISSED_AFTER_MS: i64 = 15 * 60 * 1000;
+/// Items older than this are ignored outright (the `fired` table keeps 30 days,
+/// so without this an old overdue to-do would re-appear as "missed" monthly).
+const IGNORE_AFTER_MS: i64 = 25 * 86_400_000;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Due {
@@ -25,7 +28,7 @@ pub struct Due {
 /// Pure: which items fire now (with missed flag), and when to wake next.
 pub fn due_actions(now: i64, items: &[Due], fired: &HashSet<String>) -> (Vec<(Due, bool)>, Option<i64>) {
     let mut fire: Vec<(Due, bool)> = items.iter()
-        .filter(|d| d.at <= now && !fired.contains(&d.key))
+        .filter(|d| d.at <= now && d.at > now - IGNORE_AFTER_MS && !fired.contains(&d.key))
         .map(|d| (d.clone(), now - d.at > MISSED_AFTER_MS))
         .collect();
     fire.sort_by_key(|(d, _)| d.at);
@@ -34,6 +37,12 @@ pub fn due_actions(now: i64, items: &[Due], fired: &HashSet<String>) -> (Vec<(Du
 }
 
 static WAKE: (Mutex<bool>, Condvar) = (Mutex::new(false), Condvar::new());
+
+/// Record `key` as fired. True only if this call inserted it: a duplicate or a
+/// failed write (DB locked, disk full) must not fire, or it would repeat forever.
+pub fn mark_fired(c: &rusqlite::Connection, key: &str, at: i64) -> bool {
+    matches!(c.execute("INSERT OR IGNORE INTO fired(key, at) VALUES(?1, ?2)", rusqlite::params![key, at]), Ok(1))
+}
 
 /// Re-evaluate now (call after any change to due data).
 pub fn poke() {
@@ -46,9 +55,10 @@ fn collect(app: &AppHandle) -> Vec<Due> {
     let mut v = crate::widgets::todo::due_items(app);
     v.extend(crate::widgets::focus::due_items(app));
     v.extend(crate::widgets::solat::due_items(app));
+    // Due "now" so it sorts after anything else that is due (alerts go first).
     v.push(Due {
         key: format!("house:{}", chrono::Local::now().format("%Y-%m-%d")),
-        at: 0, source: "house", title: String::new(), body: String::new(), sound: None,
+        at: now_ms(), source: "house", title: String::new(), body: String::new(), sound: None,
     });
     v
 }
@@ -56,6 +66,10 @@ fn collect(app: &AppHandle) -> Vec<Due> {
 fn handle(app: &AppHandle, d: &Due, missed: bool) {
     match d.source {
         "house" => housekeeping(app),
+        "timer" => {
+            if let Some(id) = crate::widgets::focus::timer_id(&d.key) { crate::widgets::focus::on_timer_due(app, id); }
+            crate::alerts::notify(app, d.source, &d.title, &d.body, missed);
+        }
         "pomodoro" => {
             crate::widgets::focus::on_pomo_due(app);
             crate::alerts::notify(app, d.source, &d.title, &d.body, missed);
@@ -85,17 +99,23 @@ pub fn start(app: AppHandle) {
         let fired: HashSet<String> = {
             let db = app.state::<Db>();
             let c = db.0.lock().unwrap();
-            let mut q = c.prepare("SELECT key FROM fired").unwrap();
-            q.query_map([], |r| r.get(0)).map(|r| r.filter_map(Result::ok).collect()).unwrap_or_default()
+            c.prepare("SELECT key FROM fired")
+                .and_then(|mut q| q.query_map([], |r| r.get(0)).map(|r| r.filter_map(Result::ok).collect()))
+                .unwrap_or_default()
         };
         let now = now_ms();
         let (fire, next) = due_actions(now, &items, &fired);
+        let mut handled = false;
         for (d, missed) in &fire {
-            let _ = app.state::<Db>().0.lock().unwrap()
-                .execute("INSERT OR IGNORE INTO fired(key, at) VALUES(?1, ?2)", rusqlite::params![d.key, now]);
-            handle(&app, d, *missed);
+            let first = mark_fired(&app.state::<Db>().0.lock().unwrap(), &d.key, now);
+            if first {
+                handle(&app, d, *missed);
+                handled = true;
+            }
         }
-        if !fire.is_empty() { continue; } // firing may create new due items (next Pomodoro phase)
+        // Firing may create new due items (next Pomodoro phase): look again right away.
+        // If nothing could be recorded (DB locked), fall through and wait instead of spinning.
+        if handled { continue; }
         let wait = next.map(|n| (n - now).clamp(0, 60_000)).unwrap_or(60_000) as u64;
         let (lock, cv) = &WAKE;
         let mut woke = lock.lock().unwrap();
@@ -139,6 +159,23 @@ mod tests {
         let (fire, next) = due_actions(10, &[due("b", 50), due("a", 30), due("past", 5)], &HashSet::new());
         assert_eq!(fire.len(), 1);
         assert_eq!(next, Some(30));
+    }
+
+    #[test]
+    fn mark_fired_reports_duplicates_and_errors() {
+        let c = rusqlite::Connection::open_in_memory().unwrap();
+        crate::db::migrate(&c).unwrap();
+        assert!(mark_fired(&c, "k", 1));
+        assert!(!mark_fired(&c, "k", 2), "second insert of the same key must not fire again");
+        c.execute_batch("DROP TABLE fired").unwrap();
+        assert!(!mark_fired(&c, "x", 3), "a failed write must not fire (it would repeat forever)");
+    }
+
+    #[test]
+    fn items_older_than_25_days_are_ignored() {
+        let now = 100 * 86_400_000;
+        let (fire, _) = due_actions(now, &[due("ancient", now - 26 * 86_400_000), due("old", now - 2 * 86_400_000)], &HashSet::new());
+        assert_eq!(fire.iter().map(|(d, _)| d.key.as_str()).collect::<Vec<_>>(), ["old"]);
     }
 
     #[test]
