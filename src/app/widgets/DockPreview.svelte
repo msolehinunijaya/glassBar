@@ -3,17 +3,17 @@
   // Scaled down to fit. Drag a widget to reorder; click one to open its details.
   import { flip } from 'svelte/animate';
   import type { Edge } from '../../lib/geometry';
-  import type { WidgetInst } from '../../lib/ipc';
+  import { SIDE_PX, type SideWidth, type WidgetInst } from '../../lib/ipc';
   import { settingsOf, widgets } from '../../widgets/registry';
   import { dragSort, dragged } from './drag';
 
-  let { items, edge, size, selected, banner, onselect, onreorder }: {
-    items: WidgetInst[]; edge: Edge; size: 'compact' | 'normal' | 'large'; selected: string | null;
+  let { items, edge, size, side = 'regular', selected, banner, onselect, onreorder }: {
+    items: WidgetInst[]; edge: Edge; size: 'compact' | 'normal' | 'large'; side?: SideWidth; selected: string | null;
     banner?: string; onselect: (id: string) => void; onreorder?: (instances: string[]) => void;
   } = $props();
 
   const vertical = $derived(edge === 'left' || edge === 'right');
-  const thick = $derived({ compact: 36, normal: 48, large: 60 }[size]);
+  const thick = $derived(vertical ? SIDE_PX[side] : { compact: 36, normal: 48, large: 60 }[size]);
   let order = $state<string[] | null>(null);
   let dragging = $state<string | null>(null);
   const shown = $derived(order ? order.map((i) => items.find((w) => w.instance === i)!).filter(Boolean) : items);
@@ -37,7 +37,7 @@
 {#if banner}<div class="banner">{banner}</div>{/if}
 <div class="stage {edge}" bind:this={stage} bind:clientWidth={sw} bind:clientHeight={sh}>
   <div class="fit" style:zoom={k}>
-    <div class="pv dock" class:vertical data-size={size} bind:this={dock} bind:offsetWidth={dw} bind:offsetHeight={dh}
+    <div class="pv dock" class:vertical data-size={size} data-side={side} bind:this={dock} bind:offsetWidth={dw} bind:offsetHeight={dh}
          style:height={vertical ? 'auto' : `${thick}px`} style:width={vertical ? `${thick}px` : 'auto'}>
       {#each shown as w (w.instance)}
         {@const m = widgets[w.id]}

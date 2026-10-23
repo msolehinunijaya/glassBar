@@ -97,7 +97,7 @@ fn is_dark(app: &AppHandle, cfg: &Config) -> bool {
 fn bar_rect(app: &AppHandle, bar: &crate::config::BarCfg, length: f64) -> Option<(Rect, Rect)> {
     let mon = bar_monitor(app, bar.monitor)?;
     let s = mon.scale_factor();
-    let thick = (bar.size.px() * s).round() as i32;
+    let thick = (bar.thickness() * s).round() as i32;
     let gap = (GAP * s).round() as i32;
     let (mut r, strip) = place(monitor_rect(&mon), bar.edge, length, thick, gap);
     if let Some(p) = bar.floating { r.x = p.x; r.y = p.y; }

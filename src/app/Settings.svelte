@@ -86,6 +86,14 @@
             {/each}
           </div>
         </div>
+        <div class="field"><span>Side width</span>
+          <div class="seg">
+            {#each [['slim', 'Slim'], ['regular', 'Regular'], ['wide', 'Wide']] as const as [w, label] (w)}
+              <button class:sel={(bar.sideWidth ?? 'regular') === w} onclick={() => setBar((b) => (b.sideWidth = w))}>{label}</button>
+            {/each}
+          </div>
+        </div>
+        <p class="hint">How wide the bar is on the left or right edge ({bar.edge === 'left' || bar.edge === 'right' ? 'in use now' : 'used when you move it there'}). Wider shows labels next to the values.</p>
         <div class="field"><span>Length {Math.round(bar.length * 100)}%</span>
           <input type="range" min="0.2" max="1" step="0.01" value={bar.length} onchange={(e) => setBar((b) => (b.length = +e.currentTarget.value))} />
         </div>

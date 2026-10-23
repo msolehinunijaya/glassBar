@@ -21,7 +21,7 @@
   const slider = $derived(layoutOf(settings) === 'horizontal' && !vertical);
   // Ring: r = 12 in a 28 px box; the arc length follows the volume.
   const R = 12, C = 2 * Math.PI * R;
-  let el: HTMLDivElement;
+  let el = $state<HTMLDivElement>();
   let open = $state(false);
 
   function setVolume(volume: number, final = false) {
@@ -42,23 +42,39 @@
 
   // Only when the user turned it on: wheel over the pill changes volume.
   $effect(() => {
-    if (!settings.wheel) return;
+    const node = el;
+    if (!settings.wheel || !node) return;
     const onWheel = (e: WheelEvent) => {
       if (!audio.v) return;
       e.preventDefault();
       e.stopPropagation();
       setVolume(Math.min(1, Math.max(0, audio.v.volume - Math.sign(e.deltaY) * settings.step / 100)));
     };
-    el.addEventListener('wheel', onWheel, { passive: false });
-    return () => el.removeEventListener('wheel', onWheel);
+    node.addEventListener('wheel', onWheel, { passive: false });
+    return () => node.removeEventListener('wheel', onWheel);
   });
 
   const stop = (e: Event) => e.stopPropagation(); // slider/mute use must not open the panel or start edit mode
   const level = $derived(audio.v ? (audio.v.muted ? 0 : audio.v.volume) : 0);
 </script>
 
+{#if vertical}
+<!-- Left/right dock tile: the level ring (click to mute) and the volume under it. -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="pill snd" class:vertical bind:this={el} onpointerenter={() => (open = slider)} onpointerleave={() => (open = false)}
+<div class="side snd" bind:this={el} onclick={openPanel} onpointerdown={stop} role="button" tabindex="-1" onkeydown={() => {}}
+     title={audio.v ? `Volume ${pct(audio.v.volume)}${audio.v.muted ? ' (muted)' : ''} · click the speaker to mute` : 'Sound'}>
+  <button class="mute" class:muted={audio.v?.muted} onclick={toggleMute} onpointerdown={stop} aria-label={audio.v?.muted ? 'Unmute' : 'Mute'}>
+    <svg class="ring" viewBox="0 0 28 28" aria-hidden="true">
+      <circle class="track" cx="14" cy="14" r={R} />
+      <circle class="arc" cx="14" cy="14" r={R} stroke-dasharray={C} stroke-dashoffset={C * (1 - level)} />
+    </svg>
+    <Icon size={13} />
+  </button>
+  {#if audio.v}<span class="side-c">{audio.v.muted ? 'Muted' : pct(audio.v.volume)}</span>{/if}
+</div>
+{:else}
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div class="pill snd" bind:this={el} onpointerenter={() => (open = slider)} onpointerleave={() => (open = false)}
      onclick={openPanel} onpointerdown={stop} role="button" tabindex="-1" onkeydown={() => {}}
      title={audio.v ? `Volume ${pct(audio.v.volume)}${audio.v.muted ? ' (muted)' : ''} · click the speaker to mute` : 'Sound'}>
   <button class="mute" class:muted={audio.v?.muted} onclick={toggleMute} onpointerdown={stop} aria-label={audio.v?.muted ? 'Unmute' : 'Mute'}>
@@ -79,9 +95,10 @@
   {/if}
 </div>
 
+{/if}
 <style>
   .snd { gap: 2px; padding: 0 5px; }
-  .vertical { flex-direction: column; padding: 4px 0; gap: 0; }
+  .side.snd { padding: 4px 4px 6px; gap: 0; }
   .mute { position: relative; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; transition: background 0.2s, transform 0.25s var(--spring); }
   .mute:hover { background: var(--pill-hover); }
   .mute:active { transform: scale(0.85); }

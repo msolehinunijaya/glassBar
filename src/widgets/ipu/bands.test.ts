@@ -2,7 +2,8 @@ import { expect, it } from 'vitest';
 import { BANDS } from './bands';
 
 it('uses the official IPU status colours and names', () => {
-  expect(BANDS.good).toEqual({ name: 'Good', color: '#1e88e5' });
+  expect(BANDS.good).toEqual({ name: 'Good', short: 'Good', color: '#1e88e5' });
+  expect(BANDS.very_unhealthy.short).toBe('V. unhealthy');
   expect(BANDS.moderate.name).toBe('Moderate');
   expect(BANDS.moderate.color).toBe('#43a047');
   expect(BANDS.unhealthy.color).toBe('#fdd835');

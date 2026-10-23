@@ -6,6 +6,7 @@
 - **Settings › Location:** one shared location for Weather, sunrise/sunset, Waktu Solat, IPU and the world clock. Choose Automatic, Windows Location, IP or Manual; see the source, accuracy, time zone and when it was last checked. Widgets show where their location comes from and link here.
 - **Settings › Widgets:** a visual widget manager with a live preview of your dock, categories, search, on/off switches that keep a widget's settings, sizes, drag-to-reorder and layout presets.
 - **Settings › About:** version and this changelog.
+- **Left/right dock:** a side width option (Slim, Regular, Wide) and designs made for a side dock for System Monitor, Clock & Weather, IPU, Pomodoro / To-Do / Notes and Quick Settings (connectivity, volume, battery).
 - Notification banners next to the dock that jump to their widget, per-widget banner switches and Do Not Disturb.
 - Downloads widget; Recycle Bin in the System Monitor.
 - Capture widget: screenshots (full screen, area, window, scrolling page), recording, OCR Snap and clipboard history, with icon styles.

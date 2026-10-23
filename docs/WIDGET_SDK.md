@@ -37,6 +37,21 @@ That's it. The registry picks the folder up automatically, so it appears in the 
 
 Settings are per **instance**, so the same widget can be added twice with different settings.
 
+### Left/right dock (`vertical`)
+
+A side dock is 56, 72 or 96 px wide (Settings › Bar › Side width; the dock carries `data-side="slim|regular|wide"`). A normal pill is squeezed into a narrow column there, so widgets that show numbers should draw a side design instead: `{#if vertical} … {:else} <div class="pill"> … {/if}`, using the same state.
+
+Use the shared side-tile classes from `glass.css` (not `.pill`):
+
+| Class | Use |
+|---|---|
+| `.side` | One tile: full width, rounded, column, centred. |
+| `.side-stack` | Several tiles of one widget, joined (only the outer corners round). |
+| `.side-k` / `.side-v` / `.side-c` | Small label / value / caption. Slim hides captions. |
+| `.side-meter > i` | A 3 px meter under the value; width = level, colour from `--c` (see `loadTone()` in `src/lib/side.ts`). |
+
+Example: `<div class="side"><span class="side-k">CPU</span><span class="side-v">53<small>%</small></span><span class="side-meter"><i style:width="53%"></i></span></div>`.
+
 ## 4. Styling
 
 Use the tokens from `src/styles/glass.css` so the widget follows the theme:

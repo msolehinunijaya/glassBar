@@ -44,13 +44,25 @@ pub struct BarCfg {
     pub native_taskbar: TaskbarMode,
     /// Slide out of view, leaving a sliver at the edge; hovering the edge shows it.
     pub auto_hide: bool,
+    /// Width of a left/right dock: "slim" | "regular" | "wide".
+    pub side_width: String,
+}
+
+impl BarCfg {
+    /// Thickness in logical px: the height of a top/bottom bar, the side width of a left/right one.
+    pub fn thickness(&self) -> f64 {
+        match self.edge {
+            Edge::Left | Edge::Right => match self.side_width.as_str() { "slim" => 56.0, "wide" => 96.0, _ => 72.0 },
+            _ => self.size.px(),
+        }
+    }
 }
 
 impl Default for BarCfg {
     fn default() -> Self {
         // Top + taskbar shown: safe first run, nothing hidden if the app is killed.
         Self { edge: Edge::Top, monitor: None, length: 0.7, size: BarSize::Normal, floating: None,
-               reserve_space: true, native_taskbar: TaskbarMode::Show, auto_hide: false }
+               reserve_space: true, native_taskbar: TaskbarMode::Show, auto_hide: false, side_width: "regular".into() }
     }
 }
 
@@ -340,6 +352,7 @@ impl Config {
         }
         for p in self.profiles.values_mut() {
             p.bar.length = p.bar.length.clamp(0.2, 1.0);
+            if !matches!(p.bar.side_width.as_str(), "slim" | "regular" | "wide") { p.bar.side_width = "regular".into(); }
             // Instance ids key the bar's widget list: they must be unique.
             let mut seen = std::collections::HashSet::new();
             for (i, w) in p.widgets.iter_mut().enumerate() {
@@ -441,6 +454,21 @@ mod tests {
         assert!(w[0].enabled, "old configs without the flag load as on");
         assert!(c.uses("sysmon") && !c.uses("ipu"));
         assert_eq!(w[1].settings["alerts"], false, "settings are kept while off");
+    }
+
+    #[test]
+    fn side_width_sets_left_right_thickness_only() {
+        let mut b = BarCfg::default();
+        assert_eq!((b.side_width.as_str(), b.thickness()), ("regular", 48.0), "top bar: its height");
+        b.edge = Edge::Left;
+        assert_eq!(b.thickness(), 72.0);
+        b.side_width = "slim".into();
+        assert_eq!(b.thickness(), 56.0);
+        b.edge = Edge::Right;
+        b.side_width = "wide".into();
+        assert_eq!(b.thickness(), 96.0);
+        let c: Config = serde_json::from_value(serde_json::json!({ "profiles": { "D": { "bar": { "sideWidth": "huge" } } }, "activeProfile": "D" })).unwrap();
+        assert_eq!(c.normalized().profiles["D"].bar.side_width, "regular");
     }
 
     #[test]

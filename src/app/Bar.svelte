@@ -301,7 +301,7 @@
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="surface bar dock" class:vertical class:edit onpointerdown={onBarDown} oncontextmenu={onContext}
-     onpointerenter={onEnter} data-size={bar.size}>
+     onpointerenter={onEnter} data-size={bar.size} data-side={bar.sideWidth ?? 'regular'}>
   <div class="handle start" onpointerdown={(e) => onHandleDown(e, -1)}></div>
 
   <div class="scroller" bind:this={scroller}>

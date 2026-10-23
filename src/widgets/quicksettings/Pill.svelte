@@ -11,6 +11,7 @@
   import type { Battery } from '../../lib/ipc';
   import BatteryIcon from '../battery/BatteryIcon.svelte';
   import LiquidBattery from '../battery/LiquidBattery.svelte';
+  import BatteryTall from '../battery/BatteryTall.svelte';
   import SoundPart from '../sound/SoundPart.svelte';
   import { BATTERY_PANEL, soundOf } from '../sound/settings';
 
@@ -60,9 +61,47 @@
   });
 </script>
 
+{#if vertical}
+<!-- Left/right dock: joined tiles, tray (unfolds downward) · connectivity · volume · battery. -->
+<div class="side-stack" title="Quick settings">
+  {#if trayIcons.length}
+    <div class="side" bind:this={trayEl}>
+      <button class="chev" class:open={expanded} title={expanded ? 'Hide tray icons' : `Show ${trayIcons.length} tray icons`}
+              onpointerdown={(e) => e.stopPropagation()} onclick={(e) => { e.stopPropagation(); expanded = !expanded; }}>
+        {#if expanded}<Close size={14} />{:else}<Open size={14} /><span class="count">{trayIcons.length}</span>{/if}
+      </button>
+      {#if expanded}
+        <span class="grid" transition:slide={t}>{#each trayIcons as i (i.id)}<TrayIconButton icon={i} size={16} />{/each}</span>
+      {/if}
+    </div>
+  {/if}
+  <div class="side">
+    <span class="grid">
+      {#if airplane}
+        <Plane size={16} />
+      {:else}
+        {#if has('wifi')}{#if on('wifi')}<Wifi size={16} />{:else}<WifiOff size={16} class="dim" />{/if}{/if}
+        {#if has('bluetooth')}{#if on('bluetooth')}<Bluetooth size={16} />{:else}<BluetoothOff size={16} class="dim" />{/if}{/if}
+        {#if !radios.length}<Wifi size={16} />{/if}
+      {/if}
+      {#if lang}<b class="lang" title={lang.name}>{lang.code}</b>{/if}
+    </span>
+  </div>
+  {#if settings.soundOnDock}<SoundPart {instance} {size} settings={soundOf(settings)} vertical />{/if}
+  {#if bat.v}
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <div class="side" title="{bat.v.percent}% · {batWord}" role="button" tabindex="-1" onpointerdown={(e) => e.stopPropagation()}
+         onclick={(e) => { e.stopPropagation(); ipc.popupOpen(BATTERY_PANEL + instance, e.currentTarget.getBoundingClientRect(), 320, 420); }}>
+      <BatteryTall b={bat.v} />
+      <span class="side-v">{bat.v.percent}<small>%</small></span>
+      {#if bat.v.onAc}<span class="plugc" title={batWord}><Plug size={11} strokeWidth={2.4} /></span>{/if}
+    </div>
+  {/if}
+</div>
+{:else}
 <!-- Three joined segments: tray · language · Wi-Fi · Bluetooth | volume | battery. -->
-<div class="qswrap" class:vertical>
-<div class="pill qs" class:vertical title="Quick settings">
+<div class="qswrap">
+<div class="pill qs" title="Quick settings">
   {#if trayIcons.length}
     <span class="tray" bind:this={trayEl}>
       <button class="chev" class:open={expanded} title={expanded ? 'Hide tray icons' : `Show ${trayIcons.length} tray icons`}
@@ -86,36 +125,34 @@
     {#if !radios.length}<Wifi size={16} />{/if}
   {/if}
 </div>
-{#if settings.soundOnDock}<SoundPart {instance} {size} settings={soundOf(settings)} {vertical} />{/if}
+{#if settings.soundOnDock}<SoundPart {instance} {size} settings={soundOf(settings)} vertical={false} />{/if}
 {#if bat.v}
   <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <div class="pill bat" class:vertical title="{bat.v.percent}% · {batWord}" role="button" tabindex="-1" onpointerdown={(e) => e.stopPropagation()}
+  <div class="pill bat" title="{bat.v.percent}% · {batWord}" role="button" tabindex="-1" onpointerdown={(e) => e.stopPropagation()}
        onclick={(e) => { e.stopPropagation(); ipc.popupOpen(BATTERY_PANEL + instance, e.currentTarget.getBoundingClientRect(), 320, 420); }}>
     {#if settings.batteryStyle === 'liquid'}<LiquidBattery b={bat.v} />{:else}<BatteryIcon b={bat.v} size={16} />{/if}
     {#if bat.v.onAc}<span class="plug"><Plug size={12} strokeWidth={2.2} /></span>{/if}
   </div>
 {/if}
 </div>
+{/if}
 
 <style>
   .qs { gap: 6px; }
   .qswrap { display: flex; align-items: stretch; gap: 2px; height: 100%; }
-  .qswrap.vertical { flex-direction: column; height: auto; }
   /* Inner corners of the joined segments are nearly square. */
-  .qswrap:not(.vertical) > :global(.pill:not(:first-child)) { border-top-left-radius: 4px; border-bottom-left-radius: 4px; }
-  .qswrap:not(.vertical) > :global(.pill:not(:last-child)) { border-top-right-radius: 4px; border-bottom-right-radius: 4px; }
-  .qswrap.vertical > :global(.pill:not(:first-child)) { border-top-left-radius: 4px; border-top-right-radius: 4px; }
-  .qswrap.vertical > :global(.pill:not(:last-child)) { border-bottom-left-radius: 4px; border-bottom-right-radius: 4px; }
+  .qswrap > :global(.pill:not(:first-child)) { border-top-left-radius: 4px; border-bottom-left-radius: 4px; }
+  .qswrap > :global(.pill:not(:last-child)) { border-top-right-radius: 4px; border-bottom-right-radius: 4px; }
   .tray, .icons { display: flex; align-items: center; gap: 0; }
-  .vertical .tray, .vertical .icons { flex-direction: column; }
   .chev { display: flex; align-items: center; gap: 2px; padding: 3px 4px; border-radius: 8px; transition: background 0.15s; }
   .chev:hover, .chev.open { background: var(--pill-hover); }
   .lang { font-size: 11.5px; letter-spacing: 0.04em; min-width: 18px; text-align: center; }
   .bat { gap: 2px; padding: 0 9px; }
-  .bat.vertical { flex-direction: column; padding: 6px 0; }
   .plug { display: inline-flex; color: #30d158; }
   .count { font-size: 10px; font-variant-numeric: tabular-nums; opacity: 0.75; }
   .icons { overflow: hidden; }
   .sep { width: 1px; align-self: stretch; margin: 9px 2px; background: var(--line-soft); }
-  .vertical .sep { width: auto; height: 1px; margin: 2px 8px; }
+  /* Left/right dock tiles */
+  .grid { display: grid; grid-template-columns: repeat(2, auto); gap: 7px 8px; place-items: center; justify-content: center; }
+  .plugc { display: inline-flex; color: #30d158; }
 </style>

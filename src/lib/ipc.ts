@@ -9,7 +9,11 @@ export interface BarCfg {
   edge: Edge; monitor: number | null; length: number; size: 'compact' | 'normal' | 'large';
   floating: { x: number; y: number } | null; reserveSpace: boolean;
   nativeTaskbar: 'show' | 'autohide' | 'hidden'; autoHide: boolean;
+  /** Width of a left/right dock. */
+  sideWidth: SideWidth;
 }
+export type SideWidth = 'slim' | 'regular' | 'wide';
+export const SIDE_PX: Record<SideWidth, number> = { slim: 56, regular: 72, wide: 96 };
 export interface Profile { bar: BarCfg; widgets: WidgetInst[] }
 export interface Theme { mode: 'auto' | 'light' | 'dark'; accent: string; blur: number; opacity: number; nativeBlur: boolean }
 export type LocationMode = 'auto' | 'windows' | 'ip' | 'manual';

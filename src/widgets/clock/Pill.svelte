@@ -2,7 +2,7 @@
   import { ipc } from '../../lib/ipc';
   import type { PillProps } from '../types';
   import type { ClockSettings } from './index';
-  import { date } from './prefs.svelte';
+  import { date, time } from './prefs.svelte';
   import Time from './ClockTime.svelte';
   import { ticker } from './time.svelte';
   import { zonesOf } from './zones';
@@ -12,9 +12,12 @@
   // Ticks every second only while seconds are shown; otherwise on each minute boundary.
   const clock = ticker(() => settings.showSeconds);
   const first = $derived(zonesOf(settings)[0]);
-  // The small size (and a side dock) always shows the time only.
-  const show = $derived(size === 'small' || vertical ? 'time' : settings.show);
+  // The small size always shows the time only.
+  const show = $derived(size === 'small' ? 'time' : settings.show);
   const day = $derived(date(clock.now, settings));
+  // Left/right dock: time without seconds, AM/PM under it, then a short weekday + day.
+  const sideTime = $derived(time(clock.now, settings, false));
+  const sideDay = $derived(new Intl.DateTimeFormat(undefined, { weekday: 'short', day: 'numeric' }).format(clock.now));
 
   // "Popup" appearance: hovering the clock shows the big clock + world clocks, without a click.
   let hoverTimer: ReturnType<typeof setTimeout>;
@@ -29,29 +32,38 @@
   }
 </script>
 
-<div class="clockwrap" class:vertical class:withwx={settings.showWeather}>
-{#if settings.showWeather}<WeatherPart {instance} colorful={settings.weatherColorful} {vertical} />{/if}
-<div class="pill clock {settings.appearance}" class:vertical class:stacked={show === 'both' && settings.layout === 'stacked'}
+{#if vertical}
+<div class="side-stack" onpointerenter={enter} onpointerleave={leave} role="timer" title={day}>
+  {#if settings.showWeather}<WeatherPart {instance} colorful={settings.weatherColorful} vertical />{/if}
+  <div class="side">
+    <span class="side-v">{sideTime.main}</span>
+    {#if sideTime.ampm && settings.ampmSize !== 'hidden'}<span class="side-k">{sideTime.ampm}</span>{/if}
+    <span class="side-c">{sideDay}</span>
+  </div>
+</div>
+{:else}
+<div class="clockwrap" class:withwx={settings.showWeather}>
+{#if settings.showWeather}<WeatherPart {instance} colorful={settings.weatherColorful} vertical={false} />{/if}
+<div class="pill clock {settings.appearance}" class:stacked={show === 'both' && settings.layout === 'stacked'}
      class:date-first={show === 'both' && settings.timeSide === 'right'}
      data-align={settings.stackAlign}
      onpointerenter={enter} onpointerleave={leave} role="timer" title={day}>
   {#if show !== 'date'}
-    <span class="time" class:big={settings.appearance === 'prominent' && !vertical}><Time now={clock.now} {settings} /></span>
+    <span class="time" class:big={settings.appearance === 'prominent'}><Time now={clock.now} {settings} /></span>
   {/if}
   {#if show === 'both' && settings.layout === 'inline'}<span class="dot dim">·</span>{/if}
   {#if show !== 'time'}<span class="date" class:dim={show === 'both'}>{day}</span>{/if}
-  {#if size === 'large' && first && !vertical}
+  {#if size === 'large' && first}
     <span class="dim zone">{first.label} <Time now={clock.now} {settings} seconds={settings.worldSeconds} tz={first.tz} /></span>
   {/if}
 </div>
 </div>
+{/if}
 
 <style>
   /* Weather (optional) sits inside the same pill shape, on the left. */
   .clockwrap { display: flex; align-items: stretch; gap: 2px; height: 100%; }
-  .clockwrap.vertical { flex-direction: column; height: auto; }
   .withwx:not(.vertical) > .clock { border-top-left-radius: 4px; border-bottom-left-radius: 4px; }
-  .withwx.vertical > .clock { border-top-left-radius: 4px; border-top-right-radius: 4px; }
   .time { font-weight: 600; }
   .date { white-space: nowrap; font-variant-numeric: tabular-nums; }
   .dot { margin: 0 -2px; }
@@ -60,7 +72,6 @@
   .date-first .dot { order: 2; }
   .date-first .date { order: 1; }
   .date-first .zone { order: 4; }
-  .vertical { padding: 0 4px; font-size: 11px; }
   .zone { font-size: 12px; }
   /* stacked: time above the date */
   .stacked { flex-direction: column; justify-content: center; gap: 0; line-height: 1.15; }

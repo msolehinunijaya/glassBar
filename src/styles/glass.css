@@ -159,3 +159,31 @@ input[type='range'].slider::-webkit-slider-thumb {
 .dock.vertical .pill:is(.slot > *, .slot > .inert > *) svg, .dock.vertical .pill:is(.slot > *, .slot > .inert > *) img { flex: none; }
 .dock.vertical .pill:is(.slot > *, .slot > .inert > *) .b { height: 34px; } /* Start/Search buttons */
 .dock.vertical .apps:is(.slot > *, .slot > .inert > *) { gap: 2px; padding: 4px 2px; }
+
+/* ---- Side dock tiles ----
+   Widgets drawn for a left/right dock use these instead of a squeezed .pill: one tile per
+   value, stacked and joined. Label (.side-k) / value (.side-v) / caption (.side-c) / meter. */
+.side-stack { display: flex; flex-direction: column; gap: 2px; width: 100%; }
+.side {
+  width: 100%; box-sizing: border-box; position: relative; overflow: hidden;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  padding: 7px 4px; border-radius: 12px; text-align: center; line-height: 1.12;
+  background: var(--pill); border: 1px solid var(--line-soft); box-shadow: inset 0 1px 0 var(--line);
+  color: var(--fg); font-variant-numeric: tabular-nums;
+}
+button.side:hover { background: var(--pill-hover); }
+.side-stack > .side:not(:first-child) { border-top-left-radius: 4px; border-top-right-radius: 4px; }
+.side-stack > .side:not(:last-child) { border-bottom-left-radius: 4px; border-bottom-right-radius: 4px; }
+.side-k { font-size: 9.5px; font-weight: 500; color: var(--fg-dim); white-space: nowrap; }
+.side-v { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; white-space: nowrap; }
+.side-v small { font-size: 0.62em; font-weight: 500; margin-left: 1px; }
+.side-c { font-size: 10px; color: var(--fg-dim); white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.side-meter { width: calc(100% - 8px); height: 3px; margin-top: 3px; border-radius: 2px; background: var(--track); overflow: hidden; }
+.side-meter > i { display: block; height: 100%; border-radius: inherit; background: var(--c, var(--accent)); transition: width 0.6s var(--ease); }
+.dock[data-side='slim'] .side { padding: 6px 2px; }
+.dock[data-side='slim'] .side-v { font-size: 13px; }
+.dock[data-side='slim'] .side-c { display: none; }
+.dock[data-side='wide'] .side { padding: 9px 6px; }
+.dock[data-side='wide'] .side-v { font-size: 17px; }
+.dock[data-side='wide'] .side-k { font-size: 10.5px; }
+@media (prefers-reduced-motion: reduce) { .side-meter > i { transition: none; } }

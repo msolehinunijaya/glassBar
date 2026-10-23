@@ -73,7 +73,7 @@
 </script>
 
 <!-- Preview -->
-<DockPreview items={previewItems} {edge} size={bar.size} {selected} onselect={(id) => (selected = id)}
+<DockPreview items={previewItems} {edge} size={bar.size} side={bar.sideWidth ?? 'regular'} {selected} onselect={(id) => (selected = id)}
              banner={pending ? `Preview: ${pending.name}` : undefined} onreorder={pending ? undefined : reorderOn} />
 
 <div class="bar-tools">

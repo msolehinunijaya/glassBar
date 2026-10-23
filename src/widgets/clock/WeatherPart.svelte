@@ -19,12 +19,12 @@
   }
 </script>
 
-<button class="wx" class:colorful={colorful && !!wx.w} class:vertical
+<button class="wx" class:side={vertical} class:colorful={colorful && !!wx.w} class:vertical
         style:background={colorful && wx.w && desc ? themeOf(desc.icon, wx.w.current.isDay) : undefined}
         title={wx.w && desc ? `${desc.label} · ${wx.w.place?.name ?? ''} · click for the forecast` : 'Weather'}
         onclick={open} onpointerdown={(e) => e.stopPropagation()}>
   {#if wx.w}
-    <WxIcon code={wx.w.current.code} isDay={wx.w.current.isDay} size={15} />
+    <WxIcon code={wx.w.current.code} isDay={wx.w.current.isDay} size={vertical ? 18 : 15} />
     <span class="t">{deg(wx.w.current.temp)}</span>
   {:else}
     <CloudOff size={15} class="dim" />
@@ -39,7 +39,9 @@
     background: var(--pill); line-height: 1.05; transition: filter 0.15s;
   }
   .wx:hover { filter: brightness(1.1); }
-  .vertical { height: auto; padding: 6px 4px; border-radius: var(--radius-pill) var(--radius-pill) 4px 4px; }
+  /* Left/right dock: the top tile of the clock stack. */
+  .wx.vertical { height: auto; padding: 7px 4px; border-radius: 12px 12px 4px 4px; }
+  .vertical .t { font-size: 13px; }
   .t { font-weight: 600; font-size: 11px; font-variant-numeric: tabular-nums; }
   .colorful { color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25); }
 </style>

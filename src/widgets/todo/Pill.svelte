@@ -46,6 +46,13 @@
   const stop = (e: Event) => e.stopPropagation();
 </script>
 
+{#if vertical}
+<div class="side" title="{open.length} open to-dos">
+  <TodoIcon3D size={20} />
+  <span class="side-v">{open.length || '✓'}</span>
+  {#if done !== null}<span class="side-meter"><i style:width="{done * 100}%" style:--c={done === 1 ? '#30d158' : 'var(--accent)'}></i></span>{/if}
+</div>
+{:else}
 <div class="pill todo" class:complete={done === 1} class:celebrate title="{open.length} open to-dos">
   {#if done !== null}
     <svg class="ring" aria-hidden="true" preserveAspectRatio="none">
@@ -79,6 +86,7 @@
   {/if}
 </div>
 
+{/if}
 <style>
   .todo { gap: 7px; position: relative; }
   .ring { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }

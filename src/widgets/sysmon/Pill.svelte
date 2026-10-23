@@ -13,11 +13,13 @@
   import { events, ipc, type RecycleInfo } from '../../lib/ipc';
   import { fmtSize } from '../downloads/format';
 
-  let { size, settings }: PillProps<SysmonSettings> = $props();
+  import { loadTone, rateShort } from '../../lib/side';
+
+  let { size, settings, vertical }: PillProps<SysmonSettings> = $props();
   const s = liveSamples();
   const last = $derived(s.list.at(-1));
   const graphs = $derived(size !== 'small');
-  const t = { axis: 'x' as const, duration: 250 };
+  const t = $derived({ axis: vertical ? 'y' as const : 'x' as const, duration: 250 });
   // Stacked: the reading on top, its graph underneath.
   const GW = 46, GH = 12;
   // Disk space changes slowly: once a minute is plenty, and only while shown.
@@ -35,6 +37,41 @@
   });
 </script>
 
+{#if vertical}
+<!-- Left/right dock: one tile per reading, value over a load meter. -->
+<div class="side-stack" title="System">
+  {#if settings.cpu}
+    {@const v = Math.round(last?.cpu ?? 0)}
+    <div class="side" transition:slide={t}>
+      <span class="side-k">CPU</span><span class="side-v">{v}<small>%</small></span>
+      <span class="side-meter"><i style:width="{v}%" style:--c={loadTone(v)}></i></span>
+      {#if settings.temp}<span class="side-c" class:hot={isHot(last?.cpuTemp, +settings.tempWarn)}>{fmtTemp(last?.cpuTemp, settings.tempUnit)}</span>{/if}
+    </div>
+  {/if}
+  {#if settings.ram}
+    {@const v = Math.round(last?.mem ?? 0)}
+    <div class="side" transition:slide={t}>
+      <span class="side-k">RAM</span><span class="side-v">{v}<small>%</small></span>
+      <span class="side-meter"><i style:width="{v}%" style:--c={loadTone(v)}></i></span>
+    </div>
+  {/if}
+  {#each shownDrives as d (d.mount)}
+    {@const p = usedPct(d)}
+    <div class="side" transition:slide={t} title="{letter(d.mount)} {p}% used">
+      <span class="side-k">{letter(d.mount)}</span><span class="side-v">{p}<small>%</small></span>
+      <span class="side-meter"><i style:width="{p}%" style:--c={levelColor[level(p, +settings.diskHigh, +settings.diskCritical)]}></i></span>
+    </div>
+  {/each}
+  {#if settings.recycle && bin}
+    <div class="side" transition:slide={t} title="Recycle Bin: {bin.items} items"><Trash2 size={14} class="dim" /><span class="side-k">{fmtSize(bin.size)}</span></div>
+  {/if}
+  {#if settings.network && last}
+    <div class="side" transition:slide={t} title="Download {rate(last.rxBps)} · upload {rate(last.txBps)}">
+      <span class="side-k">Net</span><span class="side-v net">↓{rateShort(last.rxBps)}</span><span class="side-c">↑{rateShort(last.txBps)}</span>
+    </div>
+  {/if}
+</div>
+{:else}
 <div class="pill" title="System">
   {#if settings.cpu}
     <span class="m" class:stack={graphs} transition:slide={t}>
@@ -63,6 +100,7 @@
     </span>
   {/if}
 </div>
+{/if}
 
 <style>
   .m { display: inline-flex; align-items: center; gap: 4px; font-variant-numeric: tabular-nums; font-size: 12px; font-weight: 500; white-space: nowrap; }
@@ -75,4 +113,5 @@
   .dtrack { display: inline-block; width: 46px; height: 4px; border-radius: 2px; background: var(--track); overflow: hidden; }
   .dtrack span { display: block; height: 100%; border-radius: 2px; }
   .hot { color: #ff453a; font-weight: 600; }
+  .side-v.net { font-size: 0.85em; }
 </style>

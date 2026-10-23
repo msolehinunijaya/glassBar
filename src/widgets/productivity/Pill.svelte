@@ -33,7 +33,8 @@
       <p.Pill {instance} size={p.key === 'notes' && size !== 'large' ? 'small' : size} {settings} {vertical} />
     </div>
   {:else}
-    <div class="pill empty dim" title="Right-click to choose what shows">Pomodoro, To-Do and Notes are hidden · right-click to show</div>
+    {#if vertical}<div class="side dim" title="Pomodoro, To-Do and Notes are hidden · right-click to show"><span class="side-k">Hidden</span></div>
+    {:else}<div class="pill empty dim" title="Right-click to choose what shows">Pomodoro, To-Do and Notes are hidden · right-click to show</div>{/if}
   {/each}
 </div>
 
@@ -41,11 +42,12 @@
   .segwrap { display: flex; align-items: stretch; gap: 2px; height: 100%; }
   .segwrap.vertical { flex-direction: column; height: auto; }
   .seg { display: flex; height: 100%; }
-  .vertical .seg { height: auto; }
+  .vertical .seg { height: auto; width: 100%; }
   /* Joined segments: inner corners nearly square. */
   .segwrap:not(.vertical) > .seg:not(:first-child) > :global(.pill) { border-top-left-radius: 4px; border-bottom-left-radius: 4px; }
   .segwrap:not(.vertical) > .seg:not(:last-child) > :global(.pill) { border-top-right-radius: 4px; border-bottom-right-radius: 4px; }
-  .segwrap.vertical > .seg:not(:first-child) > :global(.pill) { border-top-left-radius: 4px; border-top-right-radius: 4px; }
-  .segwrap.vertical > .seg:not(:last-child) > :global(.pill) { border-bottom-left-radius: 4px; border-bottom-right-radius: 4px; }
+  .segwrap.vertical > .seg:not(:first-child) > :global(:is(.pill, .side)) { border-top-left-radius: 4px; border-top-right-radius: 4px; }
+  .segwrap.vertical > .seg:not(:last-child) > :global(:is(.pill, .side)) { border-bottom-left-radius: 4px; border-bottom-right-radius: 4px; }
+  .segwrap.vertical { width: 100%; }
   .empty { font-size: 11px; white-space: nowrap; padding: 0 12px; }
 </style>
