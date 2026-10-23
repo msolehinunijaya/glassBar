@@ -199,9 +199,13 @@ pub trait Gpu: Send + Sync {
     fn cpu_temp_c(&self) -> Option<f32>;
 }
 
+/// A position from the OS location service.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Fix { pub lat: f64, pub lon: f64, pub accuracy_m: Option<f64>, pub via: &'static str }
+
 pub trait Location: Send + Sync {
-    /// Device position (lat, lon) from the OS location service.
-    fn locate(&self) -> Res<(f64, f64)>;
+    /// Device position from the OS location service (GPS, Wi-Fi, cell or IP, as Windows decides).
+    fn locate(&self) -> Res<Fix>;
 }
 
 pub trait Display: Send + Sync {

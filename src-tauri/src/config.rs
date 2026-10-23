@@ -111,12 +111,14 @@ impl Default for Startup { fn default() -> Self { Self { launch_at_login: false 
 pub struct LocationCfg {
     /// Detect automatically (Windows location, then IP). False = use lat/lon below.
     pub auto: bool,
+    /// Ask Windows' location service (GPS/Wi-Fi). Off = approximate location from the IP only.
+    pub use_device: bool,
     pub lat: Option<f64>,
     pub lon: Option<f64>,
     pub name: String,
 }
 impl Default for LocationCfg {
-    fn default() -> Self { Self { auto: true, lat: None, lon: None, name: String::new() } }
+    fn default() -> Self { Self { auto: true, use_device: true, lat: None, lon: None, name: String::new() } }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]

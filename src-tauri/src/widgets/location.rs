@@ -1,5 +1,7 @@
 //! Where the user is, for Weather, Waktu Solat and IPU.
-//! Order: manual (when auto is off) → Windows location → IP lookup. Cached 6 h.
+//! Order: manual (when auto is off) → Windows location (if allowed) → IP lookup. Cached 6 h.
+//! Coordinates are rounded to ~110 m: plenty for weather, prayer times and air quality,
+//! and nothing more precise is stored or sent to those services.
 use crate::config::LocationCfg;
 use crate::db::{kv_get, kv_set, now_ms, Db};
 use crate::net::{enc, get_json};
@@ -9,7 +11,7 @@ use tauri::{AppHandle, Manager};
 
 const TTL_MS: i64 = 6 * 3_600_000;
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
 pub struct Place {
     pub lat: f64,
     pub lon: f64,
@@ -19,18 +21,37 @@ pub struct Place {
     /// IANA time zone, when known (city search results include it).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tz: Option<String>,
+    /// Windows' own accuracy estimate in metres (device location only).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub accuracy: Option<f64>,
+    /// How Windows found it ("GPS", "Wi-Fi"…), or why we fell back to the IP.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
 }
 
-pub fn resolve_location(cfg: &LocationCfg, windows: Option<(f64, f64)>, ip: Option<Place>) -> Option<Place> {
+/// ~110 m grid.
+pub fn round3(x: f64) -> f64 { (x * 1000.0).round() / 1000.0 }
+
+pub fn resolve_location(cfg: &LocationCfg, windows: Result<crate::platform::Fix, String>, ip: Option<Place>) -> Option<Place> {
     if !cfg.auto {
         return match (cfg.lat, cfg.lon) {
-            (Some(lat), Some(lon)) => Some(Place { lat, lon, name: cfg.name.clone(), source: "manual".into(), tz: None }),
+            (Some(lat), Some(lon)) => Some(Place { lat, lon, name: cfg.name.clone(), source: "manual".into(), ..Default::default() }),
             _ => None,
         };
     }
     match windows {
-        Some((lat, lon)) => Some(Place { lat, lon, name: "Current location".into(), source: "windows".into(), tz: None }),
-        None => ip,
+        Ok(f) if cfg.use_device => Some(Place {
+            lat: round3(f.lat), lon: round3(f.lon), name: "Current location".into(), source: "windows".into(),
+            accuracy: f.accuracy_m.map(|a| a.max(110.0).round()), note: Some(f.via.into()), ..Default::default()
+        }),
+        w => ip.map(|p| Place {
+            lat: round3(p.lat), lon: round3(p.lon),
+            note: Some(match w {
+                Err(e) if cfg.use_device => format!("Device location unavailable: {e}"),
+                _ => "Device location is off in GlassBar".into(),
+            }),
+            ..p
+        }),
     }
 }
 
@@ -42,7 +63,7 @@ pub fn parse_ip(v: &Value) -> Option<Place> {
     let city = v["city"].as_str().unwrap_or_default();
     let region = v["region"].as_str().unwrap_or_default();
     let name = [city, region].iter().filter(|s| !s.is_empty()).cloned().collect::<Vec<_>>().join(", ");
-    Some(Place { lat, lon, name, source: "ip".into(), tz: None })
+    Some(Place { lat, lon, name, source: "ip".into(), ..Default::default() })
 }
 
 fn ip_lookup() -> Option<Place> {
@@ -55,17 +76,19 @@ struct Cached { place: Place, at: i64 }
 /// Current place (blocking: may call Windows location and the network).
 pub fn current(app: &AppHandle, force: bool) -> Option<Place> {
     let cfg = app.state::<crate::AppState>().config.lock().unwrap().location.clone();
-    if !cfg.auto { return resolve_location(&cfg, None, None); }
+    if !cfg.auto { return resolve_location(&cfg, Err(String::new()), None); }
     let cached: Option<Cached> = {
         let db = app.state::<Db>();
         let c = db.0.lock().unwrap();
         kv_get(&c, "place").and_then(|s| serde_json::from_str(&s).ok())
     };
     if let Some(c) = &cached {
-        if !force && now_ms() - c.at < TTL_MS { return Some(c.place.clone()); }
+        // A cached device fix doesn't count once the user turned device location off.
+        let allowed = cfg.use_device || c.place.source != "windows";
+        if !force && allowed && now_ms() - c.at < TTL_MS { return Some(c.place.clone()); }
     }
-    let win = crate::platform::location().locate().ok();
-    let place = resolve_location(&cfg, win, if win.is_none() { ip_lookup() } else { None });
+    let win = if cfg.use_device { crate::platform::location().locate() } else { Err("off".into()) };
+    let place = resolve_location(&cfg, win.clone(), if win.is_err() || !cfg.use_device { ip_lookup() } else { None });
     match place {
         Some(p) => {
             let db = app.state::<Db>();
@@ -91,7 +114,7 @@ pub async fn location_search(query: String) -> Result<Vec<Place>, String> {
             let name = [r["name"].as_str(), r["admin1"].as_str(), r["country"].as_str()]
                 .iter().flatten().cloned().collect::<Vec<_>>().join(", ");
             Some(Place { lat: r["latitude"].as_f64()?, lon: r["longitude"].as_f64()?, name, source: "manual".into(),
-                         tz: r["timezone"].as_str().map(String::from) })
+                         tz: r["timezone"].as_str().map(String::from), ..Default::default() })
         }).collect()).unwrap_or_default())
     }).await?
 }
@@ -100,27 +123,42 @@ pub async fn location_search(query: String) -> Result<Vec<Place>, String> {
 mod tests {
     use super::*;
 
-    fn ip() -> Place { Place { lat: 3.08, lon: 101.58, name: "Petaling".into(), source: "ip".into(), tz: None } }
+    use crate::platform::Fix;
+    fn ip() -> Place { Place { lat: 3.0812, lon: 101.5834, name: "Petaling".into(), source: "ip".into(), ..Default::default() } }
+    fn fix() -> Result<Fix, String> { Ok(Fix { lat: 3.123456, lon: 101.654321, accuracy_m: Some(35.0), via: "Wi-Fi" }) }
+    const OFF: fn() -> Result<Fix, String> = || Err("Windows location is off".into());
 
     #[test]
     fn resolve_prefers_manual_when_auto_off() {
-        let cfg = LocationCfg { auto: false, lat: Some(1.5), lon: Some(103.7), name: "Johor Bahru".into() };
-        let p = resolve_location(&cfg, Some((3.0, 101.0)), Some(ip())).unwrap();
+        let cfg = LocationCfg { auto: false, lat: Some(1.5), lon: Some(103.7), name: "Johor Bahru".into(), ..Default::default() };
+        let p = resolve_location(&cfg, fix(), Some(ip())).unwrap();
         assert_eq!((p.lat, p.name.as_str(), p.source.as_str()), (1.5, "Johor Bahru", "manual"));
     }
 
     #[test]
     fn resolve_uses_windows_then_ip() {
         let cfg = LocationCfg::default();
-        assert_eq!(resolve_location(&cfg, Some((3.0, 101.0)), Some(ip())).unwrap().source, "windows");
-        assert_eq!(resolve_location(&cfg, None, Some(ip())).unwrap().source, "ip");
+        let w = resolve_location(&cfg, fix(), Some(ip())).unwrap();
+        assert_eq!((w.source.as_str(), w.lat, w.lon, w.note.as_deref()), ("windows", 3.123, 101.654, Some("Wi-Fi")));
+        assert_eq!(w.accuracy, Some(110.0), "never claims better than the stored precision");
+        let i = resolve_location(&cfg, OFF(), Some(ip())).unwrap();
+        assert_eq!((i.source.as_str(), i.lat), ("ip", 3.081));
+        assert!(i.note.unwrap().contains("Windows location is off"));
+    }
+
+    #[test]
+    fn device_location_toggle_off_uses_ip() {
+        let cfg = LocationCfg { use_device: false, ..Default::default() };
+        let p = resolve_location(&cfg, fix(), Some(ip())).unwrap();
+        assert_eq!(p.source, "ip");
+        assert_eq!(p.note.as_deref(), Some("Device location is off in GlassBar"));
     }
 
     #[test]
     fn resolve_falls_back_to_none() {
-        assert!(resolve_location(&LocationCfg::default(), None, None).is_none());
+        assert!(resolve_location(&LocationCfg::default(), OFF(), None).is_none());
         let manual_without_coords = LocationCfg { auto: false, ..Default::default() };
-        assert!(resolve_location(&manual_without_coords, Some((3.0, 101.0)), None).is_none());
+        assert!(resolve_location(&manual_without_coords, fix(), None).is_none());
     }
 
     #[test]

@@ -129,7 +129,7 @@ impl Display for WinDisplay {
 }
 
 impl Location for WinLocation {
-    fn locate(&self) -> Res<(f64, f64)> { location::locate() }
+    fn locate(&self) -> Res<Fix> { location::locate() }
 }
 
 impl Power for WinPower {

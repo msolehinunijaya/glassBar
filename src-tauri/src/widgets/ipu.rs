@@ -138,7 +138,7 @@ fn fetch(app: &AppHandle) -> Option<IpuReading> {
     if country == "other" {
         if let (Some(lat), Some(lon)) = (s["city"]["lat"].as_f64(), s["city"]["lon"].as_f64()) {
             let name = s["city"]["name"].as_str().unwrap_or("Selected city").to_string();
-            let p = Place { lat, lon, name, source: "manual".into(), tz: None };
+            let p = Place { lat, lon, name, source: "manual".into(), ..Default::default() };
             return us_aqi(&p).map(|r| IpuReading { stations, ..r });
         }
     }

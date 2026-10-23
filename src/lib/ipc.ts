@@ -12,7 +12,7 @@ export interface BarCfg {
 }
 export interface Profile { bar: BarCfg; widgets: WidgetInst[] }
 export interface Theme { mode: 'auto' | 'light' | 'dark'; accent: string; blur: number; opacity: number; nativeBlur: boolean }
-export interface LocationCfg { auto: boolean; lat: number | null; lon: number | null; name: string }
+export interface LocationCfg { auto: boolean; useDevice: boolean; lat: number | null; lon: number | null; name: string }
 export interface Config {
   version: number; activeProfile: string; profiles: Record<string, Profile>;
   theme: Theme; startup: { launchAtLogin: boolean };
@@ -27,7 +27,7 @@ export interface PomoCfg { workMin: number; shortMin: number; longMin: number; e
 export interface PomoState { pomo: { phase: Phase; done: number; endsAt: number | null; pausedMs: number | null; completed: Phase | null }; cfg: PomoCfg; label: string }
 export interface Timer { id: number; label: string; durationMs: number; endsAt: number | null; remainingMs: number | null }
 export interface Stopwatch { startedAt: number | null; accMs: number; laps: number[] }
-export interface Place { lat: number; lon: number; name: string; source: 'windows' | 'ip' | 'manual'; tz?: string }
+export interface Place { lat: number; lon: number; name: string; source: 'windows' | 'ip' | 'manual'; tz?: string; accuracy?: number; note?: string }
 export interface Weather {
   fetchedAt: number; unit: 'c' | 'f'; place: Place | null; offline: boolean;
   current: { temp: number; code: number; isDay: boolean; feelsLike?: number | null; humidity?: number | null; windSpeed?: number | null; windDir?: number | null };
