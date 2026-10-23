@@ -5,7 +5,8 @@
   "windows": [
     "bar",
     "popup",
-    "settings"
+    "settings",
+    "snap"
   ],
   "permissions": [
     "core:default",

@@ -40,6 +40,7 @@ pub fn commit(app: &AppHandle, cfg: Config) -> Result<(), String> {
     *st.config.lock().unwrap() = cfg.clone();
     bar::apply(app);
     bar::refresh_tray(app);
+    widgets::ocr::register_hotkey(app);
     let al = app.autolaunch();
     if al.is_enabled().unwrap_or(false) != cfg.startup.launch_at_login {
         let _ = if cfg.startup.launch_at_login { al.enable() } else { al.disable() };
@@ -103,6 +104,10 @@ fn main() {
         .plugin(tauri_plugin_single_instance::init(|app, _, _| { let _ = bar::open_settings(app); }))
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, None))
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_global_shortcut::Builder::new()
+            .with_handler(|app, _sc, ev| if ev.state == tauri_plugin_global_shortcut::ShortcutState::Pressed { widgets::ocr::on_hotkey(app) })
+            .build())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .setup(|app| {
@@ -116,6 +121,7 @@ fn main() {
                     if let Some(w) = a.get_webview_window("bar") { let _ = w.set_always_on_top(!on); }
                 }
             }));
+            widgets::ocr::register_hotkey(h);
             bar::build_tray(h)?;
             bar::apply(h);
             if let Some(w) = app.get_webview_window("bar") { w.show()?; }
@@ -178,6 +184,9 @@ fn main() {
             widgets::quick::brightness_get, widgets::quick::brightness_set,
             widgets::quick::hotspot_get, widgets::quick::hotspot_set,
             widgets::currency::fx_rates,
+            widgets::ai::ai_key_status, widgets::ai::ai_key_set, widgets::ai::ai_key_clear, widgets::ai::ai_usage, widgets::ai::ai_ask,
+            widgets::ocr::ocr_hotkey_status, widgets::ocr::ocr_snap_start, widgets::ocr::ocr_shot, widgets::ocr::ocr_snap_cancel,
+            widgets::ocr::ocr_snap_finish, widgets::ocr::ocr_history, widgets::ocr::ocr_history_delete, widgets::ocr::ocr_copy,
             widgets::quick::lang_list, widgets::quick::lang_set, widgets::quick::tray_overflow,
             widgets::quick::tray_settings, widgets::quick::windows_notifications,
         ])

@@ -20,6 +20,19 @@ pub fn get_json(url: &str) -> Result<serde_json::Value, String> {
     r.json().map_err(|e| format!("bad response: {e}"))
 }
 
+/// POST JSON with extra headers; returns the JSON body even for HTTP errors (APIs put the
+/// reason there). `timeout_s` overrides the default 10 s for slow endpoints such as AI.
+pub fn post_json(url: &str, headers: &[(&str, &str)], body: &serde_json::Value, timeout_s: u64) -> Result<serde_json::Value, String> {
+    let mut rq = client().post(url).timeout(Duration::from_secs(timeout_s)).json(body);
+    for (k, v) in headers { rq = rq.header(*k, *v); }
+    let r = rq.send().map_err(|e| format!("network: {e}"))?;
+    let status = r.status();
+    match r.json::<serde_json::Value>() {
+        Ok(v) => Ok(v),
+        Err(_) => Err(format!("HTTP {status}")),
+    }
+}
+
 /// Percent-encode a query value.
 pub fn enc(s: &str) -> String {
     s.bytes().map(|b| match b {

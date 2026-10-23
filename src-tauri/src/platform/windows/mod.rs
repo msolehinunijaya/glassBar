@@ -11,6 +11,7 @@ mod location;
 mod media;
 mod radios;
 mod recent;
+mod snap;
 mod system;
 mod thermal;
 mod thumbs;
@@ -27,6 +28,11 @@ pub struct WinDisplay;
 pub struct WinLocation;
 pub struct WinPower;
 pub struct WinGpu;
+pub struct WinScreen;
+impl Screen for WinScreen {
+    fn capture_at_cursor(&self) -> Option<Shot> { snap::capture_at_cursor() }
+    fn ocr(&self, bgra: &[u8], w: u32, h: u32) -> Res<Vec<Vec<Word>>> { snap::ocr(bgra, w, h) }
+}
 
 /// Join this thread to the COM multithreaded apartment (no-op if already joined).
 pub(crate) fn com_init() {

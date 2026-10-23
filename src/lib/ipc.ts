@@ -47,6 +47,8 @@ export type PowerMode = 'efficiency' | 'balanced' | 'performance';
 export interface PowerInfo { mode: PowerMode | null; saverOn: boolean | null }
 export interface Sample { cpu: number; mem: number; gpu: number | null; rxBps: number; txBps: number; at: number; cpuTemp: number | null }
 export interface Rates { base: string; rates: Record<string, number>; rateTime: number; fetchedAt: number; source: string; cached: boolean }
+export interface OcrItem { id: number; at: number; text: string; mode: 'text' | 'code' | 'terminal'; engine: 'windows' | 'ai' }
+export interface AiUsage { day: string; dayIn: number; dayOut: number; dayRequests: number; month: string; monthIn: number; monthOut: number }
 export interface KeyboardLayout { id: number; code: string; name: string; locale: string; active: boolean }
 export interface DiskInfo { mount: string; label: string; total: number; available: number; removable: boolean; fs: string }
 export interface ScreenToday { total: number; apps: { exe: string; name: string; seconds: number }[] }
@@ -170,6 +172,19 @@ export const ipc = {
   hotspotGet: () => invoke<Hotspot>('hotspot_get'),
   hotspotSet: (on: boolean) => invoke<void>('hotspot_set', { on }),
   fxRates: (base: string, force = false) => invoke<Rates>('fx_rates', { base, force }),
+  ocrSnapStart: () => invoke<void>('ocr_snap_start'),
+  ocrShot: () => invoke<string | null>('ocr_shot'),
+  ocrSnapFinish: (x: number, y: number, w: number, h: number) => invoke<string>('ocr_snap_finish', { x, y, w, h }),
+  ocrSnapCancel: () => invoke<void>('ocr_snap_cancel'),
+  ocrHistory: () => invoke<OcrItem[]>('ocr_history'),
+  ocrHistoryDelete: (id: number | null) => invoke<void>('ocr_history_delete', { id }),
+  ocrCopy: (text: string) => invoke<void>('ocr_copy', { text }),
+  ocrHotkeyStatus: () => invoke<{ hotkey: string; error: string | null }>('ocr_hotkey_status'),
+  aiKeyStatus: () => invoke<boolean>('ai_key_status'),
+  aiKeySet: (key: string) => invoke<void>('ai_key_set', { key }),
+  aiKeyClear: () => invoke<void>('ai_key_clear'),
+  aiUsage: () => invoke<AiUsage>('ai_usage'),
+  aiAsk: (question: string) => invoke<string>('ai_ask', { question }),
   langList: () => invoke<KeyboardLayout[]>('lang_list'),
   langSet: (id: number) => invoke<void>('lang_set', { id }),
   trayOverflow: (nativeVisible: boolean) => invoke<void>('tray_overflow', { nativeVisible }),

@@ -149,6 +149,20 @@ pub trait Radios: Send + Sync {
 #[serde(rename_all = "camelCase")]
 pub struct Hotspot { pub on: bool, pub ssid: String, pub clients: u32, pub max_clients: u32 }
 
+/// A screenshot: BGRA pixels of one monitor at desktop position (x, y), physical pixels.
+pub struct Shot { pub x: i32, pub y: i32, pub w: i32, pub h: i32, pub bgra: Vec<u8> }
+
+/// One recognised word: text, left edge and width in image pixels.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Word { pub text: String, pub x: f32, pub w: f32 }
+
+pub trait Screen: Send + Sync {
+    /// Screenshot of the monitor under the mouse.
+    fn capture_at_cursor(&self) -> Option<Shot>;
+    /// OCR with the OS engine: lines in reading order.
+    fn ocr(&self, bgra: &[u8], w: u32, h: u32) -> Res<Vec<Vec<Word>>>;
+}
+
 /// An installed keyboard input language. `id` is the Windows HKL.
 #[derive(Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -210,3 +224,5 @@ pub fn location() -> &'static dyn Location { &win::WinLocation }
 pub fn power() -> &'static dyn Power { &win::WinPower }
 #[cfg(windows)]
 pub fn gpu() -> &'static dyn Gpu { &win::WinGpu }
+#[cfg(windows)]
+pub fn screen() -> &'static dyn Screen { &win::WinScreen }

@@ -1,8 +1,7 @@
 //! Turn OCR words (with positions) into text for each mode. Pure: no Windows calls.
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct Word { pub text: String, pub x: f32, pub w: f32 }
+pub use crate::platform::Word;
 pub type Line = Vec<Word>;
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Default)]

@@ -17,6 +17,8 @@ CREATE TABLE timers(id INTEGER PRIMARY KEY, label TEXT NOT NULL, duration_ms INT
 CREATE TABLE screen_time(day TEXT NOT NULL, exe TEXT NOT NULL, seconds INT NOT NULL, PRIMARY KEY(day, exe));
 CREATE TABLE kv(key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE fired(key TEXT PRIMARY KEY, at INT NOT NULL);
+", r"
+CREATE TABLE ocr_history(id INTEGER PRIMARY KEY, at INT NOT NULL, text TEXT NOT NULL, mode TEXT NOT NULL, engine TEXT NOT NULL);
 "];
 
 pub fn migrate(c: &Connection) -> rusqlite::Result<()> {
