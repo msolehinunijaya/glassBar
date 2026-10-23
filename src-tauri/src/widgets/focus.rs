@@ -207,8 +207,14 @@ fn sw_do(app: &AppHandle, f: impl FnOnce(&mut Stopwatch, i64)) -> Stopwatch {
     sw
 }
 
+/// Read only. (It used to go through sw_do, which announced a change on every read; each
+/// widget answered by reading again, an endless event loop that froze the timer buttons.)
 #[tauri::command]
-pub fn sw_get(app: AppHandle) -> Stopwatch { sw_do(&app, |_, _| {}) }
+pub fn sw_get(app: AppHandle) -> Stopwatch {
+    let db = app.state::<Db>();
+    let c = db.0.lock().unwrap();
+    kv_get(&c, "stopwatch").and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default()
+}
 #[tauri::command]
 pub fn sw_toggle(app: AppHandle) -> Stopwatch {
     sw_do(&app, |sw, now| match sw.started_at.take() {
