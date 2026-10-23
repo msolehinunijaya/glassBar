@@ -22,6 +22,8 @@
   const FEEDBACK = '__feedback';
   let feedback = $state<CaptureDone | null>(null);
   const close = () => ipc.popupHide();
+  // Panels grow out of the dock: scale from the side that faces it.
+  const ORIGIN = { top: 'top center', bottom: 'bottom center', left: 'left center', right: 'right center' } as const;
   const WINDOWS = '__windows:';
   /** "__hover:<instance>" = that widget's panel opened by hovering (closes on mouse-out). */
   const HOVER = '__hover:';
@@ -72,7 +74,8 @@
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="surface popup" class:hover bind:this={surface} onpointerenter={stay} onpointerleave={leaveSoon}>
-  <div class="content" bind:this={content}>
+  {#key instance}
+  <div class="content" bind:this={content} style:--origin={ORIGIN[profile().bar.edge]}>
   {#if instance?.startsWith(WINDOWS)}
     {#key instance}<WindowPreviews appKey={instance.slice(WINDOWS.length)} {close} />{/key}
   {:else if instance === FEEDBACK && feedback}
@@ -104,12 +107,17 @@
     {/key}
   {/if}
   </div>
+  {/key}
 </div>
 
 <style>
   .popup { padding: 14px; overflow: auto; }
   /* flow-root: a last child's bottom margin stays inside, so the measured height is exact */
   .content { display: flow-root; }
+  /* Opening: 180 ms ease-out, 0.96 → 1 and a fade, from the dock side (content mounts on every show). */
+  .content { animation: grow 180ms cubic-bezier(0.2, 0, 0, 1) both; transform-origin: var(--origin); }
+  @keyframes grow { from { opacity: 0; transform: scale(0.96); } }
+  @media (prefers-reduced-motion: reduce) { .content { animation: none; } }
   .popup.hover { padding: 8px; }
   /* A section shown as its own panel: no gap above its heading. */
   .solo :global(.bhead) { margin-top: 0; }

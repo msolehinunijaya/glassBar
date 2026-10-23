@@ -1,5 +1,6 @@
 <script lang="ts">
   import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Moon, Plus, Settings2, Sun, Sunrise, Sunset, X } from '@lucide/svelte';
+  import PanelHeader from '../../lib/PanelHeader.svelte';
   import FormatOptions from './FormatOptions.svelte';
   import WeatherOptions from './WeatherOptions.svelte';
   import Time from './ClockTime.svelte';
@@ -75,10 +76,12 @@
   const weekdays = Array.from({ length: 7 }, (_, i) => new Intl.DateTimeFormat(undefined, { weekday: 'narrow' }).format(new Date(2024, 0, 1 + i)));
 </script>
 
-<div class="head">
+<PanelHeader title="Clock">
+  <button class="icon-btn" class:on={showFormat} onclick={() => (showFormat = !showFormat)} aria-label="Time and date format" title="Time and date format"><Settings2 size={16} /></button>
+</PanelHeader>
+<div class="hero">
   <div class="big"><Time now={clock.now} {settings} /></div>
   <div class="dim">{date(clock.now, settings)}</div>
-  <button class="icon-btn gear" class:on={showFormat} onclick={() => (showFormat = !showFormat)} aria-label="Time and date format"><Settings2 size={16} /></button>
 </div>
 <label class="wxsw dim">Weather on the clock
   <input type="checkbox" class="switch" checked={settings.showWeather} onchange={(e) => updateWidgetSettings(instance, { showWeather: e.currentTarget.checked })} />
@@ -107,7 +110,7 @@
   {/if}
   {#each zones as z, i (z.tz + z.label)}
     {@const l = settings.dayNight ? light(z) : null}
-    <div class="zrow" class:night={l?.state === 'night'} class:dayrow={l?.state === 'day'} class:twi={l?.state === 'sunrise' || l?.state === 'sunset'}>
+    <div class="zrow" class:night={l?.state === 'night'} class:dayrow={l?.state === 'day'} class:twi={l?.state === 'sunrise' || l?.state === 'sunset'} tabindex="-1">
       {#if l}<span class="dn" title={l.tip} aria-label={l.tip}><l.icon size={16} /></span>{/if}
       <div class="zcol">
         <b class="ellipsis">{z.label}</b>
@@ -140,19 +143,15 @@
 </div>
 
 <style>
-  .head { position: relative; padding: 2px 4px 10px; }
+  .hero { padding: 0 4px var(--s-3); }
   .wxsw { display: flex; align-items: center; justify-content: space-between; font-size: 12px; margin: 0 4px 10px; }
-  .gear { position: absolute; top: 0; right: 0; }
-  .gear.on { color: var(--accent); }
+  .icon-btn.on { color: var(--accent); }
   .fmt { margin-bottom: 10px; }
   .dn { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 13px; flex: none; }
   .dayrow .dn { color: #ffb340; }
   .night .dn { color: #9fb4ff; }
   .twi .dn { color: #ff8a65; }
-  /* a light tint by state: warm by day, deep blue at night */
-  .zrow.dayrow { background: color-mix(in srgb, #ffcc4d 8%, transparent); }
-  .zrow.night { background: color-mix(in srgb, #1e3a8a 22%, transparent); }
-  .zrow.twi { background: color-mix(in srgb, #ff8a65 10%, transparent); }
+  /* Rows are plain inset surfaces; day/night shows only in the small icon. */
   .big { font-size: 30px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.1; }
   .world { margin-bottom: 10px; }
   .wtitle { display: flex; align-items: center; justify-content: space-between; font-size: 12px; padding: 0 4px; }
@@ -161,8 +160,9 @@
   .results { display: flex; flex-direction: column; }
   .results button { text-align: left; padding: 5px 8px; border-radius: 8px; font-size: 12px; }
   .results button:hover { background: var(--pill-hover); }
-  .zrow { display: flex; align-items: center; gap: 8px; padding: 6px 6px; border-radius: 10px; }
-  .zrow:hover { background: var(--pill); }
+  .zrow { display: flex; align-items: center; gap: var(--s-2); min-height: 40px; padding: var(--s-1) var(--s-3); border-radius: var(--r-inner); background: var(--bg-2); border: 1px solid var(--border); }
+  .zrow + .zrow { margin-top: var(--s-1); }
+  .zrow:hover { background: var(--pill-hover); }
   .zcol { flex: 1; min-width: 0; display: flex; flex-direction: column; }
   .zcol b { font-weight: 500; }
   .ztime { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }

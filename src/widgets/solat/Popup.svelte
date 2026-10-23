@@ -1,5 +1,6 @@
 <script lang="ts">
   import { MapPin, Play, Settings2 } from '@lucide/svelte';
+  import PanelHeader from '../../lib/PanelHeader.svelte';
   import { updateWidgetSettings } from '../../lib/config.svelte';
   import { ipc } from '../../lib/ipc';
   import OptionsPopover from '../../lib/OptionsPopover.svelte';
@@ -13,14 +14,17 @@
   let showOpts = $state(false);
   const s = liveSolat(() => settings);
   const today = $derived(s.info?.days[0]);
-  const at = (ms: number) => new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' }).format(ms);
+  // "05:51" + a small "AM" (12-hour locales), or "05:51" in 24-hour.
+  const at = (ms: number) => {
+    const parts = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' }).formatToParts(ms);
+    return { main: parts.filter((p) => p.type !== 'dayPeriod').map((p) => p.value).join('').trim(), ap: parts.find((p) => p.type === 'dayPeriod')?.value.toUpperCase() ?? '' };
+  };
   const shown = $derived(today?.times.filter(([n]) => settings.showImsak || n !== 'Imsak') ?? []);
 </script>
 
-<div class="head">
-  <h3>Waktu Solat</h3>
-  <button class="icon-btn gear" class:on={showOpts} onclick={() => (showOpts = !showOpts)} aria-label="Prayer alert and adzan options" title="Alert and adzan sound"><Settings2 size={16} /></button>
-</div>
+<PanelHeader title="Waktu Solat">
+  <button class="icon-btn" class:on={showOpts} onclick={() => (showOpts = !showOpts)} aria-label="Prayer alert and adzan options" title="Alert and adzan sound"><Settings2 size={16} /></button>
+</PanelHeader>
 {#if showOpts}
   <OptionsPopover title="At prayer time" values={settings} save={(p) => updateWidgetSettings(instance, p)} options={[
     { type: 'toggle', key: 'alerts', label: 'Alert at each prayer time' },
@@ -52,8 +56,9 @@
   {/if}
   <div class="list">
     {#each shown as [name, ms] (name)}
+      {@const t = at(ms)}
       <div class="row" class:next-row={s.next?.name === name && s.next.at === ms} class:past={ms < s.now}>
-        <span>{name}</span><span class="t">{at(ms)}</span>
+        <span>{name}</span><span class="t">{t.main}{#if t.ap}<small class="ap">{t.ap}</small>{/if}</span>
       </div>
     {/each}
   </div>
@@ -65,10 +70,7 @@
 {/if}
 
 <style>
-  h3 { margin: 0 0 4px; font-size: 15px; font-weight: 600; }
-  .head { position: relative; }
-  .gear { position: absolute; top: -4px; right: 0; }
-  .gear.on { color: var(--accent); }
+  .icon-btn.on { color: var(--accent); }
   .test { display: inline-flex; align-items: center; gap: 6px; margin: 8px 0 4px; padding: 6px 12px; border-radius: 10px; background: var(--pill); font-size: 12px; }
   .test:hover:not(:disabled) { background: var(--pill-hover); }
   .test:disabled { opacity: 0.4; }
@@ -78,9 +80,11 @@
   .next { display: flex; align-items: baseline; gap: 8px; margin: 12px 0; padding: 12px 14px; }
   .next b { font-size: 18px; }
   .cd { margin-left: auto; font-variant-numeric: tabular-nums; font-weight: 500; }
-  .row { display: flex; justify-content: space-between; padding: 9px 12px; border-radius: 10px; }
-  .row.past { opacity: 0.5; }
-  .row.next-row { background: var(--accent); color: #fff; font-weight: 600; opacity: 1; }
+  /* 40 px rows; the next prayer gets the inset surface and a 3 px accent bar, past ones fade to tertiary. */
+  .row { display: flex; align-items: center; justify-content: space-between; min-height: 40px; padding: 0 var(--s-3); border-radius: var(--r-inner); }
+  .row.past { color: var(--fg-3); }
+  .row.next-row { background: var(--bg-2); box-shadow: inset 3px 0 0 var(--accent); font-weight: 600; color: var(--fg); }
+  .ap { margin-left: 3px; font-size: 11px; font-weight: 500; color: var(--fg-3); }
   .t { font-variant-numeric: tabular-nums; }
   .err { color: #ff453a; font-size: 12px; }
   .empty { text-align: center; padding: 60px 0; }

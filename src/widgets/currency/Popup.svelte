@@ -1,5 +1,7 @@
 <script lang="ts">
   import { ArrowUpDown, RefreshCw, Star } from '@lucide/svelte';
+  import PanelHeader from '../../lib/PanelHeader.svelte';
+  import { relTime } from '../../lib/time';
   import { updateWidgetSettings } from '../../lib/config.svelte';
   import type { PopupProps } from '../types';
   import type { CurrencySettings } from './index';
@@ -21,10 +23,9 @@
   }
 </script>
 
-<div class="head">
-  <h3>Currency</h3>
-  <button class="icon-btn" class:spin={fx.loading} onclick={() => fx.refresh()} aria-label="Refresh rates"><RefreshCw size={15} /></button>
-</div>
+<PanelHeader title="Currency">
+  <button class="icon-btn" class:spin={fx.loading} onclick={() => fx.refresh()} aria-label="Refresh rates" title="Refresh rates"><RefreshCw size={15} /></button>
+</PanelHeader>
 
 <div class="card box">
   <div class="line">
@@ -52,17 +53,16 @@
 </div>
 
 {#if fx.r}
-  <p class="dim small meta">
-    {fx.r.cached ? 'Offline · cached' : 'Live'} · rates from {when(fx.r.rateTime)} · {fx.r.source}<br />
-    Indicative mid-market rate, not a bank or card rate.
+  <p class="small meta" class:offline={fx.r.cached} title="Rates from {when(fx.r.rateTime)}. Indicative mid-market rate, not a bank or card rate.">
+    {fx.r.cached ? 'Offline' : 'Mid-market rate'} · {fx.r.source} · updated {relTime(fx.r.rateTime, Date.now())}
   </p>
 {:else if fx.error}
   <p class="err small">Couldn't load rates: {fx.error}</p>
 {/if}
 
 <style>
-  .head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-  h3 { margin: 0; font-size: 15px; font-weight: 600; }
+  .meta { color: var(--fg-3); }
+  .meta.offline { color: #ff9f0a; }
   .box { padding: 12px; display: flex; flex-direction: column; gap: 6px; position: relative; }
   .line { display: flex; gap: 8px; align-items: center; }
   .amt { flex: 1; min-width: 0; font-size: 20px; font-weight: 600; background: transparent; border: none; color: inherit; font-variant-numeric: tabular-nums; }

@@ -134,9 +134,6 @@ A token sheet; the compact card in S / M / L for each widget; the expanded flyou
 
 Where today's code differs from these rules (fix when touching the widget):
 
-- Radii are 14 px (pill) / 18 px (bar) / 20 px (card) in `glass.css`, not 16 / 10 / 999.
-- Surfaces use `--pill` / `--panel` / `--settings-bg` rather than `bg-0/1/2`; borders use `--line-soft`.
-- World-clock rows use blue/brown day/night backgrounds.
-- The selected prayer row is fully filled with the accent.
-- The Clock card has no header; the Currency disclaimer sits in the compact state.
-- Flyouts have no open animation from the card, and some have settings icons in different places.
+- Shared tokens are in place (`--s-*`, `--r-outer/inner/chip`, `--bg-1/2`, `--border`, `--fg/--fg-dim/--fg-3`, tabular numbers), but many widgets still hard-code their own radii and use `--pill` / `--line-soft`; move them to the tokens.
+- Only Clock, Waktu Solat and Currency use the shared `PanelHeader`; the other panels still have their own headers and settings-icon positions.
+- Pomodoro, the File/Downloads widget and the rest have not been checked against sections 4–7 yet (session dots, skeletons, offline state, keyboard navigation in lists).
