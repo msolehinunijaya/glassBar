@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Menu } from '@tauri-apps/api/menu';
+  import { Menu, PredefinedMenuItem } from '@tauri-apps/api/menu';
   import { onMount } from 'svelte';
   import { updateWidgetSettings } from '../../lib/config.svelte';
   import { events, ipc, type AppWindow } from '../../lib/ipc';
@@ -40,7 +40,7 @@
   async function menu(e: MouseEvent, g: Group) {
     e.preventDefault();
     e.stopPropagation();
-    const items: { id: string; text: string; action: () => unknown }[] = [
+    const items: ({ id: string; text: string; action: () => unknown } | PredefinedMenuItem)[] = [
       { id: 'new', text: 'New window', action: () => ipc.appLaunch(g.path, g.pin?.args ?? '') },
       g.pin
         ? { id: 'unpin', text: 'Unpin', action: () => setPins(settings.pinned.filter((p) => keyOf(p.path) !== g.key)) }
@@ -49,6 +49,14 @@
     if (g.windows.length) {
       items.push({ id: 'close', text: g.windows.length > 1 ? `Close all ${g.windows.length} windows` : 'Close window',
         action: () => { g.windows.forEach((w) => ipc.appClose(w.id)); } });
+    }
+    // Recent files that open with this app (best effort; Windows hides real jump lists).
+    const recent = await ipc.jumplist(g.path).catch(() => []);
+    if (recent.length) {
+      items.unshift(
+        ...recent.map((r, i) => ({ id: `recent-${i}`, text: r.name, action: () => ipc.appLaunch(r.path) })),
+        await PredefinedMenuItem.new({ item: 'Separator' }),
+      );
     }
     const m = await Menu.new({ items });
     await m.popup();

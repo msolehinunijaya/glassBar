@@ -134,6 +134,7 @@ export const ipc = {
   appActivate: (id: number) => invoke<void>('app_activate', { id }),
   appClose: (id: number) => invoke<void>('app_close', { id }),
   appLaunch: (path: string, args = '') => invoke<void>('app_launch', { path, args }),
+  jumplist: (exe: string) => invoke<{ name: string; path: string }[]>('jumplist', { exe }),
   // audio
   audioState: () => invoke<AudioState>('audio_state'),
   audioSetVolume: (volume: number) => invoke<void>('audio_set_volume', { volume }),

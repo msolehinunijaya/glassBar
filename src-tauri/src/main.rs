@@ -141,6 +141,7 @@ fn main() {
             widgets::ipu::ipu_get,
             widgets::sysmon::sysmon_history, widgets::sysmon::battery_get,
             widgets::screentime::screentime_today, widgets::screentime::screentime_week,
+            widgets::jumplist::jumplist,
             alerts::alerts_list, alerts::alerts_mark_read, alerts::alerts_dismiss, alerts::alerts_clear,
             widgets::apps::apps_list, widgets::apps::app_icon, widgets::apps::app_activate,
             widgets::apps::app_close, widgets::apps::app_launch,

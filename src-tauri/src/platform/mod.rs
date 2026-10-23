@@ -64,6 +64,9 @@ pub enum SystemEvent {
     Fullscreen(bool),
 }
 
+#[derive(Serialize, Clone, Debug)]
+pub struct RecentItem { pub name: String, pub path: String }
+
 /// How a window's glass is drawn.
 pub struct Glass { pub native: bool, pub dark: bool, pub opacity: f64 }
 
@@ -85,6 +88,8 @@ pub trait Shell: Send + Sync {
     fn idle_ms(&self) -> u64;
     /// Full path of the foreground window's program, if any.
     fn foreground_exe(&self) -> Option<String>;
+    /// Recently used files that open with `exe`, newest first.
+    fn recent_for(&self, exe: &str, limit: usize) -> Vec<RecentItem>;
     fn list_windows(&self) -> Vec<AppWindow>;
     /// Calls `on_change` (debounced) whenever top-level windows change.
     fn watch_windows(&self, on_change: Box<dyn Fn() + Send>);

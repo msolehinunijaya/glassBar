@@ -7,6 +7,7 @@ mod power;
 mod location;
 mod media;
 mod radios;
+mod recent;
 mod system;
 mod windows_list;
 
@@ -49,6 +50,7 @@ impl Shell for WinShell {
         }
     }
     fn foreground_exe(&self) -> Option<String> { windows_list::foreground_exe() }
+    fn recent_for(&self, exe: &str, limit: usize) -> Vec<RecentItem> { recent::recent_for(exe, limit) }
     fn mouse_down(&self) -> bool {
         use windows::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_LBUTTON};
         unsafe { GetAsyncKeyState(VK_LBUTTON.0 as i32) as u16 & 0x8000 != 0 }

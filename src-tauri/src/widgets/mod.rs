@@ -2,6 +2,7 @@
 pub mod apps;
 pub mod focus;
 pub mod ipu;
+pub mod jumplist;
 pub mod location;
 pub mod media;
 pub mod notes;
