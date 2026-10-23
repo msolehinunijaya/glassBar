@@ -10,10 +10,13 @@ The bar can dock to any edge or float. You can drag it, resize it, and edit it i
 - **App Launcher:** pinned and running apps grouped by program. Right-click shows recent files.
 - **Music:** Spotify, browsers, and any media app.
 - **Sound:** volume, output device, and per-app volume.
-- **Quick Settings:** Wi-Fi, Bluetooth, airplane mode, display mode, and brightness.
+- **Quick Settings:** Wi-Fi, Bluetooth, hotspot, airplane mode, display mode, brightness, keyboard language and tray buttons (each section can be hidden).
 - **Clock & Date:** with a calendar.
-- **Battery:** charge, charging state, and time left.
-- **System Monitor:** CPU, RAM, GPU, and network with live graphs.
+- **Battery:** charge, a plug icon whenever it's on mains, time left, and Windows power mode. Updates the moment you plug in or unplug.
+- **System Monitor:** CPU (with temperature), RAM, GPU, and network with live graphs.
+- **Disk Storage:** used/free space per drive, with orange/red thresholds.
+- **Keyboard Language:** the input language (EN, MS…) of the app you're using; click to switch.
+- **System Tray:** opens Windows' hidden tray icons.
 
 **Productivity**
 - **To-Do:** quick tasks with due-date reminders.
@@ -21,12 +24,21 @@ The bar can dock to any edge or float. You can drag it, resize it, and edit it i
 - **Pomodoro:** focus sessions with short and long breaks.
 - **Timer & Stopwatch:** presets, several timers at once, and laps.
 - **Screen Time:** today's usage, top apps, and a 7-day graph. It records only while the widget is on your bar.
-- **Notifications:** GlassBar's alert history and Do Not Disturb.
+- **Notifications:** GlassBar's alert history and Do Not Disturb, plus a Windows tab that opens Windows Notification Center.
+- **Time Progress:** how much of the day, month or year has passed.
 
 **Location**
-- **Weather:** current conditions, hourly, and 3-day forecast (Open-Meteo).
+- **Weather:** colourful pill; dashboard with feels-like, humidity, wind, rain chance, a sunrise/sunset arc, hourly and 3-day forecast (Open-Meteo).
+- **Currency Converter:** live rates (ExchangeRate-API, Frankfurter as fallback), cached for an hour, with favourite pairs.
 - **Waktu Solat:** prayer times by JAKIM zone (auto-detected), with Aladhan outside Malaysia. Shows a countdown and can alert you, with an optional azan sound.
 - **IPU (Air Quality):** live Air Pollutant Index from the nearest JAS/DOE station, with haze alerts.
+
+### Known limitations
+- **CPU temperature** comes from Windows' ACPI thermal zones. It's close to the CPU package on most laptops but isn't a per-core sensor. PCs that expose no thermal zone show **N/A**; nothing is estimated.
+- **Tray icons:** Windows 11 doesn't let other programs draw its tray icons. GlassBar opens Windows' own hidden-icons flyout, which only works while the Windows taskbar is shown; otherwise it opens tray settings.
+- **Windows notifications:** only packaged (MSIX/Store) apps may read other apps' notifications, so the Windows tab opens Notification Center instead of listing them. A combined Dock + Windows list isn't possible for the same reason.
+- **Currency rates** are indicative mid-market rates, not bank or card rates. ExchangeRate-API updates daily; Frankfurter uses ECB reference rates (working days).
+- **Keyboard language** switches the app you were last using; a few elevated (admin) apps ignore the request from a normal-privilege program.
 
 To-dos, notes, timers, screen time, and alert history are stored on this PC in `%APPDATA%\GlassBar\glassbar.db`. Settings live in `config.json` in the same folder.
 
