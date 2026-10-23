@@ -1,7 +1,7 @@
 <script lang="ts">
   // Hover preview for an app's windows: live thumbnails side by side (drawn by Windows/DWM
   // into the empty boxes below), each with its title and a close button. Click one to
-  // switch to that exact window. Windows that can't be captured (e.g. minimised) show
+  // switch to that exact window (minimised ones too). Windows that can't be captured show
   // the app icon + title instead; an app with no windows closes the preview, never an empty box.
   import { X } from '@lucide/svelte';
   import { onMount, tick } from 'svelte';

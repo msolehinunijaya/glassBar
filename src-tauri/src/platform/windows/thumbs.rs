@@ -5,7 +5,6 @@ use super::super::Rect;
 use std::sync::Mutex;
 use windows::Win32::Foundation::{HWND, RECT};
 use windows::Win32::Graphics::Dwm::*;
-use windows::Win32::UI::WindowsAndMessaging::IsIconic;
 
 static THUMBS: Mutex<Vec<isize>> = Mutex::new(Vec::new());
 
@@ -31,8 +30,7 @@ pub fn show(dest: isize, items: &[(isize, Rect)]) -> Vec<isize> {
     let mut held = THUMBS.lock().unwrap();
     for &(src, area) in items {
         let src_hwnd = HWND(src as *mut _);
-        // A minimised window has nothing to show: use the fallback.
-        if unsafe { IsIconic(src_hwnd) }.as_bool() { continue; }
+        // Minimised windows too: DWM keeps their last frame and draws it, like the taskbar.
         let Ok(t) = (unsafe { DwmRegisterThumbnail(HWND(dest as *mut _), src_hwnd) }) else { continue };
         let size = unsafe { DwmQueryThumbnailSourceSize(t) }.map(|s| (s.cx, s.cy)).unwrap_or((area.w, area.h));
         let r = fit(size, area);
