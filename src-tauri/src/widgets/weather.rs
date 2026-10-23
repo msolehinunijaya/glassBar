@@ -109,6 +109,7 @@ fn get(app: &AppHandle, force: bool) -> Option<Weather> {
         kv_get(&c, "weather").and_then(|s| serde_json::from_str(&s).ok())
     };
     let fresh = |w: &Weather| now_ms() - w.fetched_at < TTL_MS && w.unit == unit && !location::is_real_change(w.place.as_ref(), place.as_ref());
+    let force = force || crate::widgets::first_since_start("weather");
     if let Some(w) = &cached { if !force && fresh(w) { return Some(w.clone()); } }
     match place.as_ref().map(|p| fetch(p, &unit)) {
         Some(Ok(w)) => {

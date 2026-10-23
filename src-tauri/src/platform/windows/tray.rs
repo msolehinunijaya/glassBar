@@ -18,6 +18,10 @@ static DECOY: AtomicIsize = AtomicIsize::new(0);
 static DIRTY: AtomicBool = AtomicBool::new(false);
 static STEPPED_ASIDE: AtomicBool = AtomicBool::new(false);
 const ASK_TIMER: usize = 2;
+/// After start, ask apps for their icons again at these moments (ms after the previous ask):
+/// apps that start after GlassBar (at sign-in) send theirs to whoever is the taskbar then.
+const ASK_AGAIN_MS: [u32; 3] = [4_500, 14_000, 40_000];
+static ASK_ROUND: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
 static ON_CHANGE: Mutex<Option<Box<dyn Fn() + Send>>> = Mutex::new(None);
 
 struct Icon { hwnd: u32, uid: u32, guid: Option<GUID>, callback: u32, version: u32, tip: String, hicon: isize, hidden: bool, png: Option<String>, rev: u64 }
@@ -121,6 +125,8 @@ unsafe extern "system" fn proc(h: HWND, msg: u32, wp: WPARAM, lp: LPARAM) -> LRE
         }
         WM_TIMER if wp.0 == ASK_TIMER => {
             unsafe { let _ = KillTimer(Some(h), ASK_TIMER); }
+            let round = ASK_ROUND.fetch_add(1, Ordering::Relaxed);
+            if let Some(&ms) = ASK_AGAIN_MS.get(round) { unsafe { let _ = SetTimer(Some(h), ASK_TIMER, ms, None); } }
             super::system::ignore_next_taskbar_created();
             broadcast_taskbar_created();
             LRESULT(0)
@@ -190,6 +196,7 @@ pub fn start(on_change: Box<dyn Fn() + Send>) {
         let Ok(h) = CreateWindowExW(WS_EX_TOPMOST | WS_EX_TOOLWINDOW, class, windows::core::w!(""), WS_POPUP, 0, 0, 0, 0, None, None, Some(module.into()), None)
         else { let _ = tx.send(()); return };
         DECOY.store(h.0 as isize, Ordering::Relaxed);
+        ASK_ROUND.store(0, Ordering::Relaxed);
         SetTimer(Some(h), 1, 250, None);
         // Ask apps to re-send their icons once GlassBar has finished placing the dock: while
         // it reserves screen space this window briefly steps aside, and icons sent in that

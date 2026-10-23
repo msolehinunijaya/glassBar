@@ -179,6 +179,7 @@ fn get(app: &AppHandle, force: bool) -> Option<IpuReading> {
         let c = db.0.lock().unwrap();
         kv_get(&c, "ipu").and_then(|s| serde_json::from_str(&s).ok())
     };
+    let force = force || crate::widgets::first_since_start("ipu");
     if let Some(r) = &cached { if !force && now_ms() - r.fetched_at < TTL_MS { return Some(r.clone()); } }
     match fetch(app) {
         Some(r) => {
