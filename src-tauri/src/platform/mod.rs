@@ -73,6 +73,9 @@ pub struct Glass { pub native: bool, pub dark: bool, pub opacity: f64 }
 pub trait Shell: Send + Sync {
     /// Show a window without activating it (hover popups).
     fn show_passive(&self, win: &tauri::WebviewWindow);
+    /// Hide a window at the OS level. Needed after `show_passive`: Tauri didn't see that
+    /// show, so its own hide() thinks the window is already hidden and does nothing.
+    fn hide_window(&self, win: &tauri::WebviewWindow);
     /// Native blur + rounded corners (or plain transparent window for CSS glass).
     fn style_window(&self, win: &tauri::WebviewWindow, glass: &Glass);
     /// Reserve `strip` on `edge` so maximized windows stop short of the bar.

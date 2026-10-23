@@ -69,14 +69,14 @@
   async function menu(e: MouseEvent, g: Group) {
     e.preventDefault();
     e.stopPropagation();
-    const items: ({ id: string; text: string; action: () => unknown } | PredefinedMenuItem)[] = [
-      { id: 'app:new', text: 'New window', action: () => ipc.appLaunch(g.path, g.pin?.args ?? '') },
+    const items: ({ text: string; action: () => unknown } | PredefinedMenuItem)[] = [
+      { text: 'New window', action: () => ipc.appLaunch(g.path, g.pin?.args ?? '') },
       g.pin
-        ? { id: 'app:unpin', text: 'Unpin', action: () => setPins(settings.pinned.filter((p) => keyOf(p.path) !== g.key)) }
-        : { id: 'app:pin', text: 'Pin to bar', action: () => setPins([...settings.pinned, { path: g.path }]) },
+        ? { text: 'Unpin', action: () => setPins(settings.pinned.filter((p) => keyOf(p.path) !== g.key)) }
+        : { text: 'Pin to bar', action: () => setPins([...settings.pinned, { path: g.path }]) },
     ];
     if (g.windows.length) {
-      items.push({ id: 'app:close', text: g.windows.length > 1 ? `Close all ${g.windows.length} windows` : 'Close window',
+      items.push({ text: g.windows.length > 1 ? `Close all ${g.windows.length} windows` : 'Close window',
         action: () => { g.windows.forEach((w) => ipc.appClose(w.id)); } });
     }
     // Recent files that open with this app (best effort; Windows hides real jump lists).
@@ -86,7 +86,7 @@
     ]);
     if (recent.length) {
       items.unshift(
-        ...recent.map((r, i) => ({ id: `app:recent-${i}`, text: r.name, action: () => ipc.appLaunch(r.path) })),
+        ...recent.map((r, i) => ({ text: r.name, action: () => ipc.appLaunch(r.path) })),
         await PredefinedMenuItem.new({ item: 'Separator' }),
       );
     }

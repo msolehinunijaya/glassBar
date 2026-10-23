@@ -186,7 +186,10 @@ pub struct PopupState { pub instance: Option<String>, pub hidden_at: Option<Inst
 
 pub fn popup_hidden(app: &AppHandle) {
     shell().thumbs_clear(); // never leave live thumbnails behind
-    if let Some(p) = app.get_webview_window("popup") { let _ = p.hide(); }
+    if let Some(p) = app.get_webview_window("popup") {
+        let _ = p.hide();
+        shell().hide_window(&p); // also covers popups shown with show_passive (hover previews)
+    }
     app.state::<AppState>().popup.lock().unwrap().hidden_at = Some(Instant::now());
     let _ = app.emit("popup:hide", ());
 }

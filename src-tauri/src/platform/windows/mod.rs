@@ -36,6 +36,10 @@ pub(crate) fn err(e: impl std::fmt::Display) -> String { e.to_string() }
 
 impl Shell for WinShell {
     fn style_window(&self, win: &tauri::WebviewWindow, g: &Glass) { appbar::style_window(win, g) }
+    fn hide_window(&self, win: &tauri::WebviewWindow) {
+        use windows::Win32::UI::WindowsAndMessaging::{ShowWindow, SW_HIDE};
+        if let Ok(h) = win.hwnd() { unsafe { let _ = ShowWindow(windows::Win32::Foundation::HWND(h.0), SW_HIDE); } }
+    }
     fn show_passive(&self, win: &tauri::WebviewWindow) {
         use windows::Win32::UI::WindowsAndMessaging::{ShowWindow, SW_SHOWNOACTIVATE};
         if let Ok(h) = win.hwnd() { unsafe { let _ = ShowWindow(windows::Win32::Foundation::HWND(h.0), SW_SHOWNOACTIVATE); } }

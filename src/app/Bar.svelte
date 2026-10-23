@@ -9,6 +9,7 @@
   import { GALLERY, openPopup } from '../lib/popup';
   import { chime, playFile } from '../lib/sound';
   import { showMenu } from '../lib/menu';
+  import { PredefinedMenuItem } from '@tauri-apps/api/menu';
   import { settingsOf, widgets } from '../widgets/registry';
 
   const win = getCurrentWindow();
@@ -156,8 +157,10 @@
   async function onContext(e: MouseEvent) {
     e.preventDefault();
     await showMenu([
-      { id: 'bar:edit', text: edit ? 'Done editing' : 'Edit widgets', action: () => ipc.setEditMode(!edit) },
-      { id: 'bar:settings', text: 'Settings…', action: () => ipc.openSettings() },
+      { text: edit ? 'Done editing' : 'Edit widgets', action: () => ipc.setEditMode(!edit) },
+      { text: 'Settings…', action: () => ipc.openSettings() },
+      await PredefinedMenuItem.new({ item: 'Separator' }),
+      { text: 'Task Manager', action: () => ipc.appLaunch('taskmgr.exe') },
     ]);
   }
 
