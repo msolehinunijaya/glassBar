@@ -50,7 +50,7 @@
   {#if layout !== 'icon' && audio.v}
     <button class="mute" onclick={toggleMute} onpointerdown={stop} aria-label={audio.v.muted ? 'Unmute' : 'Mute'}><Icon size={16} /></button>
     {#if layout === 'horizontal'}
-      <input class="slider h" type="range" min="0" max="1" step="0.01" value={level} style:--fill={pct(level)}
+      <input class="slider h" style:width="{settings.sliderWidth}px" type="range" min="0" max="1" step="0.01" value={level} style:--fill={pct(level)}
              aria-label="Volume" oninput={(e) => setVolume(+e.currentTarget.value)} onpointerdown={stop} onclick={stop} />
     {:else}
       <input class="v" type="range" min="0" max="1" step="0.01" value={level} style:--fill={pct(level)}

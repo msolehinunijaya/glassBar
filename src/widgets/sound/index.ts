@@ -5,7 +5,8 @@ import Popup from './Popup.svelte';
 
 export type SoundLayout = 'icon' | 'horizontal' | 'vertical';
 /** `showSlider` is the older on/off setting; kept so existing bars keep their slider. */
-export interface SoundSettings { step: number; layout: SoundLayout; wheel: boolean; showSlider?: boolean }
+/** `sliderWidth`: length in px of the horizontal slider on the bar. */
+export interface SoundSettings { step: number; layout: SoundLayout; wheel: boolean; sliderWidth: number; showSlider?: boolean }
 
 export const layoutOf = (s: SoundSettings): SoundLayout => (s.layout === 'icon' && s.showSlider ? 'horizontal' : s.layout);
 
@@ -16,7 +17,7 @@ export default defineWidget<SoundSettings>({
   icon: Volume2,
   sizes: ['small', 'medium'],
   defaultSize: 'small',
-  defaults: { step: 2, layout: 'icon', wheel: false },
+  defaults: { step: 2, layout: 'icon', wheel: false, sliderWidth: 90 },
   Pill,
   Popup: { component: Popup, width: 340, height: 520 },
 });

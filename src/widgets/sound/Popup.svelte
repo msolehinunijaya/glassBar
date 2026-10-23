@@ -93,12 +93,18 @@
       { type: 'choice', key: 'layout', label: 'Volume', choices: [{ value: 'icon', label: 'Icon' }, { value: 'horizontal', label: 'Horizontal' }, { value: 'vertical', label: 'Vertical' }] },
       { type: 'toggle', key: 'wheel', label: 'Mouse wheel changes volume', hint: 'Off: scrolling over it never changes the volume' },
   ]} />
+  {#if layoutOf(settings) === 'horizontal'}
+    <label class="slen">Slider length <input type="range" min="60" max="240" step="10" value={settings.sliderWidth}
+      oninput={(e) => updateWidgetSettings(instance, { sliderWidth: +e.currentTarget.value })} /> <span class="dim">{settings.sliderWidth}px</span></label>
+  {/if}
 </div>
 
 <style>
   h3 { margin: 0; font-size: 15px; font-weight: 600; }
   .head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
   .opts { margin-top: 12px; }
+  .slen { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-top: 8px; }
+  .slen input { flex: 1; }
   h4 { margin: 14px 2px 6px; font-size: 12px; font-weight: 500; }
   .master { display: flex; align-items: center; gap: 8px; }
   .num { font-variant-numeric: tabular-nums; width: 4ch; text-align: right; }
