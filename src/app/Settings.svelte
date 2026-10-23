@@ -7,8 +7,9 @@
   import Updates from './Updates.svelte';
   import LocationSettings from './LocationSettings.svelte';
   import WidgetManager from './widgets/WidgetManager.svelte';
+  import About from './About.svelte';
 
-  const sections = ['Bar', 'Appearance', 'Widgets', 'Location', 'Notifications', 'Sounds', 'Profiles', 'Startup', 'Updates', 'Backup'] as const;
+  const sections = ['Bar', 'Appearance', 'Widgets', 'Location', 'Notifications', 'Sounds', 'Profiles', 'Startup', 'Updates', 'Backup', 'About'] as const;
   import { SOURCE_WIDGET } from '../lib/notify';
   const BANNER_SOURCES = [...Object.entries(SOURCE_WIDGET).map(([k, v]) => [k, v.label] as const), ['update', 'Updates'] as const];
   type Section = (typeof sections)[number];
@@ -250,6 +251,9 @@
         <button class="btn" disabled={!importText.trim()} onclick={doImport}>Import and apply</button>
       </div>
       {#if message}<p class="hint">{message}</p>{/if}
+
+    {:else if section === 'About'}
+      <About onupdates={() => (section = 'Updates')} />
     {/if}
   </main>
 </div>
