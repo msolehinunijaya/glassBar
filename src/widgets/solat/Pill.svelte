@@ -5,6 +5,7 @@
   // prayer alert, switchable in the widget settings.)
   import { Check, Moon } from '@lucide/svelte';
   import { updateWidgetSettings } from '../../lib/config.svelte';
+  import { stopSound } from '../../lib/sound';
   import type { PillProps } from '../types';
   import type { SolatSettings } from './index';
   import { countdown } from './next';
@@ -18,6 +19,7 @@
 
   function ack(e: Event) {
     e.stopPropagation();
+    stopSound();
     if (st?.reached) updateWidgetSettings(instance, { ackKey: st.reached.key });
   }
 </script>

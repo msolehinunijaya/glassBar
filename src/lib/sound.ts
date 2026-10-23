@@ -58,11 +58,22 @@ async function tones(notes: readonly (readonly [number, number])[], peak: number
 
 let current: HTMLAudioElement | null = null;
 
-/** Play a user-chosen sound (e.g. azan) given as a data: URL. */
-export function playFile(src: string) {
+/** Short adzan: the opening takbir of the bundled recording, which ends in a pause at 43.0-43.7 s (ffmpeg silencedetect). */
+export const SHORT_ADHAN_S = 43.3;
+const FADE_S = 1.5;
+
+/** Play a sound file (the adzan): whole, or with `short` only its opening, faded out. */
+export function playFile(src: string, short = false) {
   current?.pause();
-  current = new Audio(src);
-  current.play().catch(() => chime());
+  const a = (current = new Audio(src));
+  if (short) {
+    a.addEventListener('timeupdate', () => {
+      const left = SHORT_ADHAN_S - a.currentTime;
+      if (left <= 0) { a.pause(); if (current === a) current = null; }
+      else if (left < FADE_S) a.volume = Math.max(0, left / FADE_S);
+    });
+  }
+  a.play().catch(() => chime());
 }
 
 export function stopSound() {

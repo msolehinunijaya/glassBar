@@ -8,6 +8,8 @@
   import { insertIndex, snap } from '../lib/geometry';
   import { GALLERY, openPopup } from '../lib/popup';
   import { chargerTone, chime, deviceTone, playFile, shutter, tick } from '../lib/sound';
+  // Bundled adzan: "Beautiful adhan" by Adam-synagda, Wikimedia Commons, CC0.
+  import adhanUrl from '../assets/adhan.ogg?url';
   import { showMenu } from '../lib/menu';
   import { PredefinedMenuItem } from '@tauri-apps/api/menu';
   import { settingsOf, widgets } from '../widgets/registry';
@@ -47,7 +49,7 @@
         const h = d.kind === 'shot' ? 208 : d.kind === 'ocr' ? 168 : 100;
         setTimeout(() => ipc.popupOpen('__feedback', el.getBoundingClientRect(), 300, h, false), 60);
       }),
-      events.soundPlay((s) => (s.kind === 'azan' ? playFile(s.src) : s.kind === 'connect' || s.kind === 'disconnect' ? deviceTone(s.kind === 'connect', s.volume) : s.kind === 'plug' || s.kind === 'unplug' ? chargerTone(s.kind === 'plug', s.volume) : chime())),
+      events.soundPlay((s) => (s.kind === 'azan' ? playFile(s.src, s.short) : s.kind === 'adhan' ? playFile(adhanUrl, s.short) : s.kind === 'connect' || s.kind === 'disconnect' ? deviceTone(s.kind === 'connect', s.volume) : s.kind === 'plug' || s.kind === 'unplug' ? chargerTone(s.kind === 'plug', s.volume) : chime())),
     ];
     return () => offs.forEach((p) => p.then((off) => off()));
   });

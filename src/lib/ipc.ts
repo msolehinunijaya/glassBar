@@ -65,7 +65,7 @@ export interface TrayIcon { id: string; tip: string; icon: string | null; exe: s
 export interface KeyboardLayout { id: number; code: string; name: string; locale: string; active: boolean }
 export interface DiskInfo { mount: string; label: string; total: number; available: number; removable: boolean; fs: string }
 export interface ScreenToday { total: number; apps: { exe: string; name: string; seconds: number }[] }
-export type Sound = { kind: 'chime' } | { kind: 'azan'; src: string } | { kind: 'connect' | 'disconnect' | 'plug' | 'unplug'; volume: number };
+export type Sound = { kind: 'chime' } | { kind: 'azan'; src: string; short?: boolean } | { kind: 'adhan'; short: boolean } | { kind: 'connect' | 'disconnect' | 'plug' | 'unplug'; volume: number };
 
 export interface AppWindow { id: number; title: string; exe: string; active: boolean; minimized: boolean; aumid?: string | null }
 export interface AudioDevice { id: string; name: string; isDefault: boolean }
@@ -146,7 +146,7 @@ export const ipc = {
   // waktu solat
   solatDays: () => invoke<SolatInfo>('solat_days'),
   solatZones: () => invoke<[string, string, string][]>('solat_zones'),
-  solatTestSound: (file: string) => invoke<void>('solat_test_sound', { file }),
+  solatTestSound: (settings: object) => invoke<void>('solat_test_sound', { settings }),
   // IPU
   ipuGet: (force = false) => invoke<IpuReading | null>('ipu_get', { force }),
   // battery + system monitor

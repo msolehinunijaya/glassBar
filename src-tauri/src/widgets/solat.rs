@@ -180,7 +180,7 @@ pub fn due_items(app: &AppHandle) -> Vec<Due> {
     let cfg = app.state::<crate::AppState>().config.lock().unwrap().clone();
     let s = cfg.widget_settings("solat");
     if !cfg.uses("solat") || s["alerts"] == false { return vec![]; }
-    let azan = s["azanFile"].as_str().filter(|f| !f.is_empty()).map(String::from);
+    let sound = solat_sound(&s);
     let db = app.state::<Db>();
     let c = db.0.lock().unwrap();
     let mut cached: Vec<PrayerDay> = vec![];
@@ -203,29 +203,43 @@ pub fn due_items(app: &AppHandle) -> Vec<Due> {
             source: "solat",
             title: format!("Waktu {n}"),
             body: zone_name(&d.zone).unwrap_or_else(|| "Prayer time".into()),
-            sound: azan.as_ref().map(|f| serde_json::json!({ "kind": "azan", "file": f })),
+            sound: sound.clone(),
         })
         .collect()
+}
+
+/// The prayer-time sound from the widget settings: "short" (default) or "full" adzan,
+/// or "chime" (None = the normal alert chime). The user's own file replaces the built-in
+/// recording and follows short/full too.
+pub fn solat_sound(s: &Value) -> Option<Value> {
+    let mode = s["azanSound"].as_str().unwrap_or("short");
+    if mode == "chime" { return None; }
+    let short = mode != "full";
+    Some(match s["azanFile"].as_str().filter(|f| !f.is_empty()) {
+        Some(f) => serde_json::json!({ "kind": "azan", "file": f, "short": short }),
+        None => serde_json::json!({ "kind": "adhan", "short": short }),
+    })
 }
 
 /// Turn {"kind":"azan","file":path} into a playable data: URL (falls back to the chime).
 pub fn sound_payload(v: &Value) -> Value {
     let Some(path) = v["file"].as_str() else { return v.clone() };
+    let short = v["short"].as_bool().unwrap_or(false);
     // Check the size before reading: a mistakenly chosen huge file must not be loaded.
     let small = std::fs::metadata(path).map(|m| m.len() < 30 * 1024 * 1024).unwrap_or(false);
     match if small { std::fs::read(path) } else { Err(std::io::ErrorKind::InvalidData.into()) } {
         Ok(bytes) => {
             let mime = if path.to_lowercase().ends_with(".wav") { "audio/wav" } else { "audio/mpeg" };
-            serde_json::json!({ "kind": "azan", "src": format!("data:{mime};base64,{}", base64::engine::general_purpose::STANDARD.encode(bytes)) })
+            serde_json::json!({ "kind": "azan", "short": short, "src": format!("data:{mime};base64,{}", base64::engine::general_purpose::STANDARD.encode(bytes)) })
         }
         _ => serde_json::json!({ "kind": "chime" }),
     }
 }
 
 #[tauri::command]
-pub async fn solat_test_sound(app: AppHandle, file: String) {
+pub async fn solat_test_sound(app: AppHandle, settings: Value) {
     use tauri::Emitter;
-    let p = crate::widgets::blocking(move || sound_payload(&serde_json::json!({ "kind": "azan", "file": file }))).await;
+    let p = crate::widgets::blocking(move || solat_sound(&settings).map(|v| sound_payload(&v)).unwrap_or(serde_json::json!({ "kind": "chime" }))).await;
     if let Ok(p) = p { let _ = app.emit_to("bar", "sound:play", p); }
 }
 
@@ -249,6 +263,15 @@ mod tests {
     const ALADHAN: &str = include_str!("../../tests/fixtures/aladhan.json");
 
     fn ms(s: &str) -> i64 { chrono::DateTime::parse_from_rfc3339(s).unwrap().timestamp_millis() }
+
+    #[test]
+    fn prayer_sound_defaults_to_short_adhan() {
+        use serde_json::json;
+        assert_eq!(solat_sound(&json!({})), Some(json!({ "kind": "adhan", "short": true })), "old configs get the short adzan");
+        assert_eq!(solat_sound(&json!({ "azanSound": "full" })), Some(json!({ "kind": "adhan", "short": false })));
+        assert_eq!(solat_sound(&json!({ "azanSound": "chime", "azanFile": "C:/a.mp3" })), None, "normal sound ignores the file");
+        assert_eq!(solat_sound(&json!({ "azanFile": "C:/a.mp3" })), Some(json!({ "kind": "azan", "file": "C:/a.mp3", "short": true })));
+    }
     fn at(day: &PrayerDay, name: &str) -> i64 { day.times.iter().find(|(n, _)| n == name).unwrap().1 }
 
     #[test]

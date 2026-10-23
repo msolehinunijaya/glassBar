@@ -18,8 +18,18 @@
 {#if settings.zone === 'auto'}<LocationPicker />{/if}
 <label><input type="checkbox" checked={settings.showImsak} onchange={(e) => save({ showImsak: e.currentTarget.checked })} /> Show Imsak</label>
 <label><input type="checkbox" checked={settings.alerts} onchange={(e) => save({ alerts: e.currentTarget.checked })} /> Alert at each prayer time</label>
-<label>Azan sound file (MP3/WAV, optional)
+<label>At prayer time play
+  <select value={settings.azanSound} disabled={!settings.alerts} onchange={(e) => save({ azanSound: e.currentTarget.value as SolatSettings['azanSound'] })}>
+    <option value="short">Short adzan (opening)</option>
+    <option value="full">Full adzan</option>
+    <option value="chime">Normal alert sound</option>
+  </select>
+  <button class="btn" disabled={!settings.alerts} onclick={() => ipc.solatTestSound(settings)}>Test</button>
+</label>
+{#if settings.azanSound !== 'chime'}
+<label>Own adzan recording (MP3/WAV, optional)
   <input style="flex:1" placeholder="C:\Users\me\Music\azan.mp3" value={settings.azanFile}
          onchange={(e) => save({ azanFile: e.currentTarget.value.trim().replace(/^"|"$/g, '') })} />
-  <button class="btn" disabled={!settings.azanFile} onclick={() => ipc.solatTestSound(settings.azanFile)}>Test</button>
 </label>
+{/if}
+<p class="dim small">Press ✓ on the prayer pill to stop the adzan.</p>
