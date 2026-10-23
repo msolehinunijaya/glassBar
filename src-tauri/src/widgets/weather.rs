@@ -101,7 +101,7 @@ fn fetch(p: &Place, unit: &str) -> Result<Weather, String> {
 
 fn get(app: &AppHandle, force: bool) -> Option<Weather> {
     let unit = app.state::<crate::AppState>().config.lock().unwrap()
-        .widget_settings("weather")["unit"].as_str().unwrap_or("c").to_string();
+        .widget_settings("clock")["weatherUnit"].as_str().unwrap_or("c").to_string();
     let place = location::current(app, false);
     let cached: Option<Weather> = {
         let db = app.state::<Db>();

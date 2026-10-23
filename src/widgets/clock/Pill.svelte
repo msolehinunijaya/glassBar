@@ -6,6 +6,7 @@
   import Time from './ClockTime.svelte';
   import { ticker } from './time.svelte';
   import { zonesOf } from './zones';
+  import WeatherPart from './WeatherPart.svelte';
 
   let { instance, size, settings, vertical }: PillProps<ClockSettings> = $props();
   // Ticks every second only while seconds are shown; otherwise on each minute boundary.
@@ -28,6 +29,8 @@
   }
 </script>
 
+<div class="clockwrap" class:vertical class:withwx={settings.showWeather}>
+{#if settings.showWeather}<WeatherPart {instance} colorful={settings.weatherColorful} {vertical} />{/if}
 <div class="pill clock {settings.appearance}" class:vertical class:stacked={show === 'both' && settings.layout === 'stacked'}
      class:date-first={show === 'both' && settings.timeSide === 'right'}
      data-align={settings.stackAlign}
@@ -41,8 +44,14 @@
     <span class="dim zone">{first.label} <Time now={clock.now} {settings} seconds={settings.worldSeconds} tz={first.tz} /></span>
   {/if}
 </div>
+</div>
 
 <style>
+  /* Weather (optional) sits inside the same pill shape, on the left. */
+  .clockwrap { display: flex; align-items: stretch; gap: 2px; height: 100%; }
+  .clockwrap.vertical { flex-direction: column; height: auto; }
+  .withwx:not(.vertical) > .clock { border-top-left-radius: 4px; border-bottom-left-radius: 4px; }
+  .withwx.vertical > .clock { border-top-left-radius: 4px; border-top-right-radius: 4px; }
   .time { font-weight: 600; }
   .date { white-space: nowrap; font-variant-numeric: tabular-nums; }
   .dot { margin: 0 -2px; }

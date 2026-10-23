@@ -37,19 +37,23 @@ export interface ClockSettings {
   zones: Zone[];
   /** Older single "second time zone" setting; folded into `zones` when read. */
   secondTz: string;
+  /** Weather on the left of the pill (was the Weather widget). */
+  showWeather: boolean;
+  weatherUnit: 'c' | 'f';
+  weatherColorful: boolean;
 }
 
 export default defineWidget<ClockSettings>({
   id: 'clock',
   name: 'Clock & Date',
-  description: 'Time and date in your format, calendar, world clocks with day/night',
+  description: 'Time and date in your format, calendar, world clocks with day/night, weather',
   icon: Clock,
   sizes: ['small', 'medium', 'large'],
   defaultSize: 'medium',
   defaults: {
     hour12: false, ampm: 'PM', ampmSize: 'small', leadingZero: 'auto', showSeconds: false, worldSeconds: false,
     dateStyle: 'weekday', dateSep: '/', weekday: 'none', datePattern: 'ddd, D MMM', show: 'both', layout: 'inline', timeSide: 'left', stackAlign: 'center',
-    dayNight: true, appearance: 'standard', zones: [], secondTz: '',
+    dayNight: true, appearance: 'standard', zones: [], secondTz: '', showWeather: false, weatherUnit: 'c', weatherColorful: true,
   },
   Pill,
   Popup: { component: Popup, width: 340, height: 560 },

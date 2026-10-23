@@ -6,6 +6,11 @@
   import type { QuickSettings } from './index';
   import TrayIconButton from '../tray/TrayIconButton.svelte';
   import { liveTray } from '../tray/icons.svelte';
+  import { Plug } from '@lucide/svelte';
+  import { live } from '../../lib/live.svelte';
+  import type { Battery } from '../../lib/ipc';
+  import BatteryIcon from '../battery/BatteryIcon.svelte';
+  import LiquidBattery from '../battery/LiquidBattery.svelte';
 
   let { settings, vertical }: PillProps<QuickSettings> = $props();
   // Tray icons on the dock (switch in the panel), collapsed behind a chevron by default.
@@ -36,6 +41,9 @@
     const t = setInterval(load, 2000);
     return () => clearInterval(t);
   });
+  // Battery after the Bluetooth icon (switch in the panel). Nothing on a PC without one.
+  const bat = live<Battery | null>('battery', ipc.batteryGet, null);
+  const batWord = $derived(!bat.v ? '' : bat.v.charging ? 'Charging' : bat.v.onAc && bat.v.percent >= 95 ? 'Full' : bat.v.onAc ? 'Plugged in' : 'On battery');
   let radios = $state<RadioInfo[]>([]);
   const has = (k: RadioInfo['kind']) => radios.some((r) => r.kind === k);
   const on = (k: RadioInfo['kind']) => radios.some((r) => r.kind === k && r.on);
@@ -73,6 +81,12 @@
     {#if has('bluetooth')}{#if on('bluetooth')}<Bluetooth size={16} />{:else}<BluetoothOff size={16} class="dim" />{/if}{/if}
     {#if !radios.length}<Wifi size={16} />{/if}
   {/if}
+  {#if settings.batteryOnDock && bat.v}
+    <span class="bat" title="{bat.v.percent}% · {batWord}">
+      {#if settings.batteryStyle === 'liquid'}<LiquidBattery b={bat.v} />{:else}<BatteryIcon b={bat.v} size={16} />{/if}
+      {#if bat.v.onAc}<span class="plug"><Plug size={12} strokeWidth={2.2} /></span>{/if}
+    </span>
+  {/if}
 </div>
 
 <style>
@@ -82,6 +96,8 @@
   .chev { display: flex; align-items: center; gap: 2px; padding: 3px 4px; border-radius: 8px; transition: background 0.15s; }
   .chev:hover, .chev.open { background: var(--pill-hover); }
   .lang { font-size: 11.5px; letter-spacing: 0.04em; min-width: 18px; text-align: center; }
+  .bat { display: inline-flex; align-items: center; gap: 2px; }
+  .plug { display: inline-flex; color: #30d158; }
   .count { font-size: 10px; font-variant-numeric: tabular-nums; opacity: 0.75; }
   .icons { overflow: hidden; }
   .sep { width: 1px; align-self: stretch; margin: 9px 2px; background: var(--line-soft); }

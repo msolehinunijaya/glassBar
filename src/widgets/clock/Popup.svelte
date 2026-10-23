@@ -1,6 +1,7 @@
 <script lang="ts">
   import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Moon, Plus, Settings2, Sun, Sunrise, Sunset, X } from '@lucide/svelte';
   import FormatOptions from './FormatOptions.svelte';
+  import WeatherOptions from './WeatherOptions.svelte';
   import Time from './ClockTime.svelte';
   import { date, timeText } from './prefs.svelte';
   import { dayState, type DayState } from './solar';
@@ -71,6 +72,7 @@
 </div>
 {#if showFormat}
   <div class="fmt"><FormatOptions {settings} save={(p) => updateWidgetSettings(instance, p)} /></div>
+  <div class="fmt"><WeatherOptions {settings} save={(p) => updateWidgetSettings(instance, p)} /></div>
 {/if}
 
 <div class="world">

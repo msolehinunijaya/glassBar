@@ -7,7 +7,8 @@ export function liveWeather() {
   $effect(() => {
     // Re-fetch when the unit or location settings change.
     JSON.stringify(store.config?.location);
-    JSON.stringify(Object.values(store.config?.profiles ?? {}).flatMap((p) => p.widgets.filter((w) => w.id === 'weather').map((w) => w.settings)));
+    // (Units live in the clock's settings since weather moved onto the clock.)
+    Object.values(store.config?.profiles ?? {}).flatMap((p) => p.widgets.filter((w) => w.id === 'clock').map((w) => w.settings?.weatherUnit)).join();
     const load = (force = false) => ipc.weatherGet(force).then((w) => { s.w = w; s.loading = false; });
     load();
     const t = setInterval(load, 30 * 60_000);

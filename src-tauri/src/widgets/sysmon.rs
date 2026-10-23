@@ -121,7 +121,7 @@ pub fn start(app: AppHandle) {
     std::thread::spawn(move || {
         let mut last = None;
         loop {
-            if app.state::<crate::AppState>().config.lock().unwrap().uses("battery") {
+            if app.state::<crate::AppState>().config.lock().unwrap().uses("quicksettings") { // battery lives there
                 let b = crate::platform::power().battery();
                 if b != last {
                     let _ = app.emit("battery:changed", ());

@@ -5,6 +5,7 @@
   import { GALLERY } from '../lib/popup';
   import { settingsOf, widgets } from '../widgets/registry';
   import Gallery from './Gallery.svelte';
+  import WeatherPanel from '../widgets/weather/Popup.svelte';
   import WindowPreviews from './WindowPreviews.svelte';
   import Feedback from '../widgets/ocr/Feedback.svelte';
   import type { CaptureDone } from '../lib/ipc';
@@ -19,6 +20,8 @@
   const WINDOWS = '__windows:';
   /** "__hover:<instance>" = that widget's panel opened by hovering (closes on mouse-out). */
   const HOVER = '__hover:';
+  /** "__weather:<clock instance>" = the weather forecast, opened from the clock's weather part. */
+  const WEATHER = '__weather:';
   const hover = $derived(!!instance && (instance.startsWith(WINDOWS) || instance.startsWith(HOVER)));
   const target = $derived(instance?.startsWith(HOVER) ? instance.slice(HOVER.length) : instance);
   const w = $derived(target ? profile().widgets.find((x) => x.instance === target) : undefined);
@@ -69,6 +72,8 @@
     {#key instance}<WindowPreviews appKey={instance.slice(WINDOWS.length)} {close} />{/key}
   {:else if instance === FEEDBACK && feedback}
     {#key feedback}<Feedback data={feedback} {close} />{/key}
+  {:else if instance?.startsWith(WEATHER)}
+    <WeatherPanel />
   {:else if instance === GALLERY}
     <Gallery {close} />
   {:else if w && m?.Popup}

@@ -158,7 +158,25 @@ impl Default for Config {
 
 /// v2 added the Start/Search button widget.
 /// v3 folded the Disk widget into the System Monitor; v4 the Tray widget into Quick Settings.
-pub const CURRENT_VERSION: u32 = 5;
+pub const CURRENT_VERSION: u32 = 6;
+
+/// Migration helper: widget `from` became part of widget `into`. Its settings (mapped by
+/// `map`) are merged into the existing `into` widget, or it turns into one in place.
+fn fold(widgets: &mut Vec<WidgetInst>, from: &str, into: &str, map: impl Fn(&serde_json::Value) -> serde_json::Value) {
+    let Some(i) = widgets.iter().position(|w| w.id == from) else { return };
+    let add = map(&widgets[i].settings);
+    if let Some(t) = widgets.iter_mut().find(|w| w.id == into) {
+        if !t.settings.is_object() { t.settings = serde_json::json!({}); }
+        for (k, v) in add.as_object().into_iter().flatten() { t.settings[k] = v.clone(); }
+        widgets.remove(i);
+    } else {
+        let w = &mut widgets[i];
+        w.id = into.into();
+        w.instance = format!("{into}-{}", w.instance);
+        w.settings = add;
+    }
+    widgets.retain(|w| w.id != from);
+}
 
 impl Config {
     /// Repair values a hand-edited or imported file can get wrong, and upgrade old versions.
@@ -226,6 +244,21 @@ impl Config {
                     w.settings = serde_json::json!({ "langOnDock": true });
                 }
                 p.widgets.retain(|w| w.id != "lang");
+            }
+        }
+        if self.version < 6 {
+            // Battery became part of Quick Settings (icon after Bluetooth), Weather part of
+            // the Clock (on its left). Each keeps showing on the dock, with its settings.
+            for p in self.profiles.values_mut() {
+                fold(&mut p.widgets, "battery", "quicksettings", |old| serde_json::json!({
+                    "batteryOnDock": true,
+                    "batteryStyle": old["style"].as_str().unwrap_or("classic"),
+                }));
+                fold(&mut p.widgets, "weather", "clock", |old| serde_json::json!({
+                    "showWeather": true,
+                    "weatherUnit": old["unit"].as_str().unwrap_or("c"),
+                    "weatherColorful": old["colorful"].as_bool().unwrap_or(true),
+                }));
             }
         }
         self.version = CURRENT_VERSION;
@@ -475,6 +508,28 @@ mod tests {
         c.profiles.get_mut("Default").unwrap().widgets = vec![w("tray")];
         let ws = c.normalized().profiles["Default"].widgets.clone();
         assert_eq!((ws[0].id.as_str(), &ws[0].settings["trayOnDock"]), ("quicksettings", &serde_json::json!(true)));
+    }
+
+    #[test]
+    fn v6_folds_battery_into_quick_settings_and_weather_into_the_clock() {
+        let w = |id: &str, s: serde_json::Value| WidgetInst { id: id.into(), instance: format!("{id}-1"), size: "small".into(), settings: s };
+        let mut c = Config { version: 5, ..Config::default() };
+        c.profiles.get_mut("Default").unwrap().widgets = vec![
+            w("quicksettings", serde_json::json!({ "trayOnDock": true })), w("battery", serde_json::json!({ "style": "liquid" })),
+            w("clock", serde_json::Value::Null), w("weather", serde_json::json!({ "unit": "f", "colorful": false })),
+        ];
+        let ws = c.normalized().profiles["Default"].widgets.clone();
+        assert_eq!(ws.iter().map(|x| x.id.as_str()).collect::<Vec<_>>(), ["quicksettings", "clock"]);
+        assert_eq!((&ws[0].settings["batteryOnDock"], &ws[0].settings["batteryStyle"], &ws[0].settings["trayOnDock"]),
+            (&serde_json::json!(true), &serde_json::json!("liquid"), &serde_json::json!(true)), "keeps existing settings");
+        assert_eq!((&ws[1].settings["showWeather"], &ws[1].settings["weatherUnit"], &ws[1].settings["weatherColorful"]),
+            (&serde_json::json!(true), &serde_json::json!("f"), &serde_json::json!(false)));
+        // No Quick Settings / Clock on the bar: the old widget becomes one, in place.
+        let mut c = Config { version: 5, ..Config::default() };
+        c.profiles.get_mut("Default").unwrap().widgets = vec![w("weather", serde_json::Value::Null), w("battery", serde_json::Value::Null)];
+        let ws = c.normalized().profiles["Default"].widgets.clone();
+        assert_eq!(ws.iter().map(|x| (x.id.as_str(), x.settings["showWeather"].as_bool().or(x.settings["batteryOnDock"].as_bool()))).collect::<Vec<_>>(),
+            [("clock", Some(true)), ("quicksettings", Some(true))]);
     }
 
     #[test]

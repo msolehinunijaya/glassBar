@@ -1,14 +1,13 @@
 <script lang="ts">
   import { Droplets, MapPin, RefreshCw, Thermometer, Umbrella, Wind } from '@lucide/svelte';
   import { ipc } from '../../lib/ipc';
-  import type { PopupProps } from '../types';
   import { describe } from './codes';
   import { compass, themeOf } from './sun';
   import { deg, liveWeather } from './weather.svelte';
   import SunArc from './SunArc.svelte';
   import WxIcon from './WxIcon.svelte';
 
-  let {}: PopupProps = $props();
+  // The forecast panel, opened from the weather part of the clock (it has no settings of its own).
   const wx = liveWeather();
   let refreshing = $state(false);
   let now = $state(Date.now());
@@ -54,7 +53,7 @@
     <div class="card s"><Thermometer size={14} /><span class="dim">Feels like</span><b>{w.current.feelsLike == null ? '–' : deg(w.current.feelsLike)}</b></div>
     <div class="card s"><Droplets size={14} /><span class="dim">Humidity</span><b>{pct(w.current.humidity)}</b></div>
     <div class="card s"><Wind size={14} /><span class="dim">Wind</span>
-      <b>{w.current.windSpeed == null ? '–' : `${Math.round(w.current.windSpeed)} ${w.unit === 'f' ? 'mph' : 'km/h'}`}{#if w.current.windDir != null} {compass(w.current.windDir)}{/if}</b></div>
+      <b>{w.current.windSpeed == null ? '–' : `${Math.round(w.current.windSpeed)} ${w.unit === 'f' ? 'mph' : 'km/h'}`}{#if w.current.windDir != null}&nbsp;{compass(w.current.windDir)}{/if}</b></div>
     <div class="card s"><Umbrella size={14} /><span class="dim">Rain chance</span><b>{pct(d0?.pop)}</b></div>
   </div>
 
@@ -75,7 +74,7 @@
 {:else if wx.loading}
   <p class="dim empty">Loading weather…</p>
 {:else}
-  <p class="dim empty">No weather yet. Check your internet connection, or set a city in Settings → Widgets → Weather.</p>
+  <p class="dim empty">No weather yet. Check your internet connection, or set a city in Settings → Widgets → Clock & Date.</p>
 {/if}
 
 <style>
