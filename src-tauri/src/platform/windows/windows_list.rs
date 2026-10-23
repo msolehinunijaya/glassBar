@@ -19,6 +19,8 @@ use windows::Win32::UI::WindowsAndMessaging::*;
 
 /// Last foreground window that is not ours (clicking the bar steals focus).
 static LAST_FG: AtomicIsize = AtomicIsize::new(0);
+/// The last foreground window that isn't GlassBar's.
+pub fn last_foreground() -> isize { LAST_FG.load(Ordering::Relaxed) }
 static TX: OnceLock<Sender<()>> = OnceLock::new();
 static ICONS: Mutex<Option<HashMap<String, Option<String>>>> = Mutex::new(None);
 

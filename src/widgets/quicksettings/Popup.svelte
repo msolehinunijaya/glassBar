@@ -2,8 +2,11 @@
   import { Bluetooth, Monitor, Plane, RadioTower, Sun, Wifi } from '@lucide/svelte';
   import { ipc, type DisplayMode, type Hotspot, type RadioInfo } from '../../lib/ipc';
   import type { PopupProps } from '../types';
+  import type { QuickSettings } from './index';
+  import LangList from '../lang/LangList.svelte';
+  import TrayButtons from '../tray/TrayButtons.svelte';
 
-  let {}: PopupProps = $props();
+  let { settings }: PopupProps<QuickSettings> = $props();
   let radios = $state<RadioInfo[]>([]);
   let mode = $state<DisplayMode | null>(null);
   let brightness = $state<number | null>(null);
@@ -82,6 +85,15 @@
          oninput={(e) => setBrightness(+e.currentTarget.value)} aria-label="Brightness" />
 {:else}
   <p class="dim small">This monitor does not support brightness control (DDC/CI off or not available).</p>
+{/if}
+
+{#if settings.showLanguage}
+  <h4 class="dim">Keyboard language</h4>
+  <LangList />
+{/if}
+{#if settings.showTray}
+  <h4 class="dim">System tray</h4>
+  <TrayButtons />
 {/if}
 
 {#if hotspotWhy}<p class="dim small">Hotspot: {hotspotWhy}</p>{/if}

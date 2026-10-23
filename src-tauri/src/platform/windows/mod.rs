@@ -4,6 +4,7 @@ mod audio;
 mod display;
 mod gpu;
 mod hotspot;
+mod lang;
 mod power;
 mod powermode;
 mod location;
@@ -59,6 +60,8 @@ impl Shell for WinShell {
         let inputs: Vec<INPUT> = keys.iter().map(|&k| key(k, false)).chain(keys.iter().rev().map(|&k| key(k, true))).collect();
         unsafe { SendInput(&inputs, std::mem::size_of::<INPUT>() as i32); }
     }
+    fn keyboard_layouts(&self) -> Vec<KeyboardLayout> { lang::list() }
+    fn keyboard_layout_set(&self, id: isize) -> bool { lang::set(id) }
     fn idle_ms(&self) -> u64 {
         use windows::Win32::System::SystemInformation::GetTickCount;
         use windows::Win32::UI::Input::KeyboardAndMouse::{GetLastInputInfo, LASTINPUTINFO};

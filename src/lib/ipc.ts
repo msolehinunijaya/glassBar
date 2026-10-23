@@ -46,6 +46,7 @@ export interface Battery { percent: number; charging: boolean; onAc: boolean; se
 export type PowerMode = 'efficiency' | 'balanced' | 'performance';
 export interface PowerInfo { mode: PowerMode | null; saverOn: boolean | null }
 export interface Sample { cpu: number; mem: number; gpu: number | null; rxBps: number; txBps: number; at: number; cpuTemp: number | null }
+export interface KeyboardLayout { id: number; code: string; name: string; locale: string; active: boolean }
 export interface DiskInfo { mount: string; label: string; total: number; available: number; removable: boolean; fs: string }
 export interface ScreenToday { total: number; apps: { exe: string; name: string; seconds: number }[] }
 export type Sound = { kind: 'chime' } | { kind: 'azan'; src: string };
@@ -167,6 +168,11 @@ export const ipc = {
   setAirplane: (on: boolean) => invoke<void>('airplane_set', { on }),
   hotspotGet: () => invoke<Hotspot>('hotspot_get'),
   hotspotSet: (on: boolean) => invoke<void>('hotspot_set', { on }),
+  langList: () => invoke<KeyboardLayout[]>('lang_list'),
+  langSet: (id: number) => invoke<void>('lang_set', { id }),
+  trayOverflow: (nativeVisible: boolean) => invoke<void>('tray_overflow', { nativeVisible }),
+  traySettings: () => invoke<void>('tray_settings'),
+  windowsNotifications: () => invoke<void>('windows_notifications'),
   displayMode: () => invoke<DisplayMode | null>('display_mode'),
   setDisplayMode: (mode: DisplayMode) => invoke<void>('display_set_mode', { mode }),
   brightness: () => invoke<number | null>('brightness_get'),

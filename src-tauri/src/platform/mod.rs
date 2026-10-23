@@ -92,6 +92,10 @@ pub trait Shell: Send + Sync {
     fn thumbs_clear(&self);
     /// Press keys together (in order) and release them: e.g. [LWIN] opens Start.
     fn press_keys(&self, keys: &[u16]);
+    /// Installed input languages; `active` = the one in the last app you used.
+    fn keyboard_layouts(&self) -> Vec<KeyboardLayout>;
+    /// Switch the last-used app to this layout; false if that wasn't possible.
+    fn keyboard_layout_set(&self, id: isize) -> bool;
     /// Is the left mouse button down right now (used to detect the end of a window drag)?
     fn mouse_down(&self) -> bool;
     /// Milliseconds since the last keyboard/mouse input.
@@ -142,6 +146,11 @@ pub trait Radios: Send + Sync {
 #[derive(Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Hotspot { pub on: bool, pub ssid: String, pub clients: u32, pub max_clients: u32 }
+
+/// An installed keyboard input language. `id` is the Windows HKL.
+#[derive(Serialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct KeyboardLayout { pub id: isize, pub code: String, pub name: String, pub locale: String, pub active: bool }
 
 #[derive(Serialize, Clone, Copy, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
