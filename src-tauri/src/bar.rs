@@ -157,9 +157,21 @@ fn apply_now(app: &AppHandle) {
     // Style first: turning the window shadow on/off adds/removes Windows' frame, and the
     // size set below must be measured without it (else the first placement after a
     // start is a frame's worth too big: 16 px wider, 39 px taller).
-    let glass = Glass { native: cfg.theme.native_blur, dark: is_dark(app, &cfg), opacity: cfg.theme.opacity };
-    for label in ["bar", "popup"] {
-        if let Some(w) = app.get_webview_window(label) { shell().style_window(&w, &glass); }
+    // The window's own light/dark mode decides the Windows 11 acrylic colour (the tint is
+    // ignored there): pin it to GlassBar's theme, or follow Windows on Auto. Before
+    // is_dark, which reads it on Auto.
+    let theme = match cfg.theme.mode { ThemeMode::Auto => None, ThemeMode::Light => Some(tauri::Theme::Light), ThemeMode::Dark => Some(tauri::Theme::Dark) };
+    let windows: Vec<_> = ["bar", "popup"].into_iter().filter_map(|l| app.get_webview_window(l)).collect();
+    for w in &windows { let _ = w.set_theme(theme); }
+    let glass = Glass { native: glass_native(cfg.theme.native_blur), dark: is_dark(app, &cfg), opacity: cfg.theme.opacity };
+    // Blur/tint calls only work on the thread that owns the window (the main thread); from
+    // the apply worker, hand them over and wait so the size below is measured after styling.
+    let style = move || for w in &windows { shell().style_window(w, &glass); };
+    if std::thread::current().name() == Some("bar-apply") {
+        let (tx, rx) = std::sync::mpsc::channel();
+        if app.run_on_main_thread(move || { style(); let _ = tx.send(()); }).is_ok() { let _ = rx.recv_timeout(Duration::from_secs(2)); }
+    } else {
+        style();
     }
     if let Some((mut r, strip)) = bar_rect(app, bar, bar.length) {
         *RESERVED_AT.lock().unwrap() = None;
@@ -274,6 +286,13 @@ pub fn bar_drag(app: AppHandle, on: bool) { app.state::<AppState>().dragging.sto
 
 #[tauri::command]
 pub fn mouse_down() -> bool { shell().mouse_down() }
+
+/// Native blur only when it's on and Windows' Transparency effects are on; otherwise the
+/// page draws the glass tint itself (else the bar is solid black in any theme).
+fn glass_native(wanted: bool) -> bool { wanted && shell().transparency_effects() }
+
+#[tauri::command]
+pub fn transparency_effects() -> bool { shell().transparency_effects() }
 
 /// The panel measured its content: make the popup exactly that tall (CSS px), on the same
 /// side of the same widget, at most 85 % of the screen (beyond that it scrolls).

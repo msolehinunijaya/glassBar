@@ -112,6 +112,8 @@ pub trait Shell: Send + Sync {
     fn keyboard_layout_set(&self, id: isize) -> bool;
     /// Is the left mouse button down right now (used to detect the end of a window drag)?
     fn mouse_down(&self) -> bool;
+    /// Windows "Transparency effects" (Personalization › Colors). Off: native blur draws nothing.
+    fn transparency_effects(&self) -> bool { true }
     /// Mouse pointer position in physical desktop pixels.
     fn cursor_pos(&self) -> Option<(i32, i32)>;
     /// A context menu (any app's) is open right now.

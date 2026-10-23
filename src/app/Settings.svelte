@@ -123,6 +123,9 @@
           <input type="checkbox" checked={c.theme.nativeBlur} onchange={(e) => set((c) => (c.theme.nativeBlur = e.currentTarget.checked))} />
         </label>
         <p class="hint">On: real frosted glass over your wallpaper. Off: lighter CSS glass with larger rounded corners.</p>
+        {#await ipc.transparencyEffects() then on}{#if !on && c.theme.nativeBlur}
+          <p class="hint warn">Transparency effects are off in Windows (Settings › Personalization › Colors), so Windows can't draw the glass. GlassBar uses its own tint until you turn them on.</p>
+        {/if}{/await}
         <div class="field"><span>Tint {Math.round(c.theme.opacity * 100)}%</span>
           <input type="range" min="0" max="1" step="0.01" value={c.theme.opacity} onchange={(e) => set((c) => (c.theme.opacity = +e.currentTarget.value))} />
         </div>
@@ -261,6 +264,7 @@
   .field + .field { border-top: 1px solid var(--line-soft); }
   .field.off { opacity: 0.5; }
   .field input[type='range'] { width: 220px; }
+  .hint.warn { color: #ff9f0a; }
   .hint { font-size: 12px; color: var(--fg-dim); margin: -4px 0 6px; }
   .seg { display: flex; gap: 2px; padding: 3px; border-radius: 10px; background: var(--pill); }
   .seg button { padding: 5px 12px; border-radius: 8px; text-transform: capitalize; }

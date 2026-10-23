@@ -169,7 +169,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             get_config, save_config, export_config, import_config, apply_bar, restore_taskbar,
             bar::popup_open, bar::popup_hide, bar::open_settings_cmd, bar::set_edit_mode,
-            bar::bar_preview, bar::bar_drag, bar::mouse_down, bar::bar_reveal, bar::popup_leave,
+            bar::bar_preview, bar::bar_drag, bar::mouse_down, bar::transparency_effects, bar::bar_reveal, bar::popup_leave,
             bar::thumbs_show, bar::thumbs_clear,
             widgets::todo::todo_list, widgets::todo::todo_add, widgets::todo::todo_update,
             widgets::todo::todo_delete, widgets::todo::todo_clear_done,

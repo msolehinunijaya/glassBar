@@ -108,6 +108,13 @@ impl Shell for WinShell {
     }
     fn foreground_exe(&self) -> Option<String> { windows_list::foreground_exe() }
     fn recent_for(&self, exe: &str, limit: usize) -> Vec<RecentItem> { recent::recent_for(exe, limit) }
+    fn transparency_effects(&self) -> bool {
+        use windows::Win32::System::Registry::{RegGetValueW, HKEY_CURRENT_USER, RRF_RT_REG_DWORD};
+        let (mut v, mut size) = (1u32, 4u32);
+        let r = unsafe { RegGetValueW(HKEY_CURRENT_USER, windows::core::w!(r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"),
+            windows::core::w!("EnableTransparency"), RRF_RT_REG_DWORD, None, Some(&mut v as *mut _ as *mut _), Some(&mut size)) };
+        r.is_err() || v != 0
+    }
     fn mouse_down(&self) -> bool {
         use windows::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_LBUTTON};
         unsafe { GetAsyncKeyState(VK_LBUTTON.0 as i32) as u16 & 0x8000 != 0 }
