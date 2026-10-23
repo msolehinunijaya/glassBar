@@ -62,6 +62,8 @@ pub enum SystemEvent {
     ShellRestarted,
     /// A fullscreen app appeared (true) or left (false) on the bar's monitor.
     Fullscreen(bool),
+    /// Plugged in / unplugged / battery level changed (instant, from Windows).
+    PowerChanged,
 }
 
 #[derive(Serialize, Clone, Debug)]

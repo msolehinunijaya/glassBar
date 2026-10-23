@@ -21,7 +21,7 @@
   {:else}
     <BatteryIcon b={bat.v} size={size === 'small' ? 16 : 18} />
   {/if}
-  {#if bat.v?.onAc && !bat.v.charging}<span class="plug"><Plug size={13} strokeWidth={2.2} /></span>{/if}
+  {#if bat.v?.onAc}<span class="plug"><Plug size={13} strokeWidth={2.2} /></span>{/if}
   {#if size !== 'small'}<span class="dim txt">{word}</span>{/if}
 </div>
 

@@ -30,9 +30,9 @@ export interface Stopwatch { startedAt: number | null; accMs: number; laps: numb
 export interface Place { lat: number; lon: number; name: string; source: 'windows' | 'ip' | 'manual'; tz?: string }
 export interface Weather {
   fetchedAt: number; unit: 'c' | 'f'; place: Place | null; offline: boolean;
-  current: { temp: number; code: number; isDay: boolean };
-  hourly: { time: number; temp: number; code: number }[];
-  daily: { date: number; min: number; max: number; code: number }[];
+  current: { temp: number; code: number; isDay: boolean; feelsLike?: number | null; humidity?: number | null; windSpeed?: number | null; windDir?: number | null };
+  hourly: { time: number; temp: number; code: number; pop?: number | null }[];
+  daily: { date: number; min: number; max: number; code: number; sunrise?: number | null; sunset?: number | null; pop?: number | null }[];
 }
 export interface PrayerDay { date: string; zone: string; source: 'jakim' | 'aladhan'; hijri: string | null; times: [string, number][] }
 export interface SolatInfo { days: PrayerDay[]; zoneName: string | null; place: Place | null }

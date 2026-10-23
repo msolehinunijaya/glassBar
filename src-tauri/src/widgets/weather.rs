@@ -10,11 +10,27 @@ const TTL_MS: i64 = 30 * 60_000;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
-pub struct Current { pub temp: f64, pub code: i32, pub is_day: bool }
+pub struct Current {
+    pub temp: f64, pub code: i32, pub is_day: bool,
+    // Details are optional: older caches don't have them and the API may omit any.
+    #[serde(default)] pub feels_like: Option<f64>,
+    #[serde(default)] pub humidity: Option<f64>,
+    /// km/h, or mph when the unit is °F.
+    #[serde(default)] pub wind_speed: Option<f64>,
+    /// Degrees the wind comes FROM (0 = north).
+    #[serde(default)] pub wind_dir: Option<f64>,
+}
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-pub struct Hour { pub time: i64, pub temp: f64, pub code: i32 }
+pub struct Hour { pub time: i64, pub temp: f64, pub code: i32, #[serde(default)] pub pop: Option<f64> }
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-pub struct Day { pub date: i64, pub min: f64, pub max: f64, pub code: i32 }
+pub struct Day {
+    pub date: i64, pub min: f64, pub max: f64, pub code: i32,
+    /// Unix ms; None during polar day/night.
+    #[serde(default)] pub sunrise: Option<i64>,
+    #[serde(default)] pub sunset: Option<i64>,
+    /// Max precipitation probability %.
+    #[serde(default)] pub pop: Option<f64>,
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -36,7 +52,8 @@ pub fn parse_weather(v: &Value, unit: &str) -> Option<Weather> {
     let num = |x: &Value| x.as_f64();
     let h = &v["hourly"];
     let hourly: Vec<Hour> = h["time"].as_array()?.iter().enumerate()
-        .filter_map(|(i, t)| Some(Hour { time: t.as_i64()?, temp: num(&h["temperature_2m"][i])?, code: h["weather_code"][i].as_i64()? as i32 }))
+        .filter_map(|(i, t)| Some(Hour { time: t.as_i64()?, temp: num(&h["temperature_2m"][i])?, code: h["weather_code"][i].as_i64()? as i32,
+            pop: num(&h["precipitation_probability"][i]) }))
         .filter(|x| x.time + 3600 > now)
         .take(12)
         .map(|x| Hour { time: x.time * 1000, ..x })
@@ -48,6 +65,9 @@ pub fn parse_weather(v: &Value, unit: &str) -> Option<Weather> {
             min: num(&d["temperature_2m_min"][i])?,
             max: num(&d["temperature_2m_max"][i])?,
             code: d["weather_code"][i].as_i64()? as i32,
+            sunrise: d["sunrise"][i].as_i64().map(|s| s * 1000),
+            sunset: d["sunset"][i].as_i64().map(|s| s * 1000),
+            pop: num(&d["precipitation_probability_max"][i]),
         }))
         .collect();
     Some(Weather {
@@ -55,17 +75,24 @@ pub fn parse_weather(v: &Value, unit: &str) -> Option<Weather> {
         unit: unit.into(),
         place: None,
         offline: false,
-        current: Current { temp: num(&cur["temperature_2m"])?, code: cur["weather_code"].as_i64()? as i32, is_day: cur["is_day"] == 1 },
+        current: Current {
+            temp: num(&cur["temperature_2m"])?, code: cur["weather_code"].as_i64()? as i32, is_day: cur["is_day"] == 1,
+            feels_like: num(&cur["apparent_temperature"]),
+            humidity: num(&cur["relative_humidity_2m"]),
+            wind_speed: num(&cur["wind_speed_10m"]),
+            wind_dir: num(&cur["wind_direction_10m"]),
+        },
         hourly,
         daily,
     })
 }
 
 fn fetch(p: &Place, unit: &str) -> Result<Weather, String> {
-    let f = if unit == "f" { "&temperature_unit=fahrenheit" } else { "" };
+    let f = if unit == "f" { "&temperature_unit=fahrenheit&wind_speed_unit=mph" } else { "" };
     let url = format!(
-        "https://api.open-meteo.com/v1/forecast?latitude={}&longitude={}&current=temperature_2m,weather_code,is_day\
-         &hourly=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min\
+        "https://api.open-meteo.com/v1/forecast?latitude={}&longitude={}&current=temperature_2m,weather_code,is_day,apparent_temperature,relative_humidity_2m,wind_speed_10m,wind_direction_10m\
+         &hourly=temperature_2m,weather_code,precipitation_probability\
+         &daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_probability_max\
          &forecast_days=3&timezone=auto&timeformat=unixtime{f}", p.lat, p.lon);
     let mut w = parse_weather(&get_json(&url)?, unit).ok_or("unexpected weather response")?;
     w.place = Some(p.clone());
@@ -113,6 +140,36 @@ mod tests {
         assert!(w.hourly[0].time >= v["current"]["time"].as_i64().unwrap() * 1000 - 3_600_000);
         assert_eq!(w.daily.len(), 3);
         assert!(w.daily.iter().all(|d| d.min <= d.max));
+    }
+
+    #[test]
+    fn parse_weather_reads_details_and_sun() {
+        let v: serde_json::Value = serde_json::from_str(FIX).unwrap();
+        let w = parse_weather(&v, "c").unwrap();
+        assert_eq!(w.current.feels_like, v["current"]["apparent_temperature"].as_f64());
+        assert_eq!(w.current.humidity, v["current"]["relative_humidity_2m"].as_f64());
+        assert_eq!(w.current.wind_speed, v["current"]["wind_speed_10m"].as_f64());
+        assert_eq!(w.current.wind_dir, v["current"]["wind_direction_10m"].as_f64());
+        assert!(w.hourly.iter().all(|h| h.pop.is_some()));
+        let d = &w.daily[0];
+        assert_eq!(d.sunrise, v["daily"]["sunrise"][0].as_i64().map(|s| s * 1000));
+        assert!(d.sunrise.unwrap() < d.sunset.unwrap());
+        assert_eq!(d.pop, v["daily"]["precipitation_probability_max"][0].as_f64());
+    }
+
+    #[test]
+    fn parse_weather_tolerates_missing_sun_and_details() {
+        // Polar day/night: Open-Meteo returns no sunrise/sunset; older caches lack details.
+        let mut v: serde_json::Value = serde_json::from_str(FIX).unwrap();
+        v["daily"]["sunrise"] = serde_json::json!([null, null, null]);
+        v["current"].as_object_mut().unwrap().remove("apparent_temperature");
+        let w = parse_weather(&v, "c").unwrap();
+        assert_eq!(w.daily[0].sunrise, None);
+        assert_eq!(w.current.feels_like, None);
+        let old: Weather = serde_json::from_str(r#"{"fetchedAt":1,"unit":"c","place":null,"offline":false,
+            "current":{"temp":1.0,"code":0,"isDay":true},"hourly":[{"time":1,"temp":1.0,"code":0}],
+            "daily":[{"date":1,"min":0.0,"max":1.0,"code":0}]}"#).unwrap();
+        assert_eq!(old.daily[0].sunset, None);
     }
 
     #[test]
