@@ -22,6 +22,11 @@ export interface Config {
 export interface Alert { id: number; source: string; title: string; body: string; at: number; missed: boolean; read: boolean }
 export interface Todo { id: number; text: string; done: boolean; dueAt: number | null; createdAt: number }
 export interface Note { id: number; text: string; color: string; pinned: boolean; images: string[]; updatedAt: number; deletedAt: number | null }
+export type Phase = 'work' | 'short' | 'long';
+export interface PomoCfg { workMin: number; shortMin: number; longMin: number; every: number; autoStart: boolean }
+export interface PomoState { pomo: { phase: Phase; done: number; endsAt: number | null; pausedMs: number | null }; cfg: PomoCfg; label: string }
+export interface Timer { id: number; label: string; durationMs: number; endsAt: number | null; remainingMs: number | null }
+export interface Stopwatch { startedAt: number | null; accMs: number; laps: number[] }
 export type Sound = { kind: 'chime' } | { kind: 'azan'; src: string };
 
 export interface AppWindow { id: number; title: string; exe: string; active: boolean; minimized: boolean }
@@ -74,6 +79,21 @@ export const ipc = {
   noteRemoveImage: (id: number, name: string) => invoke<void>('note_remove_image', { id, name }),
   noteImage: (name: string) => invoke<string>('note_image', { name }),
   noteDragImage: (name: string) => invoke<void>('note_drag_image', { name }),
+  // focus
+  pomoGet: () => invoke<PomoState>('pomo_get'),
+  pomoStart: () => invoke<PomoState>('pomo_start'),
+  pomoPause: () => invoke<PomoState>('pomo_pause'),
+  pomoSkip: () => invoke<PomoState>('pomo_skip'),
+  pomoReset: () => invoke<PomoState>('pomo_reset'),
+  timersList: () => invoke<Timer[]>('timers_list'),
+  timerAdd: (label: string, durationMs: number) => invoke<void>('timer_add', { label, durationMs }),
+  timerPause: (id: number) => invoke<void>('timer_pause', { id }),
+  timerResume: (id: number) => invoke<void>('timer_resume', { id }),
+  timerDelete: (id: number) => invoke<void>('timer_delete', { id }),
+  swGet: () => invoke<Stopwatch>('sw_get'),
+  swToggle: () => invoke<Stopwatch>('sw_toggle'),
+  swLap: () => invoke<Stopwatch>('sw_lap'),
+  swReset: () => invoke<Stopwatch>('sw_reset'),
   // apps
   appsList: () => invoke<AppWindow[]>('apps_list'),
   appIcon: (exe: string) => invoke<string | null>('app_icon', { exe }),

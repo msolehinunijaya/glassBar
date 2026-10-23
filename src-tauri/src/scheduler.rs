@@ -44,6 +44,7 @@ pub fn poke() {
 /// Every source of due items. Later tasks add their own.
 fn collect(app: &AppHandle) -> Vec<Due> {
     let mut v = crate::widgets::todo::due_items(app);
+    v.extend(crate::widgets::focus::due_items(app));
     v.push(Due {
         key: format!("house:{}", chrono::Local::now().format("%Y-%m-%d")),
         at: 0, source: "house", title: String::new(), body: String::new(), sound: None,
@@ -54,6 +55,10 @@ fn collect(app: &AppHandle) -> Vec<Due> {
 fn handle(app: &AppHandle, d: &Due, missed: bool) {
     match d.source {
         "house" => housekeeping(app),
+        "pomodoro" => {
+            crate::widgets::focus::on_pomo_due(app);
+            crate::alerts::notify(app, d.source, &d.title, &d.body, missed);
+        }
         _ => match &d.sound {
             Some(s) => crate::alerts::notify_with(app, d.source, &d.title, &d.body, missed, s.clone()),
             None => crate::alerts::notify(app, d.source, &d.title, &d.body, missed),
