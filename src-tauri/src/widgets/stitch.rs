@@ -2,11 +2,14 @@
 //! per-row hashes, so they're cheap and fully tested. A frame = rows of BGRA pixels.
 use std::hash::{Hash, Hasher};
 
-/// One hash per pixel row.
+/// One hash per pixel row, ignoring a strip at each side: the scrollbar thumb moves with
+/// every scroll and would make otherwise identical rows look different.
 pub fn row_hashes(bgra: &[u8], w: u32, h: u32) -> Vec<u64> {
+    let w = w as usize;
+    let (x0, x1) = if w > 120 { (8, w - 36) } else { (0, w) };
     (0..h as usize).map(|r| {
         let mut s = std::collections::hash_map::DefaultHasher::new();
-        bgra[r * w as usize * 4..(r + 1) * w as usize * 4].hash(&mut s);
+        bgra[(r * w + x0) * 4..(r * w + x1) * 4].hash(&mut s);
         s.finish()
     }).collect()
 }
@@ -26,6 +29,9 @@ pub fn fixed_edges(a: &[u64], b: &[u64]) -> (usize, usize) {
 /// reliable overlap (≥ 95 % of at least 16 rows must match).
 pub fn scroll_offset(prev: &[u64], next: &[u64]) -> Option<usize> {
     let n = prev.len().min(next.len());
+    // Already lined up without a shift (only a cursor blinked): the page didn't move. Without
+    // this, repetitive content (lists, code) could "match" at some period and repeat forever.
+    if n > 0 && (0..n).filter(|&i| prev[i] == next[i]).count() * 100 >= n * 90 { return None; }
     let mut best: Option<(usize, f64)> = None;
     for d in 1..n {
         let overlap = n - d;
@@ -53,6 +59,15 @@ mod tests {
     }
 
     #[test]
+    fn end_of_page_with_a_blinking_cursor_is_not_a_scroll() {
+        // Repetitive text (period 4) that did not move, except one changed row.
+        let a: Vec<u64> = (0..120).map(|i| i % 4).collect();
+        let mut b = a.clone();
+        b[50] = 777;
+        assert_eq!(scroll_offset(&a, &b), None);
+    }
+
+    #[test]
     fn tolerates_a_few_changed_rows() {
         let a = page(0..100);
         let mut b = page(40..140);
@@ -66,6 +81,15 @@ mod tests {
         let mut b = vec![1, 2, 3]; b.extend(page(120..170)); b.extend([8, 9]);
         assert_eq!(fixed_edges(&a, &b), (3, 2));
         assert_eq!(fixed_edges(&a, &a), (a.len(), 0));
+    }
+
+    #[test]
+    fn a_moving_scrollbar_does_not_change_row_hashes() {
+        let (w, h) = (200u32, 2u32);
+        let mut a = vec![50u8; (w * h * 4) as usize];
+        let b = a.clone();
+        for r in 0..h as usize { for x in 185..200 { a[(r * w as usize + x) * 4] = 255; } } // thumb on the right
+        assert_eq!(row_hashes(&a, w, h), row_hashes(&b, w, h));
     }
 
     #[test]

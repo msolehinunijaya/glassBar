@@ -35,9 +35,12 @@ pub fn save(app: &AppHandle, bgra: Vec<u8>, w: u32, h: u32, kind: &str) -> Resul
     let at = now_ms();
     let path = dir().join(format!("{}-{}.png", chrono::Local::now().format("Screenshot %Y-%m-%d %H%M%S"), at % 1000));
     img.save_with_format(&path, image::ImageFormat::Png).map_err(|e| e.to_string())?;
-    // Small preview for the history list.
-    let scale = (240.0 / w as f32).min(150.0 / h as f32).min(1.0);
-    let thumb = image::imageops::thumbnail(&img, ((w as f32 * scale) as u32).max(1), ((h as f32 * scale) as u32).max(1));
+    // Small preview for the history list. A tall scrolling shot previews its top part
+    // (shrunk whole it would be a few pixels wide).
+    let top = if h > w * 6 / 5 { image::imageops::crop_imm(&img, 0, 0, w, w * 5 / 8).to_image() } else { img.clone() };
+    let (tw, th) = top.dimensions();
+    let scale = (240.0 / tw as f32).min(150.0 / th as f32).min(1.0);
+    let thumb = image::imageops::thumbnail(&top, ((tw as f32 * scale) as u32).max(1), ((th as f32 * scale) as u32).max(1));
     let mut buf = std::io::Cursor::new(Vec::new());
     thumb.write_to(&mut buf, image::ImageFormat::Png).map_err(|e| e.to_string())?;
     let thumb = format!("data:image/png;base64,{}", base64::engine::general_purpose::STANDARD.encode(buf.into_inner()));
@@ -130,7 +133,9 @@ pub async fn shot_fullscreen(app: AppHandle) -> Result<i64, String> {
 }
 
 /// Scroll a window top to bottom, capturing and joining as it goes. Stops at the end of
-/// the page (nothing moves), after 40 steps, or at 30 000 px tall.
+/// the page (nothing moves), after 150 steps, or at 30 000 px tall. The wheel step adapts:
+/// it grows while frames overlap a lot (fast) and shrinks when the overlap gets thin, so
+/// joins stay reliable in apps that scroll a little or a lot per notch.
 pub fn scroll_capture(win: &WinRect) -> Result<(Vec<u8>, u32, u32), String> {
     let s = screen();
     let at = (win.x + win.w / 2, win.y + win.h / 2);
@@ -144,9 +149,10 @@ pub fn scroll_capture(win: &WinRect) -> Result<(Vec<u8>, u32, u32), String> {
     let mut edges: Option<(usize, usize)> = None;
     let mut body: Vec<u8> = prev.clone();
     let mut footer: Vec<u8> = Vec::new();
-    for _ in 0..40 {
-        s.scroll_window(win.id, at, 3, false);
-        std::thread::sleep(Duration::from_millis(380));
+    let mut notches = 3;
+    for _ in 0..150 {
+        s.scroll_window(win.id, at, notches, false);
+        std::thread::sleep(Duration::from_millis(300));
         let next = grab()?.bgra;
         let next_h = row_hashes(&next, w as u32, n as u32);
         let (top, bottom) = *edges.get_or_insert_with(|| {
@@ -157,6 +163,8 @@ pub fn scroll_capture(win: &WinRect) -> Result<(Vec<u8>, u32, u32), String> {
         });
         if top + bottom >= n { break; }
         let Some(d) = scroll_offset(&prev_h[top..n - bottom], &next_h[top..n - bottom]) else { break };
+        let view = n - top - bottom;
+        if d * 3 < view { notches = (notches * 2).min(15); } else if d * 10 > view * 7 { notches = (notches / 2).max(1); }
         body.extend_from_slice(&next[(n - bottom - d) * row..(n - bottom) * row]);
         if body.len() / row > 30_000 { break; }
         prev = next;
