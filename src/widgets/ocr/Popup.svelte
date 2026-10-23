@@ -11,7 +11,7 @@
   import RecordTab from './RecordTab.svelte';
   import ShotsTab from './ShotsTab.svelte';
   import { profile } from '../../lib/config.svelte';
-  import { tile } from './look';
+  import CapIcon from './CapIcon.svelte';
 
   let { instance, settings }: PopupProps<OcrSettings> = $props();
   const up = $derived(profile().bar.edge === 'bottom');
@@ -31,7 +31,7 @@
 <div class="cap" class:up bind:this={root}>
 <div class="tabs">
   {#each tabs as [k, label, Icon] (k)}
-    <button class:sel={settings.tab === k} onclick={() => updateWidgetSettings(instance, { tab: k })}><span class="tile" style:background={tile(k)}><Icon size={13} strokeWidth={2.3} /></span>{label}</button>
+    <button class:sel={settings.tab === k} onclick={() => updateWidgetSettings(instance, { tab: k })}><CapIcon {k} icon={Icon} look={settings.iconStyle} size={22} />{label}</button>
   {/each}
 </div>
 <div class="body">
@@ -47,8 +47,6 @@
   /* Colour tile above the label: four tabs fit side by side without crowding. */
   .tabs button { min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 7px 2px 6px; border-radius: 9px; font-size: 11px; font-weight: 500; }
   .tabs .sel { background: var(--accent); color: #fff; }
-  .tile { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 7px; color: #fff; flex: none;
-          box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), 0 1px 2px rgba(0,0,0,0.2); }
   /* Bottom dock: tab buttons last, the tab's options above them, its history on top. */
   .up { display: flex; flex-direction: column-reverse; }
   .up .tabs { margin: 12px 0 0; }

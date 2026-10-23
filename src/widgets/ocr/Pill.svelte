@@ -11,13 +11,14 @@
   import { moveKey } from '../apps/groups';
   import type { OcrSettings, CaptureTab } from './index';
   import { hotkeyLabel } from './hotkey';
-  import { tile } from './look';
+  import CapIcon from './CapIcon.svelte';
 
   let { instance, settings, vertical }: PillProps<OcrSettings> = $props();
   // The hotkey actually registered (the default may have fallen back to Ctrl+Alt+T).
   let activeKey = $state('');
   $effect(() => { settings.hotkey; ipc.ocrHotkeyStatus().then((s) => (activeKey = s.hotkey)).catch(() => {}); });
   const ALL: CaptureTab[] = ['shot', 'record', 'ocr', 'clip'];
+  const STYLES = [['tile', 'Colour'], ['plain', 'Simple'], ['outline', 'Outline']] as const;
   const meta = $derived({
     shot: { icon: Camera, label: 'Screenshot' },
     record: { icon: Video, label: 'Screen recording' },
@@ -64,6 +65,7 @@
     await showMenu([
       ...(i > 0 ? [{ text: vertical ? 'Move up' : 'Move left', action: () => updateWidgetSettings(instance, { icons: moveKey(order, k, i - 1) }) }] : []),
       ...(i < order.length - 1 ? [{ text: vertical ? 'Move down' : 'Move right', action: () => updateWidgetSettings(instance, { icons: moveKey(order, k, i + 1) }) }] : []),
+      { text: 'Icon style', items: STYLES.map(([v, text]) => ({ text, checked: (settings.iconStyle ?? 'tile') === v, action: () => updateWidgetSettings(instance, { iconStyle: v }) })) },
     ]);
   }
 </script>
@@ -73,7 +75,7 @@
     {@const M = meta[k].icon}
     <button class="ic" class:drag={dragging === k} class:sel={settings.tab === k} title={meta[k].label} aria-label={meta[k].label}
             animate:flip={{ duration: 200 }} onpointerdown={(e) => down(e, k)} onclick={(e) => click(e, k)} oncontextmenu={(e) => menu(e, k)}>
-      <span class="tile" style:background={tile(k)}><M size={13} strokeWidth={2.3} /></span>
+      <CapIcon {k} icon={M} look={settings.iconStyle} size={22} />
     </button>
   {/each}
 </div>
@@ -83,9 +85,6 @@
   .capture-pill.vertical { flex-direction: column; padding: 4px 0; }
   .ic { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; transition: background 0.15s, transform 0.25s var(--spring); }
   .ic:hover { background: var(--pill-hover); }
-  /* Colour tile per kind: blue screenshot, red recording, purple OCR, orange clipboard. */
-  .tile { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 7px; color: #fff;
-          box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), 0 1px 3px rgba(0,0,0,0.25); }
   .ic:active { transform: scale(0.88); }
   .ic.drag { transform: scale(1.18); background: var(--pill-hover); box-shadow: 0 4px 12px rgba(0,0,0,0.25); z-index: 1; }
 </style>

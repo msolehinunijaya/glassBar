@@ -20,3 +20,9 @@
   { type: 'toggle', key: 'autoCopy', label: 'Copy to clipboard automatically' },
   { type: 'toggle', key: 'toast', label: 'Show a notification' },
 ]} />
+<OptionsPopover title="Icons" values={{ iconStyle: settings.iconStyle ?? 'tile' }} save={(p) => save(p as Partial<OcrSettings>)} options={[
+  { type: 'choice', key: 'iconStyle', label: 'Style', choices: [
+    { value: 'tile', label: 'Colour', hint: 'White symbol on a colour tile' },
+    { value: 'plain', label: 'Simple', hint: 'Plain symbol, like the rest of the dock' },
+    { value: 'outline', label: 'Outline', hint: 'The symbol drawn in its colour' }] },
+]} />

@@ -12,7 +12,11 @@ export interface OcrSettings {
   tab: CaptureTab; keepDays: number;
   /** Order of the four buttons on the dock; clipboard history on/off. */
   icons: CaptureTab[]; clipHistory: boolean;
+  /** Look of the four icons (dock and panel tabs). */
+  iconStyle: IconStyle;
 }
+/** 'tile': white symbol on a colour tile · 'plain': simple symbol · 'outline': symbol in its colour. */
+export type IconStyle = 'tile' | 'plain' | 'outline';
 
 export default defineWidget<OcrSettings>({
   id: 'ocr',
@@ -21,7 +25,7 @@ export default defineWidget<OcrSettings>({
   icon: Aperture,
   sizes: ['medium'],
   defaultSize: 'medium',
-  defaults: { mode: 'text', engine: 'windows', autoCopy: true, toast: true, hotkey: 'Super+Shift+T', tab: 'shot', keepDays: 7, icons: ['shot', 'record', 'ocr', 'clip'], clipHistory: true },
+  defaults: { mode: 'text', engine: 'windows', autoCopy: true, toast: true, hotkey: 'Super+Shift+T', tab: 'shot', keepDays: 7, icons: ['shot', 'record', 'ocr', 'clip'], clipHistory: true, iconStyle: 'tile' },
   Pill,
   Popup: { component: Popup, width: 380, height: 540 },
   SettingsForm,
