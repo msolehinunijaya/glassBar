@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { StickyNote } from '@lucide/svelte';
+  import NoteIcon3D from '../../lib/icons/NoteIcon3D.svelte';
   import { ipc, type Note } from '../../lib/ipc';
   import { live } from '../../lib/live.svelte';
   import type { PillProps } from '../types';
@@ -10,7 +10,7 @@
 </script>
 
 <div class="pill" title="{notes.v.length} notes">
-  <StickyNote size={16} />
+  <NoteIcon3D size={20} />
   {#if size === 'small'}
     <span class="n">{notes.v.length}</span>
   {:else}

@@ -1,4 +1,4 @@
-import { StickyNote } from '@lucide/svelte';
+import NoteIcon3D from '../../lib/icons/NoteIcon3D.svelte';
 import { defineWidget } from '../types';
 import Pill from './Pill.svelte';
 import Popup from './Popup.svelte';
@@ -14,7 +14,7 @@ export default defineWidget<NotesSettings>({
   id: 'notes',
   name: 'Quick Note',
   description: 'Sticky notes with pasted text and images',
-  icon: StickyNote,
+  icon: NoteIcon3D,
   sizes: ['small', 'medium'],
   defaultSize: 'small',
   defaults: { temporaryDays: 0 },
