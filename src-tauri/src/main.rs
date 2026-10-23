@@ -110,6 +110,7 @@ fn main() {
             if let Some(w) = app.get_webview_window("bar") { w.show()?; }
             widgets::start_watchers(h);
             scheduler::start(h.clone());
+            widgets::ipu::start(h.clone());
             Ok(())
         })
         .on_window_event(|w, e| match (w.label(), e) {
@@ -135,6 +136,7 @@ fn main() {
             widgets::focus::sw_get, widgets::focus::sw_toggle, widgets::focus::sw_lap, widgets::focus::sw_reset,
             widgets::location::location_get, widgets::location::location_search, widgets::weather::weather_get,
             widgets::solat::solat_days, widgets::solat::solat_zones, widgets::solat::solat_test_sound,
+            widgets::ipu::ipu_get,
             alerts::alerts_list, alerts::alerts_mark_read, alerts::alerts_dismiss, alerts::alerts_clear,
             widgets::apps::apps_list, widgets::apps::app_icon, widgets::apps::app_activate,
             widgets::apps::app_close, widgets::apps::app_launch,

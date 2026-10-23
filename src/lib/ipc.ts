@@ -36,6 +36,12 @@ export interface Weather {
 }
 export interface PrayerDay { date: string; zone: string; source: 'jakim' | 'aladhan'; hijri: string | null; times: [string, number][] }
 export interface SolatInfo { days: PrayerDay[]; zoneName: string | null; place: Place | null }
+export type Band = 'good' | 'moderate' | 'unhealthy' | 'very_unhealthy' | 'hazardous';
+export interface Station { id: string; name: string; state: string; lat: number; lon: number; api: number | null; class: string; pollutant: string; at: number }
+export interface IpuReading {
+  kind: 'ipu' | 'aqi_us'; value: number; band: Band; station: Station | null; distanceKm: number | null;
+  nearby: [Station, number][]; place: Place | null; fetchedAt: number; offline: boolean; stations: [string, string][];
+}
 export type Sound = { kind: 'chime' } | { kind: 'azan'; src: string };
 
 export interface AppWindow { id: number; title: string; exe: string; active: boolean; minimized: boolean }
@@ -111,6 +117,8 @@ export const ipc = {
   solatDays: () => invoke<SolatInfo>('solat_days'),
   solatZones: () => invoke<[string, string, string][]>('solat_zones'),
   solatTestSound: (file: string) => invoke<void>('solat_test_sound', { file }),
+  // IPU
+  ipuGet: (force = false) => invoke<IpuReading | null>('ipu_get', { force }),
   // apps
   appsList: () => invoke<AppWindow[]>('apps_list'),
   appIcon: (exe: string) => invoke<string | null>('app_icon', { exe }),
