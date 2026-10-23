@@ -74,13 +74,13 @@ pub async fn hotspot_set(on: bool) -> Res<()> { blocking(move || radios().set_ho
 
 // ---- Tray icons on the dock (opt-in) ----
 
-/// Host tray icons only while the Tray widget is placed with "Show tray icons on the dock" on.
+/// Host tray icons while the Tray widget is on the bar (unless the user switched hosting off).
 pub fn sync_tray(app: &tauri::AppHandle) {
     use tauri::{Emitter, Manager};
     let want = {
         let st = app.state::<crate::AppState>();
         let c = st.config.lock().unwrap();
-        c.uses("tray") && c.widget_settings("tray")["native"] == true
+        c.uses("tray") && c.widget_settings("tray")["native"] != false
     };
     let t = crate::platform::tray();
     if want && !t.running() {

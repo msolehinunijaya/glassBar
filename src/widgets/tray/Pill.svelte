@@ -20,9 +20,9 @@
 
 {#if settings.native}
   <div class="pill tray" class:vertical class:compact={settings.compact} title={parts.overflow.length ? `${parts.overflow.length} more icons` : 'Tray'}>
-    {#if settings.showOverflow && parts.overflow.length}<span class="chev"><Chevron size={14} /></span>{/if}
+    <!-- The chevron (or anywhere off the icons) opens the panel with every tray icon. -->
+    <span class="chev"><Chevron size={14} /></span>
     {#each parts.inline as i (i.id)}<TrayIconButton icon={i} size={settings.compact ? 16 : 18} />{/each}
-    {#if !parts.inline.length && !(settings.showOverflow && parts.overflow.length)}<span class="dim small">{tray.v.length ? '' : '…'}</span>{/if}
   </div>
 {:else}
   <button class="pill" title={nativeVisible ? 'Show hidden icons (right-click: tray settings)' : 'Taskbar hidden: opens tray icon settings'}
