@@ -1,6 +1,7 @@
 // World-clock helpers. Times come from the WebView's built-in IANA time-zone data,
 // so daylight saving changes are handled automatically.
-export interface Zone { tz: string; label: string }
+/** lat/lon: stored when the city came from the search, for real sunrise/sunset. */
+export interface Zone { tz: string; label: string; lat?: number; lon?: number }
 
 /** UTC offset of `tz` at `when`, in minutes (e.g. Asia/Kuala_Lumpur → 480). */
 export function offsetMinutes(tz: string, when: Date = new Date()): number {

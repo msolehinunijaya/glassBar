@@ -28,6 +28,10 @@ pub fn open_settings_uri(uri: String) -> Res<()> {
     shell().launch(&uri, "")
 }
 
+/// The clock's "follow Windows" 12/24-hour default.
+#[tauri::command]
+pub fn clock_system_12h() -> Option<bool> { shell().time_12h() }
+
 #[tauri::command]
 pub fn lang_list() -> Vec<KeyboardLayout> { shell().keyboard_layouts() }
 /// Falls back to Win+Space (Windows' own switcher) when there's no app window to switch.

@@ -104,6 +104,8 @@ pub trait Shell: Send + Sync {
     fn press_keys(&self, keys: &[u16]);
     /// Installed input languages; `active` = the one in the last app you used.
     fn keyboard_layouts(&self) -> Vec<KeyboardLayout>;
+    /// Windows' regional time format: Some(true) = 12-hour.
+    fn time_12h(&self) -> Option<bool>;
     /// Switch the last-used app to this layout; false if that wasn't possible.
     fn keyboard_layout_set(&self, id: isize) -> bool;
     /// Is the left mouse button down right now (used to detect the end of a window drag)?

@@ -225,6 +225,7 @@ export const ipc = {
   trayRefresh: () => invoke<void>('tray_refresh'),
   trayIcons: () => invoke<TrayIcon[]>('tray_icons'),
   trayClick: (id: string, button: 'left' | 'right' | 'double') => invoke<boolean>('tray_click', { id, button }),
+  clockSystem12h: () => invoke<boolean | null>('clock_system_12h'),
   langList: () => invoke<KeyboardLayout[]>('lang_list'),
   langSet: (id: number) => invoke<void>('lang_set', { id }),
   windowsNotifications: () => invoke<void>('windows_notifications'),

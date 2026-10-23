@@ -15,13 +15,3 @@ export function ticker(seconds: () => boolean) {
   });
   return s;
 }
-
-export function fmtTime(d: Date, hour12: boolean, seconds = false, timeZone?: string) {
-  try {
-    return new Intl.DateTimeFormat(undefined, {
-      hour: '2-digit', minute: '2-digit', second: seconds ? '2-digit' : undefined, hour12, timeZone: timeZone || undefined,
-    }).format(d);
-  } catch {
-    return '--:--'; // invalid time zone name
-  }
-}

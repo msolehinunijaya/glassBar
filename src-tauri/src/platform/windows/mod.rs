@@ -96,6 +96,7 @@ impl Shell for WinShell {
     }
     fn keyboard_layouts(&self) -> Vec<KeyboardLayout> { lang::list() }
     fn keyboard_layout_set(&self, id: isize) -> bool { lang::set(id) }
+    fn time_12h(&self) -> Option<bool> { lang::time_12h() }
     fn idle_ms(&self) -> u64 {
         use windows::Win32::System::SystemInformation::GetTickCount;
         use windows::Win32::UI::Input::KeyboardAndMouse::{GetLastInputInfo, LASTINPUTINFO};

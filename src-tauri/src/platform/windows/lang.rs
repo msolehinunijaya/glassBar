@@ -57,3 +57,26 @@ mod tests {
         assert_eq!(super::code_of("zh-Hans-CN"), "ZH");
     }
 }
+
+/// Windows' regional time format (Settings › Time & language › Region): true = 12-hour.
+/// None when it can't be read.
+pub fn time_12h() -> Option<bool> {
+    use windows::Win32::Globalization::LOCALE_STIMEFORMAT;
+    let mut buf = [0u16; 80];
+    let n = unsafe { GetLocaleInfoEx(PCWSTR::null(), LOCALE_STIMEFORMAT, Some(&mut buf)) };
+    if n <= 1 { return None; }
+    Some(hour12_from_pattern(&String::from_utf16_lossy(&buf[..n as usize - 1])))
+}
+
+/// "h:mm:ss tt" -> 12-hour, "HH:mm:ss" -> 24-hour.
+pub fn hour12_from_pattern(p: &str) -> bool { p.contains('h') && !p.contains('H') }
+
+#[cfg(test)]
+mod time_tests {
+    #[test]
+    fn reads_windows_time_patterns() {
+        assert!(super::hour12_from_pattern("h:mm:ss tt"));
+        assert!(!super::hour12_from_pattern("HH:mm:ss"));
+        assert!(!super::hour12_from_pattern("H:mm"));
+    }
+}
