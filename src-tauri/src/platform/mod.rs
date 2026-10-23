@@ -209,6 +209,8 @@ pub trait Tray: Send + Sync {
     fn start(&self, on_change: Box<dyn Fn() + Send>);
     fn stop(&self);
     fn running(&self) -> bool;
+    /// Ask all apps to re-send their tray icons.
+    fn refresh(&self);
     fn icons(&self) -> Vec<TrayIcon>;
     /// "left" | "right" | "double"; forwarded to the owning app as Explorer would.
     fn click(&self, id: &str, button: &str) -> bool;

@@ -17,6 +17,7 @@ use windows::Win32::UI::WindowsAndMessaging::*;
 static DECOY: AtomicIsize = AtomicIsize::new(0);
 static DIRTY: AtomicBool = AtomicBool::new(false);
 static STEPPED_ASIDE: AtomicBool = AtomicBool::new(false);
+const ASK_TIMER: usize = 2;
 static ON_CHANGE: Mutex<Option<Box<dyn Fn() + Send>>> = Mutex::new(None);
 
 struct Icon { hwnd: u32, uid: u32, guid: Option<GUID>, callback: u32, version: u32, tip: String, hicon: isize, hidden: bool, png: Option<String>, rev: u64 }
@@ -118,6 +119,12 @@ unsafe extern "system" fn proc(h: HWND, msg: u32, wp: WPARAM, lp: LPARAM) -> LRE
             }
             forward(msg, wp, lp).unwrap_or(LRESULT(0)) // AppBar and icon-position queries
         }
+        WM_TIMER if wp.0 == ASK_TIMER => {
+            unsafe { let _ = KillTimer(Some(h), ASK_TIMER); }
+            super::system::ignore_next_taskbar_created();
+            broadcast_taskbar_created();
+            LRESULT(0)
+        }
         WM_TIMER => {
             // Stay first in line: Explorer re-raises its taskbar now and then.
             let cls = wide("Shell_TrayWnd");
@@ -146,6 +153,12 @@ fn broadcast_taskbar_created() {
 }
 
 pub fn running() -> bool { DECOY.load(Ordering::Relaxed) != 0 }
+
+/// Ask every app to send its tray icon again (they all re-add on TaskbarCreated).
+pub fn refresh() {
+    let h = DECOY.load(Ordering::Relaxed);
+    if h != 0 { unsafe { let _ = SetTimer(Some(HWND(h as *mut _)), ASK_TIMER, 50, None); } }
+}
 
 /// Run `f` with the stand-in tray out of the way, so FindWindow("Shell_TrayWnd") inside
 /// it (e.g. SHAppBarMessage) reaches Explorer's real taskbar. No-op when not hosting.
@@ -178,9 +191,11 @@ pub fn start(on_change: Box<dyn Fn() + Send>) {
         else { let _ = tx.send(()); return };
         DECOY.store(h.0 as isize, Ordering::Relaxed);
         SetTimer(Some(h), 1, 250, None);
+        // Ask apps to re-send their icons once GlassBar has finished placing the dock: while
+        // it reserves screen space this window briefly steps aside, and icons sent in that
+        // moment would only reach Explorer.
+        SetTimer(Some(h), ASK_TIMER, 1500, None);
         let _ = tx.send(());
-        super::system::ignore_next_taskbar_created();
-        broadcast_taskbar_created();
         let mut msg = MSG::default();
         while GetMessageW(&mut msg, None, 0, 0).as_bool() { let _ = TranslateMessage(&msg); DispatchMessageW(&msg); }
         DECOY.store(0, Ordering::Relaxed);

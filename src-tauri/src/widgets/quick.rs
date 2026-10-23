@@ -82,4 +82,6 @@ pub fn sync_tray(app: &tauri::AppHandle) {
 #[tauri::command]
 pub fn tray_icons() -> Vec<crate::platform::TrayIcon> { crate::platform::tray().icons() }
 #[tauri::command]
+pub fn tray_refresh() { crate::platform::tray().refresh() }
+#[tauri::command]
 pub fn tray_click(id: String, button: String) -> bool { crate::platform::tray().click(&id, &button) }

@@ -197,7 +197,7 @@ fn main() {
             widgets::ocr::ocr_snap_finish, widgets::ocr::ocr_history, widgets::ocr::ocr_history_delete, widgets::ocr::ocr_copy,
             widgets::quick::wifi_list, widgets::quick::wifi_connect, widgets::quick::wifi_disconnect,
             widgets::quick::bt_list, widgets::quick::bt_pair, widgets::quick::bt_unpair, widgets::quick::open_settings_uri,
-            widgets::quick::tray_icons, widgets::quick::tray_click, widgets::sound::audio_meter,
+            widgets::quick::tray_icons, widgets::quick::tray_click, widgets::quick::tray_refresh, widgets::sound::audio_meter,
             widgets::quick::lang_list, widgets::quick::lang_set, widgets::quick::windows_notifications,
         ])
         .build(tauri::generate_context!())

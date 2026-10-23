@@ -39,6 +39,7 @@ impl Tray for WinTray {
     fn start(&self, on_change: Box<dyn Fn() + Send>) { tray::start(on_change) }
     fn stop(&self) { tray::stop() }
     fn running(&self) -> bool { tray::running() }
+    fn refresh(&self) { tray::refresh() }
     fn icons(&self) -> Vec<TrayIcon> { let p = promoted::load(); tray::icons(&|exe| promoted::is_promoted(&p, exe)) }
     fn click(&self, id: &str, button: &str) -> bool { tray::click(id, button) }
 }

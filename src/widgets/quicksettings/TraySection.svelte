@@ -4,6 +4,7 @@
   import { updateWidgetSettings } from '../../lib/config.svelte';
   import { ipc, type TrayIcon } from '../../lib/ipc';
   import { liveTray } from '../tray/icons.svelte';
+  import { RefreshCw } from '@lucide/svelte';
 
   let { instance, onDock }: { instance: string; onDock: boolean } = $props();
   const tray = liveTray();
@@ -12,7 +13,8 @@
 </script>
 
 <div class="head">
-  <h4 class="dim">System tray <span class="n">{tray.v.length}</span></h4>
+  <h4 class="dim">System tray <span class="n">{tray.v.length}</span>
+    <button class="refresh" title="Ask apps to show their tray icons again" onclick={() => ipc.trayRefresh()}><RefreshCw size={11} /></button></h4>
   <label class="dim sw">Show on dock
     <input type="checkbox" class="switch" checked={onDock} onchange={(e) => updateWidgetSettings(instance, { trayOnDock: e.currentTarget.checked })} />
   </label>
@@ -30,7 +32,9 @@
 
 <style>
   .head { display: flex; align-items: center; justify-content: space-between; margin: 14px 2px 6px; }
-  h4 { margin: 0; font-size: 12px; font-weight: 500; }
+  h4 { margin: 0; font-size: 12px; font-weight: 500; display: flex; align-items: center; gap: 5px; }
+  .refresh { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 6px; opacity: 0.7; }
+  .refresh:hover { opacity: 1; background: var(--pill-hover); }
   .n { opacity: 0.7; }
   .sw { display: flex; align-items: center; gap: 6px; font-size: 11px; }
   .grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2px; max-height: 150px; overflow-x: hidden; overflow-y: auto; scrollbar-width: thin; }
