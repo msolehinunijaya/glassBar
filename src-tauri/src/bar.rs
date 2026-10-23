@@ -105,7 +105,12 @@ fn bar_rect(app: &AppHandle, bar: &crate::config::BarCfg, length: f64) -> Option
 }
 
 /// Place, reserve and style the bar from the current config.
+/// Bumped by every slide and every re-placement: a running slide that sees a newer number
+/// stops, so two slides (or a slide and a re-placement) can never fight over the position.
+static SLIDE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
 pub fn apply(app: &AppHandle) {
+    SLIDE.fetch_add(1, Ordering::SeqCst);
     let cfg = app.state::<AppState>().config.lock().unwrap().clone();
     let Some(win) = app.get_webview_window("bar") else { return };
     let bar = &cfg.profile().bar;
@@ -163,22 +168,57 @@ pub fn bar_preview(app: AppHandle, length: f64) {
 
 /// Slide an auto-hidden bar in (show) or out. Animated over ~120 ms.
 #[tauri::command]
-pub fn bar_reveal(app: AppHandle, show: bool) {
+pub fn bar_reveal(app: AppHandle, show: bool) { reveal(&app, show) }
+
+/// Slide an auto-hidden bar in or out (~120 ms). A newer slide or re-placement cancels it.
+pub fn reveal(app: &AppHandle, show: bool) {
     let cfg = app.state::<AppState>().config.lock().unwrap().profile().bar.clone();
     if !cfg.auto_hide || cfg.floating.is_some() { return; }
     if app.state::<AppState>().revealed.swap(show, Ordering::Relaxed) == show { return; }
-    let (Some(win), Some((r, _)), Some(mon)) = (app.get_webview_window("bar"), bar_rect(&app, &cfg, cfg.length), bar_monitor(&app, cfg.monitor)) else { return };
+    let (Some(win), Some((r, _)), Some(mon)) = (app.get_webview_window("bar"), bar_rect(app, &cfg, cfg.length), bar_monitor(app, cfg.monitor)) else { return };
     let to = if show { r } else { hidden_rect(r, cfg.edge, monitor_rect(&mon), PEEK) };
     let from = win.outer_position().map(|p| (p.x, p.y)).unwrap_or((to.x, to.y));
+    let gen = SLIDE.fetch_add(1, Ordering::SeqCst) + 1;
     std::thread::spawn(move || {
         const STEPS: i32 = 8;
         for i in 1..=STEPS {
+            if SLIDE.load(Ordering::SeqCst) != gen { return; } // superseded
             // ease-out
             let t = 1.0 - (1.0 - i as f64 / STEPS as f64).powi(3);
             let x = from.0 + ((to.x - from.0) as f64 * t).round() as i32;
             let y = from.1 + ((to.y - from.1) as f64 * t).round() as i32;
             let _ = win.set_position(PhysicalPosition::new(x, y));
             std::thread::sleep(Duration::from_millis(15));
+        }
+    });
+}
+
+/// Auto-hide driven by the real mouse position (see autohide.rs). Idle unless auto-hide is on.
+pub fn watch_autohide(app: &AppHandle) {
+    let app = app.clone();
+    std::thread::spawn(move || {
+        let mut timers = crate::autohide::Timers::default();
+        loop {
+            std::thread::sleep(Duration::from_millis(crate::autohide::TICK_MS as u64));
+            let cfg = app.state::<AppState>().config.lock().unwrap().profile().bar.clone();
+            if !cfg.auto_hide || cfg.floating.is_some() { continue; }
+            let (Some((shown, _)), Some(mon), Some((x, y))) = (bar_rect(&app, &cfg, cfg.length), bar_monitor(&app, cfg.monitor), shell().cursor_pos()) else { continue };
+            let st = app.state::<AppState>();
+            let popup_open = app.get_webview_window("popup").and_then(|p| p.is_visible().ok()).unwrap_or(false);
+            let snap_open = app.get_webview_window("snap").and_then(|p| p.is_visible().ok()).unwrap_or(false);
+            let busy = st.edit.load(Ordering::Relaxed) || st.dragging.load(Ordering::Relaxed)
+                || popup_open || snap_open || shell().menu_open() || shell().mouse_down();
+            let inputs = crate::autohide::Inputs {
+                revealed: st.revealed.load(Ordering::Relaxed),
+                over_bar: crate::autohide::contains(shown, x, y, 4),
+                at_edge: crate::autohide::contains(crate::autohide::edge_zone(shown, cfg.edge, monitor_rect(&mon)), x, y, 0),
+                busy,
+            };
+            match crate::autohide::step(&inputs, &mut timers) {
+                crate::autohide::Act::Show => reveal(&app, true),
+                crate::autohide::Act::Hide => reveal(&app, false),
+                crate::autohide::Act::Stay => {}
+            }
         }
     });
 }

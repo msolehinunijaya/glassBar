@@ -2,6 +2,7 @@
 mod scheduler;
 mod updates;
 mod alerts;
+mod autohide;
 mod bar;
 mod config;
 mod db;
@@ -126,6 +127,7 @@ fn main() {
                 }
             }));
             widgets::ocr::register_hotkey(h);
+            bar::watch_autohide(h);
             widgets::sound::charger_init();
             widgets::screenshots::prune(h);
             widgets::clipboard::prune(h);

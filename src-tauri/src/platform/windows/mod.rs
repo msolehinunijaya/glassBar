@@ -112,6 +112,17 @@ impl Shell for WinShell {
         use windows::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_LBUTTON};
         unsafe { GetAsyncKeyState(VK_LBUTTON.0 as i32) as u16 & 0x8000 != 0 }
     }
+    fn cursor_pos(&self) -> Option<(i32, i32)> {
+        use windows::Win32::UI::WindowsAndMessaging::GetCursorPos;
+        let mut p = windows::Win32::Foundation::POINT::default();
+        unsafe { GetCursorPos(&mut p).ok()? };
+        Some((p.x, p.y))
+    }
+    fn menu_open(&self) -> bool {
+        use windows::Win32::UI::WindowsAndMessaging::{FindWindowW, IsWindowVisible};
+        // "#32768" is the window class of every popup menu (ours and tray apps').
+        unsafe { FindWindowW(windows::core::w!("#32768"), windows::core::PCWSTR::null()).map(|h| IsWindowVisible(h).as_bool()).unwrap_or(false) }
+    }
     fn set_taskbar(&self, mode: TaskbarMode) { appbar::set_taskbar(mode) }
     fn list_windows(&self) -> Vec<AppWindow> { windows_list::list() }
     fn watch_windows(&self, f: Box<dyn Fn() + Send>) { windows_list::watch(f) }

@@ -110,6 +110,10 @@ pub trait Shell: Send + Sync {
     fn keyboard_layout_set(&self, id: isize) -> bool;
     /// Is the left mouse button down right now (used to detect the end of a window drag)?
     fn mouse_down(&self) -> bool;
+    /// Mouse pointer position in physical desktop pixels.
+    fn cursor_pos(&self) -> Option<(i32, i32)>;
+    /// A context menu (any app's) is open right now.
+    fn menu_open(&self) -> bool;
     /// Milliseconds since the last keyboard/mouse input.
     fn idle_ms(&self) -> u64;
     /// Full path of the foreground window's program, if any.

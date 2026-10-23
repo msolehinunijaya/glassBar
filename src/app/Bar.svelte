@@ -26,34 +26,17 @@
   let order = $state<string[] | null>(null);
   const shown = $derived(order ? order.map((id) => placed.find((w) => w.instance === id)!).filter(Boolean) : placed);
 
-  // ---- Auto-hide: slide in while the pointer is on the bar (or a popup/edit is open) ----
+  // ---- Auto-hide ----
+  // Showing and hiding are decided in Rust from the real mouse position (bar.rs
+  // watch_autohide): page enter/leave events go missing when the bar moves under a still
+  // pointer or a menu is open. Here only: slide in at once on hover, and stay out while editing.
   const autoHide = $derived(bar.autoHide && !bar.floating);
   const setBar = (f: (b: typeof bar) => void) => update((c) => f(c.profiles[c.activeProfile].bar));
-  let hovering = false;
-  let popupOpen = false;
-  let hideTimer: ReturnType<typeof setTimeout>;
-  function scheduleHide() {
-    clearTimeout(hideTimer);
-    if (!autoHide) return;
-    hideTimer = setTimeout(() => {
-      if (!hovering && !edit && !popupOpen && !dragging) ipc.barReveal(false);
-    }, 900);
-  }
-  function onEnter() {
-    hovering = true;
-    clearTimeout(hideTimer);
-    if (autoHide) ipc.barReveal(true);
-  }
-  function onLeave() { hovering = false; scheduleHide(); }
-  $effect(() => {
-    if (!autoHide) return;
-    if (edit) ipc.barReveal(true); else scheduleHide();
-  });
+  function onEnter() { if (autoHide) ipc.barReveal(true); }
+  $effect(() => { if (autoHide && edit) ipc.barReveal(true); });
 
   onMount(() => {
     const offs = [
-      events.popupShow(() => { popupOpen = true; }),
-      events.popupHide(() => { popupOpen = false; scheduleHide(); }),
       events.editMode((on) => (edit = on)),
       win.onMoved(onMoved),
       // Alert sounds play here: the bar window is always alive.
@@ -291,7 +274,7 @@
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="surface bar" class:vertical class:edit onpointerdown={onBarDown} oncontextmenu={onContext}
-     onpointerenter={onEnter} onpointerleave={onLeave} data-size={bar.size}>
+     onpointerenter={onEnter} data-size={bar.size}>
   <div class="handle start" onpointerdown={(e) => onHandleDown(e, -1)}></div>
 
   <div class="scroller" bind:this={scroller}>
