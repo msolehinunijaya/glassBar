@@ -101,6 +101,8 @@ export const ipc = {
   thumbsClear: () => invoke<void>('thumbs_clear'),
   barReveal: (show: boolean) => invoke<void>('bar_reveal', { show }),
   popupHide: () => invoke<void>('popup_hide'),
+  /** Make the open popup exactly this tall (CSS px): panels size themselves to their content. */
+  popupFit: (height: number) => invoke<void>('popup_fit', { height }),
   // alerts
   alertsList: () => invoke<Alert[]>('alerts_list'),
   alertsMarkRead: () => invoke<void>('alerts_mark_read'),

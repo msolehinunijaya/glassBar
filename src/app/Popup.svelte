@@ -29,6 +29,26 @@
   const leaveSoon = () => { clearTimeout(leaveTimer); if (hover) leaveTimer = setTimeout(close, 150); };
   const stay = () => clearTimeout(leaveTimer);
 
+  // Size the window to the panel's content (no empty space below, no needless scrollbar):
+  // measure the content whenever it changes size and ask Rust to fit the popup to it.
+  let surface = $state<HTMLElement>();
+  let content = $state<HTMLElement>();
+  let lastFit = 0;
+  $effect(() => {
+    if (!content || !surface || !instance) return;
+    const cs = getComputedStyle(surface);
+    const chrome = ['paddingTop', 'paddingBottom', 'borderTopWidth', 'borderBottomWidth'].reduce((s, k) => s + parseFloat(cs[k as any] as string), 0);
+    const fit = () => {
+      const h = Math.ceil(content!.offsetHeight + chrome);
+      if (Math.abs(h - lastFit) > 1) { lastFit = h; ipc.popupFit(h); }
+    };
+    lastFit = 0;
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(content);
+    return () => ro.disconnect();
+  });
+
   onMount(() => {
     const offs = [
       events.popupShow((i) => { instance = i; stay(); }),
@@ -43,7 +63,8 @@
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="surface popup" class:hover onpointerenter={stay} onpointerleave={leaveSoon}>
+<div class="surface popup" class:hover bind:this={surface} onpointerenter={stay} onpointerleave={leaveSoon}>
+  <div class="content" bind:this={content}>
   {#if instance?.startsWith(WINDOWS)}
     {#key instance}<WindowPreviews appKey={instance.slice(WINDOWS.length)} {close} />{/key}
   {:else if instance === FEEDBACK && feedback}
@@ -55,6 +76,7 @@
       <m.Popup.component instance={w.instance} settings={settingsOf(m, w)} {close} />
     {/key}
   {/if}
+  </div>
 </div>
 
 <style>

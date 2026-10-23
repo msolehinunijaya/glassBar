@@ -10,7 +10,8 @@
   let { settings, vertical }: PillProps<QuickSettings> = $props();
   // Tray icons on the dock (switch in the panel), collapsed behind a chevron by default.
   // Click the chevron to show them all; a click anywhere else on the dock (another widget,
-  // the bar itself) or leaving GlassBar folds them away again.
+  // the bar itself) folds them away again. Not on losing focus: right-clicking a tray icon
+  // opens that app's own menu, which takes focus, and the icons must stay put for it.
   const tray = liveTray();
   const trayIcons = $derived(settings.trayOnDock ? [...tray.v].sort((a, b) => Number(b.promoted) - Number(a.promoted)) : []);
   let expanded = $state(false);
@@ -18,10 +19,8 @@
   $effect(() => {
     if (!expanded) return;
     const outside = (e: PointerEvent) => { if (!trayEl?.contains(e.target as Node)) expanded = false; };
-    const leave = () => (expanded = false);
     addEventListener('pointerdown', outside, true);
-    addEventListener('blur', leave);
-    return () => { removeEventListener('pointerdown', outside, true); removeEventListener('blur', leave); };
+    return () => removeEventListener('pointerdown', outside, true);
   });
   // The chevron points the way the icons unfold (towards the screen centre on side docks).
   const Open = $derived(vertical ? ChevronDown : ChevronLeft);

@@ -190,10 +190,24 @@ pub fn bar_drag(app: AppHandle, on: bool) { app.state::<AppState>().dragging.sto
 #[tauri::command]
 pub fn mouse_down() -> bool { shell().mouse_down() }
 
+/// The panel measured its content: make the popup exactly that tall (CSS px), on the same
+/// side of the same widget, at most 85 % of the screen (beyond that it scrolls).
+#[tauri::command]
+pub fn popup_fit(app: AppHandle, height: f64) {
+    let Some(p) = app.state::<AppState>().popup.lock().unwrap().place else { return };
+    let Some(win) = app.get_webview_window("popup") else { return };
+    let h = ((height * p.scale).round() as i32).clamp(60, p.mon.h * 85 / 100);
+    set_rect(&win, popup_rect(p.bar, p.anchor, p.width, h, p.edge, p.mon, p.gap));
+}
+
 // ---- Popup ----
 
 #[derive(Default)]
-pub struct PopupState { pub instance: Option<String>, pub hidden_at: Option<Instant> }
+pub struct PopupState { pub instance: Option<String>, pub hidden_at: Option<Instant>, pub place: Option<Placement> }
+
+/// Where the open popup was put, so it can be re-sized to its content without moving sides.
+#[derive(Clone, Copy)]
+pub struct Placement { bar: Rect, anchor: Rect, width: i32, edge: Edge, mon: Rect, gap: i32, scale: f64 }
 
 pub fn popup_hidden(app: &AppHandle) {
     shell().thumbs_clear(); // never leave live thumbnails behind
@@ -236,7 +250,9 @@ pub fn popup_open(app: AppHandle, instance: String, x: f64, y: f64, w: f64, h: f
         (Some(_), _) if br.y + br.h / 2 > mon.y + mon.h / 2 => Edge::Bottom,
         _ => Edge::Top,
     };
-    let r = popup_rect(br, anchor, (width * s).round() as i32, (height * s).round() as i32, edge, mon, (8.0 * s) as i32);
+    let gap = (8.0 * s) as i32;
+    let r = popup_rect(br, anchor, (width * s).round() as i32, (height * s).round() as i32, edge, mon, gap);
+    st.popup.lock().unwrap().place = Some(Placement { bar: br, anchor, width: r.w, edge, mon, gap, scale: s });
     let _ = app.emit("popup:show", &instance);
     set_rect(&popup, r);
     // Hover previews must not steal focus from the user's app: make the window
