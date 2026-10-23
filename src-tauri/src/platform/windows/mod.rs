@@ -2,6 +2,8 @@
 mod appbar;
 mod audio;
 mod display;
+mod gpu;
+mod power;
 mod location;
 mod media;
 mod radios;
@@ -17,6 +19,8 @@ pub struct WinMedia;
 pub struct WinRadios;
 pub struct WinDisplay;
 pub struct WinLocation;
+pub struct WinPower;
+pub struct WinGpu;
 
 /// Join this thread to the COM multithreaded apartment (no-op if already joined).
 pub(crate) fn com_init() {
@@ -80,4 +84,12 @@ impl Display for WinDisplay {
 
 impl Location for WinLocation {
     fn locate(&self) -> Res<(f64, f64)> { location::locate() }
+}
+
+impl Power for WinPower {
+    fn battery(&self) -> Option<Battery> { power::battery() }
+}
+
+impl Gpu for WinGpu {
+    fn usage(&self) -> Option<f32> { gpu::usage() }
 }

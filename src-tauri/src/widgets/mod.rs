@@ -8,6 +8,7 @@ pub mod notes;
 pub mod quick;
 pub mod solat;
 pub mod sound;
+pub mod sysmon;
 pub mod todo;
 pub mod weather;
 

@@ -115,6 +115,20 @@ pub trait Radios: Send + Sync {
     fn set(&self, kind: Option<RadioKind>, on: bool) -> Res<()>;
 }
 
+#[derive(Serialize, Clone, Copy, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct Battery { pub percent: u8, pub charging: bool, pub on_ac: bool, pub secs_left: Option<u32> }
+
+pub trait Power: Send + Sync {
+    /// None on PCs without a battery.
+    fn battery(&self) -> Option<Battery>;
+}
+
+pub trait Gpu: Send + Sync {
+    /// GPU utilization 0..100, None if counters are unavailable.
+    fn usage(&self) -> Option<f32>;
+}
+
 pub trait Location: Send + Sync {
     /// Device position (lat, lon) from the OS location service.
     fn locate(&self) -> Res<(f64, f64)>;
@@ -143,3 +157,7 @@ pub fn radios() -> &'static dyn Radios { &win::WinRadios }
 pub fn display() -> &'static dyn Display { &win::WinDisplay }
 #[cfg(windows)]
 pub fn location() -> &'static dyn Location { &win::WinLocation }
+#[cfg(windows)]
+pub fn power() -> &'static dyn Power { &win::WinPower }
+#[cfg(windows)]
+pub fn gpu() -> &'static dyn Gpu { &win::WinGpu }

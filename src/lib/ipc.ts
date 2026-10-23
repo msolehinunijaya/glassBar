@@ -42,6 +42,8 @@ export interface IpuReading {
   kind: 'ipu' | 'aqi_us'; value: number; band: Band; station: Station | null; distanceKm: number | null;
   nearby: [Station, number][]; place: Place | null; fetchedAt: number; offline: boolean; stations: [string, string][];
 }
+export interface Battery { percent: number; charging: boolean; onAc: boolean; secsLeft: number | null }
+export interface Sample { cpu: number; mem: number; gpu: number | null; rxBps: number; txBps: number; at: number }
 export type Sound = { kind: 'chime' } | { kind: 'azan'; src: string };
 
 export interface AppWindow { id: number; title: string; exe: string; active: boolean; minimized: boolean }
@@ -119,6 +121,9 @@ export const ipc = {
   solatTestSound: (file: string) => invoke<void>('solat_test_sound', { file }),
   // IPU
   ipuGet: (force = false) => invoke<IpuReading | null>('ipu_get', { force }),
+  // battery + system monitor
+  batteryGet: () => invoke<Battery | null>('battery_get'),
+  sysmonHistory: () => invoke<Sample[]>('sysmon_history'),
   // apps
   appsList: () => invoke<AppWindow[]>('apps_list'),
   appIcon: (exe: string) => invoke<string | null>('app_icon', { exe }),
@@ -156,6 +161,7 @@ export const events = {
   audioChanged: (cb: (s: AudioState) => void) => listen<AudioState>('audio:changed', (e) => cb(e.payload)),
   mediaChanged: (cb: (m: MediaInfo | null) => void) => listen<MediaInfo | null>('media:changed', (e) => cb(e.payload)),
   alertsChanged: (cb: () => void) => listen('alerts:changed', () => cb()),
+  sysmonSample: (cb: (s: Sample) => void) => listen<Sample>('sysmon:sample', (e) => cb(e.payload)),
   soundPlay: (cb: (s: Sound) => void) => listen<Sound>('sound:play', (e) => cb(e.payload)),
   /** Any "<name>:changed" event from Rust (todos, notes, timers, ...). */
   changed: (name: string, cb: () => void) => listen(`${name}:changed`, () => cb()),
