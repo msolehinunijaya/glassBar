@@ -9,6 +9,8 @@ export interface SysmonSettings {
   temp: boolean; tempUnit: 'c' | 'f'; tempWarn: string;
   /** Drives on the bar (mount points); empty = system drive. Thresholds are used-% strings. */
   drives: string[]; diskHigh: string; diskCritical: string;
+  /** Recycle Bin size on the bar (checked once a minute). */
+  recycle: boolean;
 }
 
 export default defineWidget<SysmonSettings>({
@@ -18,7 +20,7 @@ export default defineWidget<SysmonSettings>({
   icon: Activity,
   sizes: ['small', 'medium', 'large'],
   defaultSize: 'medium',
-  defaults: { cpu: true, ram: true, network: false, disk: false, gpu: false, temp: true, tempUnit: 'c', tempWarn: '80', drives: [], diskHigh: '80', diskCritical: '90' },
+  defaults: { cpu: true, ram: true, network: false, disk: false, gpu: false, temp: true, tempUnit: 'c', tempWarn: '80', drives: [], diskHigh: '80', diskCritical: '90', recycle: false },
   Pill,
   Popup: { component: Popup, width: 360, height: 640 },
   SettingsForm,

@@ -9,6 +9,7 @@
   import { Cpu, HardDrive, MemoryStick, ArrowDownUp, Gpu } from '@lucide/svelte';
   import { bytes, letter, level, levelColor, pickDrives, usedPct } from './disk';
   import { liveDrives } from './drives.svelte';
+  import RecycleCard from './RecycleCard.svelte';
 
   let { instance, settings }: PopupProps<SysmonSettings> = $props();
   const s = liveSamples();
@@ -29,6 +30,7 @@
   { type: 'choice', key: 'tempUnit', label: 'Unit', choices: [{ value: 'c', label: '°C' }, { value: 'f', label: '°F' }] },
   { type: 'choice', key: 'tempWarn', label: 'Warn at', choices: [{ value: '70', label: '70°C' }, { value: '80', label: '80°C' }, { value: '90', label: '90°C' }] },
   { type: 'toggle', key: 'gpu', label: 'GPU graph', hint: 'Shown below; uses Windows performance counters' },
+  { type: 'toggle', key: 'recycle', label: 'Recycle Bin size on the bar', hint: 'Checked once a minute' },
 ]} />
 
 <div class="grid">
@@ -57,6 +59,8 @@
 {:else}
   <p class="dim small">{drives.loaded ? 'Windows reported no drives.' : 'Loading…'}</p>
 {/each}
+
+<RecycleCard />
 
 <style>
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }

@@ -147,6 +147,7 @@ fn main() {
             widgets::ipu::start(h.clone());
             widgets::sysmon::start(h.clone());
             widgets::screentime::start(h.clone());
+            widgets::downloads::start(h.clone());
             updates::start(h.clone());
             Ok(())
         })
@@ -168,7 +169,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             get_config, save_config, export_config, import_config, apply_bar, restore_taskbar,
-            bar::popup_open, bar::popup_hide, bar::open_settings_cmd, bar::set_edit_mode,
+            bar::popup_open, bar::popup_hide, bar::banner_fit, bar::banner_hide, bar::jump_to, bar::open_settings_cmd, bar::set_edit_mode,
             bar::bar_preview, bar::bar_drag, bar::mouse_down, bar::transparency_effects, bar::bar_reveal, bar::popup_leave,
             bar::thumbs_show, bar::thumbs_clear,
             widgets::todo::todo_list, widgets::todo::todo_add, widgets::todo::todo_update,
@@ -179,7 +180,11 @@ fn main() {
             widgets::focus::pomo_get, widgets::focus::pomo_start, widgets::focus::pomo_pause,
             widgets::focus::pomo_skip, widgets::focus::pomo_reset,
             widgets::focus::timers_list, widgets::focus::timer_add, widgets::focus::timer_pause,
-            widgets::focus::timer_resume, widgets::focus::timer_delete,
+            widgets::focus::timer_resume, widgets::focus::timer_delete, widgets::focus::timer_snooze,
+            widgets::downloads::downloads_state, widgets::downloads::downloads_open, widgets::downloads::downloads_reveal,
+            widgets::downloads::downloads_open_folder, widgets::downloads::downloads_open_with, widgets::downloads::downloads_rename,
+            widgets::downloads::downloads_recycle, widgets::downloads::downloads_drag, widgets::downloads::file_icon,
+            widgets::downloads::recycle_info, widgets::downloads::recycle_empty,
             widgets::focus::sw_get, widgets::focus::sw_toggle, widgets::focus::sw_lap, widgets::focus::sw_reset,
             widgets::location::location_get, widgets::location::location_search, widgets::weather::weather_get,
             widgets::solat::solat_days, widgets::solat::solat_zones, widgets::solat::solat_test_sound,

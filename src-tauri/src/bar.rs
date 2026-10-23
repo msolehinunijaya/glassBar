@@ -161,7 +161,7 @@ fn apply_now(app: &AppHandle) {
     // ignored there): pin it to GlassBar's theme, or follow Windows on Auto. Before
     // is_dark, which reads it on Auto.
     let theme = match cfg.theme.mode { ThemeMode::Auto => None, ThemeMode::Light => Some(tauri::Theme::Light), ThemeMode::Dark => Some(tauri::Theme::Dark) };
-    let windows: Vec<_> = ["bar", "popup"].into_iter().filter_map(|l| app.get_webview_window(l)).collect();
+    let windows: Vec<_> = ["bar", "popup", "banner"].into_iter().filter_map(|l| app.get_webview_window(l)).collect();
     for w in &windows { let _ = w.set_theme(theme); }
     let glass = Glass { native: glass_native(cfg.theme.native_blur), dark: is_dark(app, &cfg), opacity: cfg.theme.opacity };
     // Blur/tint calls only work on the thread that owns the window (the main thread); from
@@ -263,7 +263,8 @@ pub fn watch_autohide(app: &AppHandle) {
             let st = app.state::<AppState>();
             let popup_open = app.get_webview_window("popup").and_then(|p| p.is_visible().ok()).unwrap_or(false);
             let snap_open = app.get_webview_window("snap").and_then(|p| p.is_visible().ok()).unwrap_or(false);
-            let busy = st.edit.load(Ordering::Relaxed) || st.dragging.load(Ordering::Relaxed)
+            let held = HOLD_UNTIL.load(Ordering::Relaxed) > crate::db::now_ms() as u64; // a jump is showing a widget
+            let busy = st.edit.load(Ordering::Relaxed) || st.dragging.load(Ordering::Relaxed) || held
                 || popup_open || snap_open || shell().menu_open() || shell().mouse_down();
             let inputs = crate::autohide::Inputs {
                 revealed: st.revealed.load(Ordering::Relaxed),
@@ -369,6 +370,76 @@ pub fn popup_open(app: AppHandle, instance: String, x: f64, y: f64, w: f64, h: f
 
 #[tauri::command]
 pub fn popup_hide(app: AppHandle) { popup_hidden(&app) }
+
+// ---- Notification banners ----
+
+/// Keep an auto-hidden dock out until then (ms), while a jump highlights a widget.
+static HOLD_UNTIL: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+/// A notification for the banner window: hand it over and show the window (it sizes
+/// itself with `banner_fit`). Never takes focus from the app you're typing in.
+pub fn banner_push(app: &AppHandle, note: crate::alerts::Note) {
+    let Some(win) = app.get_webview_window("banner") else { return };
+    let _ = app.emit_to("banner", "banner:push", &note);
+    if !win.is_visible().unwrap_or(false) {
+        if let Some(r) = banner_rect(app, 340.0, 96.0) { set_rect(&win, r); }
+        let _ = win.set_focusable(false);
+        let _ = win.show();
+    }
+}
+
+/// Where the banner goes: next to the dock (at its far end, on its screen side), or in the
+/// screen corner on the dock's side. Works on every edge and monitor, auto-hidden or not.
+fn banner_rect(app: &AppHandle, w_css: f64, h_css: f64) -> Option<Rect> {
+    let cfg = app.state::<AppState>().config.lock().unwrap().clone();
+    let bar = cfg.profile().bar.clone();
+    let mon = bar_monitor(app, bar.monitor)?;
+    let s = mon.scale_factor();
+    let m = monitor_rect(&mon);
+    let (w, h, gap) = ((w_css * s).round() as i32, (h_css * s).round() as i32, (10.0 * s).round() as i32);
+    // Where the dock is when shown (also while auto-hidden or floating).
+    let r = if bar.floating.is_some() {
+        let win = app.get_webview_window("bar")?;
+        let (p, z) = (win.outer_position().ok()?, win.outer_size().ok()?);
+        Rect { x: p.x, y: p.y, w: z.width as i32, h: z.height as i32 }
+    } else { bar_rect(app, &bar, bar.length)?.0 };
+    let edge = match (bar.floating, bar.edge) {
+        (Some(_), Edge::Top | Edge::Bottom) => if r.y + r.h / 2 > m.y + m.h / 2 { Edge::Bottom } else { Edge::Top },
+        (_, e) => e,
+    };
+    let corner = cfg.banners.position == "corner";
+    let (x, y) = match edge {
+        Edge::Bottom => (if corner { m.x + m.w - w - gap } else { r.x + r.w - w }, r.y - gap - h),
+        Edge::Top => (if corner { m.x + m.w - w - gap } else { r.x + r.w - w }, r.y + r.h + gap),
+        Edge::Left => (r.x + r.w + gap, if corner { m.y + m.h - h - gap } else { r.y + r.h - h }),
+        Edge::Right => (r.x - gap - w, if corner { m.y + m.h - h - gap } else { r.y + r.h - h }),
+    };
+    Some(Rect { x: x.clamp(m.x, m.x + m.w - w), y: y.clamp(m.y, m.y + m.h - h), w, h })
+}
+
+/// The banner measured its stack: fit the window to it (CSS px).
+#[tauri::command]
+pub fn banner_fit(app: AppHandle, width: f64, height: f64) {
+    let (Some(win), Some(r)) = (app.get_webview_window("banner"), banner_rect(&app, width, height)) else { return };
+    set_rect(&win, r);
+}
+
+/// Nothing left to show.
+#[tauri::command]
+pub fn banner_hide(app: AppHandle) {
+    if let Some(w) = app.get_webview_window("banner") { let _ = w.hide(); }
+}
+
+/// Go to the widget that sent a notification (banner click, or the Notification Center
+/// list): reveal an auto-hidden dock, then the bar scrolls to it, highlights it and (if set)
+/// opens its panel.
+#[tauri::command]
+pub fn jump_to(app: AppHandle, source: String, data: serde_json::Value) {
+    let open = app.state::<AppState>().config.lock().unwrap().banners.on_click == "open";
+    HOLD_UNTIL.store(crate::db::now_ms() as u64 + 3_500, Ordering::Relaxed);
+    reveal(&app, true);
+    let _ = app.emit_to("bar", "bar:jump", serde_json::json!({ "source": source, "data": data, "open": open }));
+}
 
 #[derive(serde::Deserialize)]
 pub struct ThumbArea { pub id: isize, pub x: f64, pub y: f64, pub w: f64, pub h: f64 }

@@ -67,17 +67,20 @@ fn handle(app: &AppHandle, d: &Due, missed: bool) {
     match d.source {
         "house" => housekeeping(app),
         "timer" => {
-            if let Some(id) = crate::widgets::focus::timer_id(&d.key) { crate::widgets::focus::on_timer_due(app, id); }
-            crate::alerts::notify(app, d.source, &d.title, &d.body, missed);
+            let id = crate::widgets::focus::timer_id(&d.key);
+            if let Some(id) = id { crate::widgets::focus::on_timer_due(app, id); }
+            crate::alerts::notify_full(app, d.source, &d.title, &d.body, missed, serde_json::json!({ "kind": "chime" }), serde_json::json!({ "timerId": id }));
         }
         "pomodoro" => {
             crate::widgets::focus::on_pomo_due(app);
             crate::alerts::notify(app, d.source, &d.title, &d.body, missed);
         }
-        _ => match &d.sound {
-            Some(s) => crate::alerts::notify_with(app, d.source, &d.title, &d.body, missed, crate::widgets::solat::sound_payload(s)),
-            None => crate::alerts::notify(app, d.source, &d.title, &d.body, missed),
-        },
+        _ => {
+            let sound = d.sound.as_ref().map(crate::widgets::solat::sound_payload).unwrap_or(serde_json::json!({ "kind": "chime" }));
+            // The occurrence key ("todo:<id>:<at>", "solat:<date>:<zone>:<name>") lets the
+            // banner's buttons act on exactly this item.
+            crate::alerts::notify_full(app, d.source, &d.title, &d.body, missed, sound, serde_json::json!({ "key": d.key }));
+        }
     }
 }
 

@@ -133,6 +133,18 @@ pub struct Config {
     pub dnd: bool,
     pub location: LocationCfg,
     pub device_sounds: DeviceSounds,
+    /// Pop-up banners next to the dock for GlassBar's own notifications.
+    pub banners: Banners,
+}
+
+/// show: banners on (else a Windows toast) · seconds: 3/5/8/10 · position: "auto" (next
+/// to the dock) or "corner" · on_click: "highlight" or "open" (also open the panel) ·
+/// muted: sources with no banner (still in the list) · sound: play the alert sound.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase", default)]
+pub struct Banners { pub show: bool, pub seconds: u32, pub position: String, pub on_click: String, pub muted: Vec<String>, pub sound: bool }
+impl Default for Banners {
+    fn default() -> Self { Self { show: true, seconds: 5, position: "auto".into(), on_click: "highlight".into(), muted: vec![], sound: true } }
 }
 
 /// Sounds when a USB device is plugged in / removed. Off by default: Windows plays its own.
@@ -152,7 +164,7 @@ impl Default for Config {
         Self { version: CURRENT_VERSION, active_profile: "Default".into(),
                profiles: BTreeMap::from([("Default".into(), Profile::default())]),
                theme: Theme::default(), startup: Startup::default(),
-               dnd: false, location: LocationCfg::default(), device_sounds: DeviceSounds::default() }
+               dnd: false, location: LocationCfg::default(), device_sounds: DeviceSounds::default(), banners: Banners::default() }
     }
 }
 

@@ -3,6 +3,7 @@ pub mod ai;
 pub mod apps;
 pub mod clipboard;
 pub mod currency;
+pub mod downloads;
 pub mod focus;
 pub mod ipu;
 pub mod jumplist;

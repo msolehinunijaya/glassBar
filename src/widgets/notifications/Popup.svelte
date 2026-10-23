@@ -47,11 +47,12 @@
 
 <div class="list">
   {#each alerts.list as a (a.id)}
-    <div class="item card">
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <div class="item card" role="button" tabindex="-1" title="Go to the widget" onclick={() => ipc.jumpTo(a.source, a.data)}>
       <div class="top">
         <b class="ellipsis">{a.title}</b>
         <span class="dim small">{relTime(a.at)}</span>
-        <button class="x" aria-label="Dismiss" onclick={() => ipc.alertsDismiss(a.id)}><X size={13} /></button>
+        <button class="x" aria-label="Dismiss" onclick={(e) => { e.stopPropagation(); ipc.alertsDismiss(a.id); }}><X size={13} /></button>
       </div>
       {#if a.body}<div class="small">{a.body}</div>{/if}
       {#if a.missed}<span class="tag">missed</span>{/if}
@@ -69,7 +70,8 @@
   .dnd { display: flex; align-items: center; gap: 10px; padding: 10px 12px; margin-bottom: 10px; }
   .dnd span { flex: 1; }
   .list { display: flex; flex-direction: column; gap: 6px; }
-  .item { padding: 10px 12px; }
+  .item { padding: 10px 12px; transition: background 0.15s; }
+  .item:hover { background: var(--pill-hover); }
   .top { display: flex; align-items: center; gap: 8px; }
   .top b { flex: 1; font-weight: 500; }
   .small { font-size: 12px; }

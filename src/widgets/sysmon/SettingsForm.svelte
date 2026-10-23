@@ -14,4 +14,5 @@
   { type: 'choice', key: 'tempUnit', label: 'Unit', choices: [{ value: 'c', label: '°C' }, { value: 'f', label: '°F' }] },
   { type: 'choice', key: 'tempWarn', label: 'Warn at', choices: [{ value: '70', label: '70°C' }, { value: '80', label: '80°C' }, { value: '90', label: '90°C' }] },
   { type: 'toggle', key: 'gpu', label: 'GPU graph in the panel' },
+  { type: 'toggle', key: 'recycle', label: 'Recycle Bin size on the bar', hint: 'Checked once a minute' },
 ]} />

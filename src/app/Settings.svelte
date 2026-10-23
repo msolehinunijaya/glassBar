@@ -8,7 +8,9 @@
   import { addWidget, available, settingsOf, widgets } from '../widgets/registry';
   import Updates from './Updates.svelte';
 
-  const sections = ['Bar', 'Appearance', 'Widgets', 'Sounds', 'Profiles', 'Startup', 'Updates', 'Backup'] as const;
+  const sections = ['Bar', 'Appearance', 'Widgets', 'Notifications', 'Sounds', 'Profiles', 'Startup', 'Updates', 'Backup'] as const;
+  import { SOURCE_WIDGET } from '../lib/notify';
+  const BANNER_SOURCES = [...Object.entries(SOURCE_WIDGET).map(([k, v]) => [k, v.label] as const), ['update', 'Updates'] as const];
   let section = $state<(typeof sections)[number]>('Bar');
   let monitors = $state<Monitor[]>([]);
   availableMonitors().then((m) => (monitors = m));
@@ -188,6 +190,44 @@
       </div>
       <p class="hint">Switch profiles from here or from the tray icon menu.</p>
 
+    {:else if section === 'Notifications'}
+      <div class="group">
+        <label class="field"><span>Do Not Disturb</span>
+          <input type="checkbox" checked={c.dnd} onchange={(e) => set((c) => (c.dnd = e.currentTarget.checked))} />
+        </label>
+        <p class="hint">On: no banners, toasts or sounds. Everything still goes into the Notification Center list.</p>
+      </div>
+      <div class="group">
+        <label class="field"><span>Show pop-up banners</span>
+          <input type="checkbox" checked={c.banners.show} onchange={(e) => set((c) => (c.banners.show = e.currentTarget.checked))} />
+        </label>
+        <p class="hint">A small banner next to the dock (timer done, prayer time, download finished…). Click it to jump to the widget. Off: Windows shows its own notification instead.</p>
+        {#if c.banners.show}
+          <div class="field"><span>Display time</span>
+            <span class="segs">{#each [3, 5, 8, 10] as s (s)}<button class="btn" class:on={c.banners.seconds === s} onclick={() => set((c) => (c.banners.seconds = s as 3 | 5 | 8 | 10))}>{s} s</button>{/each}</span>
+          </div>
+          <div class="field"><span>Position</span>
+            <span class="segs"><button class="btn" class:on={c.banners.position === 'auto'} onclick={() => set((c) => (c.banners.position = 'auto'))}>Next to the dock</button>
+            <button class="btn" class:on={c.banners.position === 'corner'} onclick={() => set((c) => (c.banners.position = 'corner'))}>Screen corner</button></span>
+          </div>
+          <div class="field"><span>On click</span>
+            <span class="segs"><button class="btn" class:on={c.banners.onClick === 'highlight'} onclick={() => set((c) => (c.banners.onClick = 'highlight'))}>Show the widget</button>
+            <button class="btn" class:on={c.banners.onClick === 'open'} onclick={() => set((c) => (c.banners.onClick = 'open'))}>…and open its panel</button></span>
+          </div>
+          <label class="field"><span>Play the alert sound with the banner</span>
+            <input type="checkbox" checked={c.banners.sound} onchange={(e) => set((c) => (c.banners.sound = e.currentTarget.checked))} />
+          </label>
+          <h2>Banners per widget</h2>
+          {#each BANNER_SOURCES as [k, label] (k)}
+            <label class="field"><span>{label}</span>
+              <input type="checkbox" checked={!c.banners.muted.includes(k)}
+                     onchange={(e) => set((c) => (c.banners.muted = e.currentTarget.checked ? c.banners.muted.filter((m) => m !== k) : [...c.banners.muted, k]))} />
+            </label>
+          {/each}
+          <p class="hint">Off: no banner for that widget (it still goes into the list).</p>
+        {/if}
+      </div>
+
     {:else if section === 'Sounds'}
       <div class="group">
         <label class="field"><span>Charger sounds (plugged in / unplugged)</span>
@@ -273,6 +313,10 @@
   textarea { width: 100%; font-family: Consolas, monospace; font-size: 12px; resize: vertical; }
   :global(.btn) { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 9px; background: var(--accent); color: #fff; }
   :global(.btn:disabled) { opacity: 0.5; }
+  /* Choice buttons (Notifications): plain, the chosen one in the accent colour. */
+  .segs { display: inline-flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+  .segs .btn { background: var(--pill); color: var(--fg); padding: 6px 10px; font-size: 12px; }
+  .segs .btn.on { background: var(--accent); color: #fff; }
   .wrow { display: flex; align-items: center; gap: 8px; padding: 6px 0; }
   .wrow b { flex: 1; font-weight: 500; }
   .grow { flex: 1; }

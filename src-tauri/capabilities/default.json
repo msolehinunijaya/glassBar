@@ -6,7 +6,8 @@
     "bar",
     "popup",
     "settings",
-    "snap"
+    "snap",
+    "banner"
   ],
   "permissions": [
     "core:default",

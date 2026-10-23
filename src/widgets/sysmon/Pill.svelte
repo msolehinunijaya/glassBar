@@ -9,6 +9,9 @@
   import { fmtTemp, isHot } from './temp';
   import { letter, level, levelColor, pickDrives, usedPct } from './disk';
   import { liveDrives } from './drives.svelte';
+  import { Trash2 } from '@lucide/svelte';
+  import { events, ipc, type RecycleInfo } from '../../lib/ipc';
+  import { fmtSize } from '../downloads/format';
 
   let { size, settings }: PillProps<SysmonSettings> = $props();
   const s = liveSamples();
@@ -20,6 +23,16 @@
   // Disk space changes slowly: once a minute is plenty, and only while shown.
   const drives = liveDrives(60_000, () => settings.disk);
   const shownDrives = $derived(settings.disk ? pickDrives(drives.list, settings.drives) : []);
+  // Recycle Bin size (optional): once a minute, and right after it changes.
+  let bin = $state<RecycleInfo | null>(null);
+  $effect(() => {
+    if (!settings.recycle) { bin = null; return; }
+    const load = () => ipc.recycleInfo().then((i) => (bin = i)).catch(() => (bin = null));
+    load();
+    const t = setInterval(load, 60_000);
+    const off = events.changed('recycle', load);
+    return () => { clearInterval(t); off.then((f) => f()); };
+  });
 </script>
 
 <div class="pill" title="System">
@@ -40,6 +53,9 @@
       <span class="dtrack"><span style:width="{p}%" style:background={levelColor[level(p, +settings.diskHigh, +settings.diskCritical)]}></span></span>
     </span>
   {/each}
+  {#if settings.recycle && bin}
+    <span class="m" transition:slide={t} title="Recycle Bin: {bin.items} items"><Trash2 size={13} class="dim" />{fmtSize(bin.size)}</span>
+  {/if}
   {#if settings.network && last}
     <span class="m net stack" transition:slide={t} title="Download / upload">
       <span class="row"><span class="dim k">↓</span>{rate(last.rxBps)}</span>

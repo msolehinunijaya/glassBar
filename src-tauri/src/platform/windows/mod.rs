@@ -2,6 +2,7 @@
 mod appbar;
 mod audio;
 mod display;
+mod files;
 mod gpu;
 mod hotspot;
 mod lang;
@@ -194,4 +195,16 @@ impl Power for WinPower {
 impl Gpu for WinGpu {
     fn usage(&self) -> Option<f32> { gpu::usage() }
     fn cpu_temp_c(&self) -> Option<f32> { thermal::cpu_temp_c() }
+}
+
+pub struct WinFiles;
+impl Files for WinFiles {
+    fn downloads_dir(&self) -> Option<String> { files::downloads_dir() }
+    fn file_icon(&self, path: &str) -> Option<String> { files::file_icon(path) }
+    fn reveal(&self, path: &str) -> Res<()> { files::reveal(path) }
+    fn open_with(&self, path: &str) -> Res<()> { files::open_with(path) }
+    fn recycle(&self, path: &str) -> Res<()> { files::recycle(path) }
+    fn drag_out(&self, hwnd: isize, path: &str) -> Res<()> { files::drag_out(hwnd, path) }
+    fn recycle_info(&self) -> Res<RecycleInfo> { files::recycle_info() }
+    fn recycle_empty(&self, root: Option<&str>) -> Res<()> { files::recycle_empty(root) }
 }

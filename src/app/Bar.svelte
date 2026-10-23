@@ -13,6 +13,8 @@
   import { showMenu } from '../lib/menu';
   import { PredefinedMenuItem } from '@tauri-apps/api/menu';
   import { settingsOf, widgets } from '../widgets/registry';
+  import { jumpTarget } from '../lib/notify';
+  import { PARTS, partPanel } from '../widgets/productivity/parts';
 
   const win = getCurrentWindow();
   let edit = $state(false);
@@ -48,6 +50,29 @@
         const el = document.querySelector('.capture-pill') ?? scroller;
         const h = d.kind === 'shot' ? 208 : d.kind === 'ocr' ? 168 : 100;
         setTimeout(() => ipc.popupOpen('__feedback', el.getBoundingClientRect(), 300, h, false), 60);
+      }),
+      // A notification was clicked: scroll to the widget that sent it, pulse a soft glow,
+      // and (if set) open its panel. Removed since: the Notification Center instead.
+      events.barJump(({ source, open }) => {
+        const t = jumpTarget(source, shown);
+        if (t.kind === 'none') return;
+        const el = scroller.querySelectorAll<HTMLElement>(':scope > .slot')[t.index];
+        if (!el) return;
+        el.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'center' });
+        el.classList.remove('jump'); void el.offsetWidth; el.classList.add('jump');
+        setTimeout(() => el.classList.remove('jump'), 2300);
+        if (t.kind === 'widget' && !open) return;
+        setTimeout(() => {
+          const w = shown[t.index];
+          if (t.kind === 'widget' && t.part) {
+            const seg = el.querySelectorAll<HTMLElement>('.seg')[PARTS.filter((p) => (w.settings as Record<string, unknown> | null)?.[p.show] !== false).findIndex((p) => p.key === t.part)] ?? el;
+            const p = PARTS.find((x) => x.key === t.part)!;
+            ipc.popupOpen(partPanel(p.key, w.instance), seg.getBoundingClientRect(), p.width, p.height);
+          } else {
+            const m = widgets[w.id];
+            if (m?.Popup) openPopup(w.instance, el, m.Popup.width, m.Popup.height);
+          }
+        }, 450); // after the scroll settles
       }),
       events.soundPlay((s) => (s.kind === 'azan' ? playFile(s.src, s.short) : s.kind === 'adhan' ? playFile(adhanUrl, s.short) : s.kind === 'connect' || s.kind === 'disconnect' ? deviceTone(s.kind === 'connect', s.volume) : s.kind === 'plug' || s.kind === 'unplug' ? chargerTone(s.kind === 'plug', s.volume) : chime())),
     ];
@@ -353,6 +378,9 @@
   .vertical .scroller { flex-direction: column; }
 
   .slot { position: relative; flex: none; display: flex; }
+  /* Jumped to from a notification: a soft accent ring pulses 3 times (~2 s), then fades. */
+  .slot:global(.jump) > :global(*) { animation: jumpglow 0.7s ease-in-out 3; border-radius: var(--radius-pill); }
+  @keyframes jumpglow { 50% { box-shadow: 0 0 0 2px var(--accent), 0 0 16px color-mix(in srgb, var(--accent) 65%, transparent); } }
   /* where the dragged widget will land */
   .slot.placeholder { animation: none !important; border-radius: var(--radius-pill); outline: 2px dashed color-mix(in srgb, var(--accent) 70%, transparent); outline-offset: -2px; }
   .slot.placeholder > :global(*) { opacity: 0; }

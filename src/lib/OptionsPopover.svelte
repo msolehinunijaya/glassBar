@@ -72,6 +72,8 @@
   .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
   .lbl { font-size: 12px; display: flex; flex-direction: column; flex: none; }
   .hint { font-size: 10px; }
+  /* A toggle's text wraps instead of pushing its switch out of a narrow panel. */
+  .toggle .lbl { flex: 1; min-width: 0; }
   .seg { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 2px; padding: 2px; border-radius: 9px; background: var(--pill); min-width: 0; }
   .seg button { padding: 4px 10px; border-radius: 7px; font-size: 12px; white-space: nowrap; transition: background 0.2s var(--ease); }
   select { min-width: 0; max-width: 68%; padding: 5px 8px; border-radius: 9px; border: none; background: var(--pill); color: inherit;

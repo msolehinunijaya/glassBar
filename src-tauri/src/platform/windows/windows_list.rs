@@ -183,7 +183,7 @@ pub fn exe_icon(exe: &str) -> Option<String> {
     icon
 }
 
-fn data_url(png: Vec<u8>) -> String {
+pub(super) fn data_url(png: Vec<u8>) -> String {
     format!("data:image/png;base64,{}", base64::engine::general_purpose::STANDARD.encode(png))
 }
 
@@ -261,7 +261,7 @@ fn hwnd_icon(w: HWND) -> Option<Vec<u8>> {
     }
 }
 
-unsafe fn icon_to_png(icon: HICON) -> Option<Vec<u8>> {
+pub(super) unsafe fn icon_to_png(icon: HICON) -> Option<Vec<u8>> {
     let mut info = ICONINFO::default();
     unsafe { GetIconInfo(icon, &mut info).ok()? };
     let png = unsafe { bitmap_to_png(info.hbmColor) };

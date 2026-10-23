@@ -17,15 +17,25 @@ export interface Config {
   version: number; activeProfile: string; profiles: Record<string, Profile>;
   theme: Theme; startup: { launchAtLogin: boolean };
   dnd: boolean; location: LocationCfg; deviceSounds: { connect: boolean; disconnect: boolean; charger: boolean; volume: number };
+  banners: Banners;
 }
 
-export interface Alert { id: number; source: string; title: string; body: string; at: number; missed: boolean; read: boolean }
+export interface Alert { id: number; source: string; title: string; body: string; at: number; missed: boolean; read: boolean; data: unknown }
+/** Pop-up banners: on/off, seconds shown, next to the dock or in the corner, what a click
+ *  does, sources with no banner, and the alert sound. */
+export interface Banners { show: boolean; seconds: 3 | 5 | 8 | 10; position: 'auto' | 'corner'; onClick: 'highlight' | 'open'; muted: string[]; sound: boolean }
 export interface Todo { id: number; text: string; done: boolean; dueAt: number | null; createdAt: number }
 export interface Note { id: number; text: string; color: string; pinned: boolean; images: string[]; updatedAt: number; deletedAt: number | null }
 export type Phase = 'work' | 'short' | 'long';
 export interface PomoCfg { workMin: number; shortMin: number; longMin: number; every: number }
 export interface PomoState { pomo: { phase: Phase; done: number; endsAt: number | null; pausedMs: number | null; completed: Phase | null }; cfg: PomoCfg; label: string }
 export interface Timer { id: number; label: string; durationMs: number; endsAt: number | null; remainingMs: number | null }
+/** Downloads widget: finished files, newest first; total size of the folder. */
+export interface DlItem { path: string; name: string; size: number; at: number }
+export interface DlState { folder: string; items: DlItem[]; totalSize: number; error: string | null }
+/** Recycle Bin: total and per fixed drive (bytes, items, free bytes on that drive). */
+export interface RecycleDrive { root: string; size: number; items: number; free: number }
+export interface RecycleInfo { size: number; items: number; drives: RecycleDrive[] }
 export interface Stopwatch { startedAt: number | null; accMs: number; laps: number[] }
 export interface Place { lat: number; lon: number; name: string; source: 'windows' | 'ip' | 'manual'; tz?: string; accuracy?: number; note?: string }
 export interface Weather {
@@ -102,6 +112,9 @@ export const ipc = {
   thumbsClear: () => invoke<void>('thumbs_clear'),
   barReveal: (show: boolean) => invoke<void>('bar_reveal', { show }),
   popupHide: () => invoke<void>('popup_hide'),
+  bannerFit: (width: number, height: number) => invoke<void>('banner_fit', { width, height }),
+  bannerHide: () => invoke<void>('banner_hide'),
+  jumpTo: (source: string, data: unknown) => invoke<void>('jump_to', { source, data }),
   /** Make the open popup exactly this tall (CSS px): panels size themselves to their content. */
   popupFit: (height: number) => invoke<void>('popup_fit', { height }),
   // alerts
@@ -136,6 +149,18 @@ export const ipc = {
   timerPause: (id: number) => invoke<void>('timer_pause', { id }),
   timerResume: (id: number) => invoke<void>('timer_resume', { id }),
   timerDelete: (id: number) => invoke<void>('timer_delete', { id }),
+  timerSnooze: (id: number, ms: number) => invoke<void>('timer_snooze', { id, ms }),
+  downloadsState: () => invoke<DlState>('downloads_state'),
+  downloadsOpen: (path: string) => invoke<void>('downloads_open', { path }),
+  downloadsReveal: (path: string) => invoke<void>('downloads_reveal', { path }),
+  downloadsOpenFolder: () => invoke<void>('downloads_open_folder'),
+  downloadsOpenWith: (path: string) => invoke<void>('downloads_open_with', { path }),
+  downloadsRename: (path: string, name: string) => invoke<string>('downloads_rename', { path, name }),
+  downloadsRecycle: (path: string) => invoke<void>('downloads_recycle', { path }),
+  downloadsDrag: (path: string) => invoke<void>('downloads_drag', { path }),
+  fileIcon: (path: string) => invoke<string | null>('file_icon', { path }),
+  recycleInfo: () => invoke<RecycleInfo>('recycle_info'),
+  recycleEmpty: (root: string | null) => invoke<void>('recycle_empty', { root }),
   swGet: () => invoke<Stopwatch>('sw_get'),
   swToggle: () => invoke<Stopwatch>('sw_toggle'),
   swLap: () => invoke<Stopwatch>('sw_lap'),
@@ -249,6 +274,9 @@ export const events = {
   audioChanged: (cb: (s: AudioState) => void) => listen<AudioState>('audio:changed', (e) => cb(e.payload)),
   mediaChanged: (cb: (m: MediaInfo | null) => void) => listen<MediaInfo | null>('media:changed', (e) => cb(e.payload)),
   alertsChanged: (cb: () => void) => listen('alerts:changed', () => cb()),
+  downloadsNew: (cb: (i: DlItem) => void) => listen<DlItem>('downloads:new', (e) => cb(e.payload)),
+  bannerPush: (cb: (n: import('./notify').Note) => void) => listen<import('./notify').Note>('banner:push', (e) => cb(e.payload)),
+  barJump: (cb: (j: { source: string; data: unknown; open: boolean }) => void) => listen<{ source: string; data: unknown; open: boolean }>('bar:jump', (e) => cb(e.payload)),
   sysmonSample: (cb: (s: Sample) => void) => listen<Sample>('sysmon:sample', (e) => cb(e.payload)),
   soundPlay: (cb: (s: Sound) => void) => listen<Sound>('sound:play', (e) => cb(e.payload)),
   /** Any "<name>:changed" event from Rust (todos, notes, timers, ...). */

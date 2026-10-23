@@ -168,6 +168,14 @@ pub fn timer_resume(app: AppHandle, id: i64) {
     timers_changed(&app);
 }
 
+/// Restart a timer for `ms` more (the "+1 min" on a finished timer's banner).
+#[tauri::command]
+pub fn timer_snooze(app: AppHandle, id: i64, ms: i64) {
+    let _ = app.state::<Db>().0.lock().unwrap().execute(
+        "UPDATE timers SET duration_ms = ?2, ends_at = ?3, remaining_ms = NULL WHERE id = ?1", params![id, ms, now_ms() + ms]);
+    timers_changed(&app);
+}
+
 /// Timer id from its scheduler key "timer:{id}:{ends_at}".
 pub fn timer_id(key: &str) -> Option<i64> { key.strip_prefix("timer:")?.split(':').next()?.parse().ok() }
 

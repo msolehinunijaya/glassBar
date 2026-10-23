@@ -23,6 +23,8 @@ CREATE TABLE ocr_history(id INTEGER PRIMARY KEY, at INT NOT NULL, text TEXT NOT 
 CREATE TABLE screenshots(id INTEGER PRIMARY KEY, at INT NOT NULL, path TEXT NOT NULL, w INT NOT NULL, h INT NOT NULL, kind TEXT NOT NULL, thumb TEXT NOT NULL);
 ", r"
 CREATE TABLE clipboard(id INTEGER PRIMARY KEY, at INT NOT NULL, kind TEXT NOT NULL, text TEXT, path TEXT, thumb TEXT, w INT, h INT, hash TEXT NOT NULL);
+", r"
+ALTER TABLE alerts ADD COLUMN data TEXT;
 "];
 
 pub fn migrate(c: &Connection) -> rusqlite::Result<()> {

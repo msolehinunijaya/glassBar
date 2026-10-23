@@ -6,6 +6,27 @@ use serde::{Deserialize, Serialize};
 
 pub type Res<T> = Result<T, String>;
 
+/// Recycle Bin contents: total and per fixed drive (bytes, items, free space on the drive).
+#[derive(Serialize, Clone, Debug, Default, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct RecycleInfo { pub size: u64, pub items: u64, pub drives: Vec<RecycleDrive> }
+#[derive(Serialize, Clone, Debug, Default, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct RecycleDrive { pub root: String, pub size: u64, pub items: u64, pub free: u64 }
+
+/// Files and the Recycle Bin (Downloads widget, System Monitor).
+pub trait Files: Send + Sync {
+    fn downloads_dir(&self) -> Option<String>;
+    fn file_icon(&self, path: &str) -> Option<String>;
+    fn reveal(&self, path: &str) -> Res<()>;
+    fn open_with(&self, path: &str) -> Res<()>;
+    /// Move to the Recycle Bin; never a permanent delete without Windows asking.
+    fn recycle(&self, path: &str) -> Res<()>;
+    fn drag_out(&self, hwnd: isize, path: &str) -> Res<()>;
+    fn recycle_info(&self) -> Res<RecycleInfo>;
+    fn recycle_empty(&self, root: Option<&str>) -> Res<()>;
+}
+
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub struct Rect { pub x: i32, pub y: i32, pub w: i32, pub h: i32 }
 
@@ -314,5 +335,7 @@ pub fn gpu() -> &'static dyn Gpu { &win::WinGpu }
 pub fn screen() -> &'static dyn Screen { &win::WinScreen }
 #[cfg(windows)]
 pub fn wireless() -> &'static dyn Wireless { &win::WinWireless }
+#[cfg(windows)]
+pub fn files() -> &'static dyn Files { &win::WinFiles }
 #[cfg(windows)]
 pub fn tray() -> &'static dyn Tray { &win::WinTray }
