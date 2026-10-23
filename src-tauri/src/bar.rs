@@ -51,11 +51,11 @@ pub fn popup_rect(bar: Rect, anchor: Rect, w: i32, h: i32, edge: Edge, mon: Rect
     Rect { x, y, w, h }
 }
 
-fn hwnd(w: &WebviewWindow) -> isize { w.hwnd().map(|h| h.0 as isize).unwrap_or(0) }
-
+/// Move first, then size: moving onto a monitor with another DPI rescales the
+/// window, and the size we set afterwards must win.
 fn set_rect(w: &WebviewWindow, r: Rect) {
-    let _ = w.set_size(PhysicalSize::new(r.w.max(1) as u32, r.h.max(1) as u32));
     let _ = w.set_position(PhysicalPosition::new(r.x, r.y));
+    let _ = w.set_size(PhysicalSize::new(r.w.max(1) as u32, r.h.max(1) as u32));
 }
 
 fn monitor_rect(m: &tauri::Monitor) -> Rect {
@@ -80,29 +80,29 @@ fn is_dark(app: &AppHandle, cfg: &Config) -> bool {
     }
 }
 
+/// Window rect for the bar with the given length; None if no monitor is found.
+fn bar_rect(app: &AppHandle, bar: &crate::config::BarCfg, length: f64) -> Option<(Rect, Rect)> {
+    let mon = bar_monitor(app, bar.monitor)?;
+    let s = mon.scale_factor();
+    let thick = (bar.size.px() * s).round() as i32;
+    let gap = (GAP * s).round() as i32;
+    let (mut r, strip) = place(monitor_rect(&mon), bar.edge, length, thick, gap);
+    if let Some(p) = bar.floating { r.x = p.x; r.y = p.y; }
+    Some((r, strip))
+}
+
 /// Place, reserve and style the bar from the current config.
 pub fn apply(app: &AppHandle) {
     let cfg = app.state::<AppState>().config.lock().unwrap().clone();
     let Some(win) = app.get_webview_window("bar") else { return };
     let bar = &cfg.profile().bar;
-    if let Some(mon) = bar_monitor(app, bar.monitor) {
-        let s = mon.scale_factor();
-        let thick = (bar.size.px() * s).round() as i32;
-        let gap = (GAP * s).round() as i32;
-        let (mut r, strip) = place(monitor_rect(&mon), bar.edge, bar.length, thick, gap);
-        let id = hwnd(&win);
-        match bar.floating {
-            Some(p) => {
-                shell().appbar_remove(id);
-                r.x = p.x;
-                r.y = p.y;
-            }
-            None if bar.reserve_space => {
-                let got = shell().appbar_set(id, bar.edge, strip);
-                r.x += got.x - strip.x;
-                r.y += got.y - strip.y;
-            }
-            None => shell().appbar_remove(id),
+    if let Some((mut r, strip)) = bar_rect(app, bar, bar.length) {
+        if bar.floating.is_none() && bar.reserve_space {
+            let got = shell().appbar_set(bar.edge, strip);
+            r.x += got.x - strip.x;
+            r.y += got.y - strip.y;
+        } else {
+            shell().appbar_remove();
         }
         set_rect(&win, r);
     }
@@ -115,9 +115,26 @@ pub fn apply(app: &AppHandle) {
 
 /// Undo everything that outlives the process: reserved space and hidden taskbar.
 pub fn cleanup(app: &AppHandle) {
-    if let Some(w) = app.get_webview_window("bar") { shell().appbar_remove(hwnd(&w)); }
+    shell().appbar_remove();
     shell().set_taskbar(TaskbarMode::Show);
 }
+
+/// Live preview while dragging a resize handle: only the window moves. The AppBar,
+/// taskbar and config are updated once, by the save on release.
+#[tauri::command]
+pub fn bar_preview(app: AppHandle, length: f64) {
+    let cfg = app.state::<AppState>().config.lock().unwrap().profile().bar.clone();
+    if let (Some(win), Some((r, _))) = (app.get_webview_window("bar"), bar_rect(&app, &cfg, length.clamp(0.2, 1.0))) {
+        set_rect(&win, r);
+    }
+}
+
+/// The frontend marks a window drag, so a DPI change mid-drag doesn't snap the bar back.
+#[tauri::command]
+pub fn bar_drag(app: AppHandle, on: bool) { app.state::<AppState>().dragging.store(on, Ordering::Relaxed); }
+
+#[tauri::command]
+pub fn mouse_down() -> bool { shell().mouse_down() }
 
 // ---- Popup ----
 
@@ -127,6 +144,7 @@ pub struct PopupState { pub instance: Option<String>, pub hidden_at: Option<Inst
 pub fn popup_hidden(app: &AppHandle) {
     if let Some(p) = app.get_webview_window("popup") { let _ = p.hide(); }
     app.state::<AppState>().popup.lock().unwrap().hidden_at = Some(Instant::now());
+    let _ = app.emit_to("popup", "popup:hide", ());
 }
 
 #[allow(clippy::too_many_arguments)]

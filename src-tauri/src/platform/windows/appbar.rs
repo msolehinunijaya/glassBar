@@ -2,6 +2,7 @@
 use super::super::{Glass, Rect};
 use super::wide;
 use crate::config::{Edge, TaskbarMode};
+use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 use windows::core::{BOOL, PCWSTR};
 use windows::Win32::Foundation::{HWND, LPARAM, RECT};
@@ -11,23 +12,34 @@ use windows::Win32::Graphics::Dwm::{
 use windows::Win32::UI::Shell::*;
 use windows::Win32::UI::WindowsAndMessaging::*;
 
-static REGISTERED: Mutex<Option<isize>> = Mutex::new(None);
-static ORIGINAL_STATE: OnceLock<u32> = OnceLock::new();
+/// Whether our AppBar is registered (it is owned by the hidden system window).
+static REGISTERED: Mutex<bool> = Mutex::new(false);
+/// Last taskbar mode applied, so unchanged config saves don't touch Explorer.
+static LAST_MODE: Mutex<Option<TaskbarMode>> = Mutex::new(None);
+/// File holding the taskbar state from before we first changed it. On disk because
+/// Windows persists auto-hide itself, so a crash would otherwise lose the real state.
+static STATE_FILE: OnceLock<PathBuf> = OnceLock::new();
 
-fn hwnd(h: isize) -> HWND { HWND(h as *mut _) }
+/// Message Windows sends to our system window about the AppBar.
+pub const APPBAR_MSG: u32 = WM_USER + 77;
 
 fn data(h: HWND) -> APPBARDATA {
     APPBARDATA { cbSize: std::mem::size_of::<APPBARDATA>() as u32, hWnd: h, ..Default::default() }
 }
 
-pub fn set(win: isize, edge: Edge, strip: Rect) -> Rect {
+fn owner() -> Option<HWND> {
+    let h = super::system::hwnd();
+    (h != 0).then(|| HWND(h as *mut _))
+}
+
+pub fn set(edge: Edge, strip: Rect) -> Rect {
+    let Some(h) = owner() else { return strip };
     let mut reg = REGISTERED.lock().unwrap();
-    let mut abd = data(hwnd(win));
+    let mut abd = data(h);
     unsafe {
-        if *reg != Some(win) {
-            abd.uCallbackMessage = WM_USER + 77;
-            SHAppBarMessage(ABM_NEW, &mut abd);
-            *reg = Some(win);
+        if !*reg {
+            abd.uCallbackMessage = APPBAR_MSG;
+            *reg = SHAppBarMessage(ABM_NEW, &mut abd) != 0;
         }
         abd.uEdge = match edge { Edge::Left => ABE_LEFT, Edge::Top => ABE_TOP, Edge::Right => ABE_RIGHT, Edge::Bottom => ABE_BOTTOM };
         abd.rc = RECT { left: strip.x, top: strip.y, right: strip.x + strip.w, bottom: strip.y + strip.h };
@@ -45,12 +57,27 @@ pub fn set(win: isize, edge: Edge, strip: Rect) -> Rect {
     Rect { x: r.left, y: r.top, w: r.right - r.left, h: r.bottom - r.top }
 }
 
-pub fn remove(win: isize) {
+pub fn remove() {
     let mut reg = REGISTERED.lock().unwrap();
-    if reg.take().is_some() {
-        let mut abd = data(hwnd(win));
+    if let (true, Some(h)) = (*reg, owner()) {
+        let mut abd = data(h);
         unsafe { SHAppBarMessage(ABM_REMOVE, &mut abd) };
     }
+    *reg = false;
+}
+
+/// Explorer restarted: our registration and its taskbar state are gone, re-apply everything.
+pub fn reset() {
+    *REGISTERED.lock().unwrap() = false;
+    *LAST_MODE.lock().unwrap() = None;
+}
+
+pub fn set_state_dir(dir: &Path) {
+    let _ = STATE_FILE.set(dir.join("taskbar-original.txt"));
+}
+
+fn saved_state() -> Option<u32> {
+    std::fs::read_to_string(STATE_FILE.get()?).ok()?.trim().parse().ok()
 }
 
 fn taskbars() -> Vec<HWND> {
@@ -85,17 +112,49 @@ fn set_taskbar_state(state: u32) {
     }
 }
 
-/// `Hidden` = auto-hide (frees the work area) + window hidden.
-/// ponytail: Explorer restarts re-show the taskbar; re-apply on TaskbarCreated if it bites.
+#[derive(Debug, PartialEq)]
+pub(crate) struct Plan {
+    pub set_state: Option<u32>,
+    /// Remember this as the user's original state (only if nothing is saved yet).
+    pub save: Option<u32>,
+    pub clear_saved: bool,
+    /// Some(true) = show taskbar windows, Some(false) = hide, None = leave alone.
+    pub show: Option<bool>,
+}
+
+/// Pure decision for `set_taskbar`. `saved` = state stored before we first changed it.
+pub(crate) fn taskbar_plan(mode: TaskbarMode, saved: Option<u32>, current: u32) -> Plan {
+    match mode {
+        TaskbarMode::Show => match saved {
+            Some(s) => Plan { set_state: Some(s), save: None, clear_saved: true, show: Some(true) },
+            None => Plan { set_state: None, save: None, clear_saved: false, show: None },
+        },
+        TaskbarMode::Autohide | TaskbarMode::Hidden => Plan {
+            set_state: Some(ABS_AUTOHIDE),
+            save: if saved.is_none() { Some(current) } else { None },
+            clear_saved: false,
+            // Hidden = auto-hide (frees the work area) + window hidden.
+            show: Some(mode == TaskbarMode::Autohide),
+        },
+    }
+}
+
 pub fn set_taskbar(mode: TaskbarMode) {
-    let original = *ORIGINAL_STATE.get_or_init(taskbar_state);
-    let (state, show) = match mode {
-        TaskbarMode::Show => (original, SW_SHOW),
-        TaskbarMode::Autohide => (ABS_AUTOHIDE, SW_SHOW),
-        TaskbarMode::Hidden => (ABS_AUTOHIDE, SW_HIDE),
-    };
-    set_taskbar_state(state);
-    for h in taskbars() { unsafe { let _ = ShowWindow(h, show); } }
+    let mut last = LAST_MODE.lock().unwrap();
+    if *last == Some(mode) { return; }
+    *last = Some(mode);
+    let p = taskbar_plan(mode, saved_state(), taskbar_state());
+    if let (Some(s), Some(f)) = (p.save, STATE_FILE.get()) {
+        if let Some(dir) = f.parent() { let _ = std::fs::create_dir_all(dir); }
+        let _ = std::fs::write(f, s.to_string());
+    }
+    if let Some(s) = p.set_state { set_taskbar_state(s); }
+    if let Some(show) = p.show {
+        for h in taskbars() { unsafe { let _ = ShowWindow(h, if show { SW_SHOW } else { SW_HIDE }); } }
+    }
+    if p.clear_saved {
+        if let Some(f) = STATE_FILE.get() { let _ = std::fs::remove_file(f); }
+    }
 }
 
 pub fn style_window(win: &tauri::WebviewWindow, g: &Glass) {
@@ -113,5 +172,37 @@ pub fn style_window(win: &tauri::WebviewWindow, g: &Glass) {
             let _ = DwmSetWindowAttribute(HWND(h.0), DWMWA_WINDOW_CORNER_PREFERENCE,
                 &pref as *const _ as *const _, std::mem::size_of_val(&pref) as u32);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    const ON_TOP: u32 = ABS_ALWAYSONTOP;
+    const AUTO: u32 = ABS_AUTOHIDE;
+
+    #[test]
+    fn first_hide_saves_the_users_real_state() {
+        let p = taskbar_plan(TaskbarMode::Hidden, None, ON_TOP);
+        assert_eq!(p, Plan { set_state: Some(AUTO), save: Some(ON_TOP), clear_saved: false, show: Some(false) });
+    }
+
+    #[test]
+    fn hiding_again_after_a_crash_keeps_the_saved_state() {
+        // Killed while hidden: Windows still says auto-hide, the file still says always-on-top.
+        let p = taskbar_plan(TaskbarMode::Autohide, Some(ON_TOP), AUTO);
+        assert_eq!(p.save, None);
+    }
+
+    #[test]
+    fn show_restores_the_saved_state_even_after_a_crash() {
+        let p = taskbar_plan(TaskbarMode::Show, Some(ON_TOP), AUTO);
+        assert_eq!(p, Plan { set_state: Some(ON_TOP), save: None, clear_saved: true, show: Some(true) });
+    }
+
+    #[test]
+    fn show_never_touches_a_taskbar_we_did_not_change() {
+        let p = taskbar_plan(TaskbarMode::Show, None, AUTO);
+        assert_eq!(p, Plan { set_state: None, save: None, clear_saved: false, show: None });
     }
 }

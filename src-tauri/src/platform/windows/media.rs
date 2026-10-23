@@ -89,7 +89,9 @@ pub fn control(a: MediaAction) -> Res<()> {
 
 pub fn seek(position_ms: i64) -> Res<()> {
     let s = session().ok_or("nothing is playing")?;
-    s.TryChangePlaybackPositionAsync(position_ms * 10_000).and_then(|op| op.join()).map(|_| ()).map_err(err)
+    // Our positions are relative to StartTime; the API wants an absolute position.
+    let start = s.GetTimelineProperties().and_then(|t| t.StartTime()).map(|t| t.Duration).unwrap_or(0);
+    s.TryChangePlaybackPositionAsync(start + position_ms * 10_000).and_then(|op| op.join()).map(|_| ()).map_err(err)
 }
 
 pub fn watch(on_change: Box<dyn Fn(Option<MediaInfo>) + Send>) {

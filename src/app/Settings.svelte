@@ -97,7 +97,7 @@
             <option value="hidden">Hide completely</option>
           </select>
         </div>
-        <p class="hint">Restored when GlassBar quits. If GlassBar is force-killed, use tray → "Restore Windows taskbar" next time, or restart Explorer.</p>
+        <p class="hint">Restored when GlassBar quits. Also restored when you sign out. If GlassBar is force-killed, start it again and choose tray → "Restore Windows taskbar".</p>
       </div>
 
     {:else if section === 'Appearance'}

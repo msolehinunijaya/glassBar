@@ -5,6 +5,7 @@ mod platform;
 mod widgets;
 
 use config::{Config, TaskbarMode};
+use platform::SystemEvent;
 use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
 use std::sync::Mutex;
@@ -16,6 +17,12 @@ pub struct AppState {
     pub path: PathBuf,
     pub popup: Mutex<bar::PopupState>,
     pub edit: AtomicBool,
+    /// The user is dragging the bar window (ignore DPI re-layout until they let go).
+    pub dragging: AtomicBool,
+}
+
+fn data_dir() -> PathBuf {
+    std::env::var_os("APPDATA").map(PathBuf::from).unwrap_or_else(std::env::temp_dir).join("GlassBar")
 }
 
 /// Single write path for config: validate, persist, apply, broadcast.
@@ -57,25 +64,40 @@ fn restore_taskbar(app: AppHandle) -> Result<(), String> {
 }
 
 fn main() {
-    // A crash must never leave the Windows taskbar hidden.
+    // A crash must never leave the Windows taskbar hidden or space reserved.
+    // Release builds have no console, so the message goes to panic.log.
     std::panic::set_hook(Box::new(|info| {
+        platform::shell().appbar_remove();
         platform::shell().set_taskbar(TaskbarMode::Show);
-        eprintln!("GlassBar panic: {info}");
+        let msg = format!("{info}
+{}
+", std::backtrace::Backtrace::force_capture());
+        let _ = std::fs::write(data_dir().join("panic.log"), &msg);
+        eprintln!("GlassBar panic: {msg}");
     }));
 
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _, _| { let _ = bar::open_settings(app); }))
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, None))
         .setup(|app| {
-            let path = app.path().config_dir()?.join("GlassBar").join("config.json");
+            let path = data_dir().join("config.json");
             let cfg = config::load(&path);
             app.manage(AppState {
                 config: Mutex::new(cfg),
                 path,
                 popup: Mutex::new(Default::default()),
                 edit: AtomicBool::new(false),
+                dragging: AtomicBool::new(false),
             });
             let h = app.handle();
+            let a = h.clone();
+            platform::shell().init(&data_dir(), Box::new(move |e| match e {
+                SystemEvent::DisplayChanged | SystemEvent::ShellRestarted => bar::apply(&a),
+                // Step back from always-on-top while a game or video is fullscreen.
+                SystemEvent::Fullscreen(on) => {
+                    if let Some(w) = a.get_webview_window("bar") { let _ = w.set_always_on_top(!on); }
+                }
+            }));
             bar::build_tray(h)?;
             bar::apply(h);
             if let Some(w) = app.get_webview_window("bar") { w.show()?; }
@@ -84,12 +106,15 @@ fn main() {
         })
         .on_window_event(|w, e| match (w.label(), e) {
             ("popup", WindowEvent::Focused(false)) => bar::popup_hidden(w.app_handle()),
+            ("bar", WindowEvent::ScaleFactorChanged { .. })
+                if w.app_handle().state::<AppState>().dragging.load(std::sync::atomic::Ordering::Relaxed) => {}
             ("bar", WindowEvent::ThemeChanged(_) | WindowEvent::ScaleFactorChanged { .. }) => bar::apply(w.app_handle()),
             _ => {}
         })
         .invoke_handler(tauri::generate_handler![
             get_config, save_config, export_config, import_config, apply_bar, restore_taskbar,
             bar::popup_open, bar::popup_hide, bar::open_settings_cmd, bar::set_edit_mode,
+            bar::bar_preview, bar::bar_drag, bar::mouse_down,
             widgets::apps::apps_list, widgets::apps::app_icon, widgets::apps::app_activate,
             widgets::apps::app_close, widgets::apps::app_launch,
             widgets::sound::audio_state, widgets::sound::audio_set_volume, widgets::sound::audio_set_mute,

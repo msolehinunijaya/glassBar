@@ -4,6 +4,7 @@ mod audio;
 mod display;
 mod media;
 mod radios;
+mod system;
 mod windows_list;
 
 use super::*;
@@ -26,8 +27,16 @@ pub(crate) fn err(e: impl std::fmt::Display) -> String { e.to_string() }
 
 impl Shell for WinShell {
     fn style_window(&self, win: &tauri::WebviewWindow, g: &Glass) { appbar::style_window(win, g) }
-    fn appbar_set(&self, win: isize, edge: Edge, strip: Rect) -> Rect { appbar::set(win, edge, strip) }
-    fn appbar_remove(&self, win: isize) { appbar::remove(win) }
+    fn init(&self, dir: &std::path::Path, f: Box<dyn Fn(SystemEvent) + Send>) {
+        appbar::set_state_dir(dir);
+        system::start(f);
+    }
+    fn appbar_set(&self, edge: Edge, strip: Rect) -> Rect { appbar::set(edge, strip) }
+    fn appbar_remove(&self) { appbar::remove() }
+    fn mouse_down(&self) -> bool {
+        use windows::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_LBUTTON};
+        unsafe { GetAsyncKeyState(VK_LBUTTON.0 as i32) as u16 & 0x8000 != 0 }
+    }
     fn set_taskbar(&self, mode: TaskbarMode) { appbar::set_taskbar(mode) }
     fn list_windows(&self) -> Vec<AppWindow> { windows_list::list() }
     fn watch_windows(&self, f: Box<dyn Fn() + Send>) { windows_list::watch(f) }

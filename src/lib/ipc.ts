@@ -37,6 +37,9 @@ export const ipc = {
   importConfig: (text: string) => invoke<void>('import_config', { text }),
   // bar + windows
   applyBar: () => invoke<void>('apply_bar'),
+  barPreview: (length: number) => invoke<void>('bar_preview', { length }),
+  barDrag: (on: boolean) => invoke<void>('bar_drag', { on }),
+  mouseDown: () => invoke<boolean>('mouse_down'),
   restoreTaskbar: () => invoke<void>('restore_taskbar'),
   setEditMode: (on: boolean) => invoke<void>('set_edit_mode', { on }),
   openSettings: () => invoke<void>('open_settings_cmd'),
@@ -75,6 +78,7 @@ export const events = {
   configChanged: (cb: (c: Config) => void) => listen<Config>('config:changed', (e) => cb(e.payload)),
   editMode: (cb: (on: boolean) => void) => listen<boolean>('editmode', (e) => cb(e.payload)),
   popupShow: (cb: (instance: string) => void) => listen<string>('popup:show', (e) => cb(e.payload)),
+  popupHide: (cb: () => void) => listen('popup:hide', () => cb()),
   appsChanged: (cb: (w: AppWindow[]) => void) => listen<AppWindow[]>('apps:changed', (e) => cb(e.payload)),
   audioChanged: (cb: (s: AudioState) => void) => listen<AudioState>('audio:changed', (e) => cb(e.payload)),
   mediaChanged: (cb: (m: MediaInfo | null) => void) => listen<MediaInfo | null>('media:changed', (e) => cb(e.payload)),

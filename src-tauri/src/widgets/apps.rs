@@ -1,12 +1,13 @@
+use super::blocking;
 use crate::platform::{shell, AppWindow, Res};
 
 #[tauri::command]
-pub async fn apps_list() -> Vec<AppWindow> { shell().list_windows() }
+pub async fn apps_list() -> Vec<AppWindow> { blocking(move || shell().list_windows()).await.unwrap_or_default() }
 #[tauri::command]
-pub async fn app_icon(exe: String) -> Option<String> { shell().exe_icon(&exe) }
+pub async fn app_icon(exe: String) -> Option<String> { blocking(move || shell().exe_icon(&exe)).await.ok().flatten() }
 #[tauri::command]
-pub async fn app_activate(id: isize) { shell().activate(id) }
+pub async fn app_activate(id: isize) { let _ = blocking(move || shell().activate(id)).await; }
 #[tauri::command]
-pub async fn app_close(id: isize) { shell().close(id) }
+pub async fn app_close(id: isize) { let _ = blocking(move || shell().close(id)).await; }
 #[tauri::command]
-pub async fn app_launch(path: String, args: String) -> Res<()> { shell().launch(&path, &args) }
+pub async fn app_launch(path: String, args: String) -> Res<()> { blocking(move || shell().launch(&path, &args)).await? }

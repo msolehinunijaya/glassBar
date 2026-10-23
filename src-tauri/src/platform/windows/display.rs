@@ -66,7 +66,7 @@ fn ddc_get() -> Option<u32> {
     for pm in &mons {
         let (mut min, mut cur, mut max) = (0u32, 0u32, 0u32);
         if found.is_none() && unsafe { GetMonitorBrightness(pm.hPhysicalMonitor, &mut min, &mut cur, &mut max) } != 0 && max > min {
-            found = Some((cur - min) * 100 / (max - min));
+            found = Some(cur.saturating_sub(min) * 100 / (max - min));
         }
     }
     unsafe { let _ = DestroyPhysicalMonitors(&mons); }

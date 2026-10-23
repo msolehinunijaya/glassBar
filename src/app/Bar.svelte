@@ -31,10 +31,16 @@
   let dragging = false;
   let dragTimer: ReturnType<typeof setTimeout>;
 
-  function onBarDown(e: PointerEvent) {
+  let dragFrom = { x: 0, y: 0 };
+
+  async function onBarDown(e: PointerEvent) {
     if (e.button !== 0 || edit || (e.target as HTMLElement).closest('.slot, .handle, .edit-tools')) return;
     dragging = true;
+    const p = await win.outerPosition();
+    dragFrom = { x: p.x, y: p.y };
+    await ipc.barDrag(true);
     win.startDragging();
+    dragTimer = setTimeout(finishDrag, 250); // also ends a plain click
   }
 
   function onMoved() {
@@ -44,8 +50,12 @@
   }
 
   async function finishDrag() {
+    // A pause mid-drag is not a drop: wait until the button is released.
+    if (await ipc.mouseDown()) { dragTimer = setTimeout(finishDrag, 150); return; }
     dragging = false;
+    await ipc.barDrag(false);
     const [pos, size, scale, mons] = await Promise.all([win.outerPosition(), win.outerSize(), win.scaleFactor(), availableMonitors()]);
+    if (pos.x === dragFrom.x && pos.y === dragFrom.y) return; // a click, not a drag
     const rects = mons.map((m) => ({ x: m.position.x, y: m.position.y, w: m.size.width, h: m.size.height }));
     const s = snap({ x: pos.x, y: pos.y, w: size.width, h: size.height }, rects, 48 * scale);
     await update((c) => {
@@ -56,26 +66,34 @@
   }
 
   // ---- Resize: drag either end to change the bar's length ----
-  async function onHandleDown(e: PointerEvent, side: 1 | -1) {
+  // Only the window resizes while dragging (bar_preview); config is saved once on release.
+  function onHandleDown(e: PointerEvent, side: 1 | -1) {
+    if (e.button !== 0) return;
     const el = e.currentTarget as HTMLElement;
     el.setPointerCapture(e.pointerId);
-    const mons = await availableMonitors();
-    const m = mons[bar.monitor] ?? mons[0];
-    const span = (vertical ? m.size.height : m.size.width) / m.scaleFactor;
     const start = vertical ? e.screenY : e.screenX;
     const startLen = bar.length;
-    let last = 0;
+    let span = 0;
+    let length = startLen;
+    availableMonitors().then((mons) => {
+      const m = mons[bar.monitor] ?? mons[0];
+      span = (vertical ? m.size.height : m.size.width) / m.scaleFactor;
+    });
     const move = (ev: PointerEvent) => {
+      if (!(ev.buttons & 1)) return done();
+      if (!span) return;
       // The bar is centered, so it grows on both sides: double the pointer delta.
       const d = ((vertical ? ev.screenY : ev.screenX) - start) * side * 2;
-      const length = Math.min(1, Math.max(0.2, startLen + d / span));
-      if (Date.now() - last < 40) return;
-      last = Date.now();
-      update((c) => { c.profiles[c.activeProfile].bar.length = length; });
+      length = Math.min(1, Math.max(0.2, startLen + d / span));
+      ipc.barPreview(length);
     };
-    const up = () => { el.removeEventListener('pointermove', move); el.removeEventListener('pointerup', up); };
+    const done = () => {
+      el.removeEventListener('pointermove', move);
+      el.removeEventListener('lostpointercapture', done);
+      if (length !== startLen) update((c) => { c.profiles[c.activeProfile].bar.length = length; });
+    };
     el.addEventListener('pointermove', move);
-    el.addEventListener('pointerup', up);
+    el.addEventListener('lostpointercapture', done); // fires on pointerup and on cancel
   }
 
   // ---- Scroll: wheel scrolls overflowing widgets with momentum ----
@@ -110,7 +128,8 @@
         { id: 'settings', text: 'Settings…', action: () => ipc.openSettings() },
       ],
     });
-    menu.popup();
+    await menu.popup();
+    await menu.close(); // free the native menu resource
   }
 
   const removeWidget = (instance: string) =>
@@ -135,18 +154,24 @@
       const from = order!.indexOf(instance);
       if (to !== from) order = reorder(order!, from, to);
     };
+    const before = order.join();
     const up = async () => {
       el.removeEventListener('pointermove', move);
-      el.removeEventListener('pointerup', up);
+      el.removeEventListener('lostpointercapture', up);
       const final = order!;
-      await update((c) => {
-        const p = c.profiles[c.activeProfile];
-        p.widgets = final.map((id) => p.widgets.find((w) => w.instance === id)!).concat(p.widgets.filter((w) => !final.includes(w.instance)));
-      });
-      order = null;
+      try {
+        if (final.join() !== before) {
+          await update((c) => {
+            const p = c.profiles[c.activeProfile];
+            p.widgets = final.map((id) => p.widgets.find((w) => w.instance === id)!).concat(p.widgets.filter((w) => !final.includes(w.instance)));
+          });
+        }
+      } finally {
+        order = null;
+      }
     };
     el.addEventListener('pointermove', move);
-    el.addEventListener('pointerup', up);
+    el.addEventListener('lostpointercapture', up);
   }
 </script>
 

@@ -6,8 +6,8 @@
 
   let { settings }: PopupProps<ClockSettings> = $props();
   const clock = ticker(() => true);
-  const today = new Date();
-  let month = $state(new Date(today.getFullYear(), today.getMonth(), 1));
+  const today = $derived(clock.now); // stays right if the popup is open past midnight
+  let month = $state(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
 
   // Monday-first month grid, padded with blanks.
   const cells = $derived.by(() => {

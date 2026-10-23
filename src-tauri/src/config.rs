@@ -131,6 +131,15 @@ impl Config {
         }
         for p in self.profiles.values_mut() {
             p.bar.length = p.bar.length.clamp(0.2, 1.0);
+            // Instance ids key the bar's widget list: they must be unique.
+            let mut seen = std::collections::HashSet::new();
+            for (i, w) in p.widgets.iter_mut().enumerate() {
+                if !seen.insert(w.instance.clone()) {
+                    w.instance = format!("{}-dup{i}", w.instance);
+                    seen.insert(w.instance.clone());
+                }
+                if !matches!(w.size.as_str(), "small" | "medium" | "large") { w.size = medium(); }
+            }
         }
         self.theme.opacity = self.theme.opacity.clamp(0.0, 1.0);
         self
@@ -226,6 +235,18 @@ mod tests {
         c.active_profile = "nope".into();
         let c = c.normalized();
         assert!(c.profiles.contains_key(&c.active_profile));
+    }
+
+    #[test]
+    fn import_repairs_duplicate_instances_and_bad_sizes() {
+        let mut c = Config::default();
+        let w = &mut c.profile_mut().widgets;
+        w[1].instance = w[0].instance.clone();
+        w[2].size = "gigantic".into();
+        let c = import(&export(&c)).unwrap();
+        let ids: std::collections::HashSet<_> = c.profile().widgets.iter().map(|w| w.instance.clone()).collect();
+        assert_eq!(ids.len(), c.profile().widgets.len());
+        assert_eq!(c.profile().widgets[2].size, "medium");
     }
 
     #[test]

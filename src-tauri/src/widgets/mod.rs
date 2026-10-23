@@ -16,3 +16,9 @@ pub fn start_watchers(app: &AppHandle) {
     let a = app.clone();
     crate::platform::media().watch(Box::new(move |m| { let _ = a.emit("media:changed", m); }));
 }
+
+/// Run a blocking OS call (COM, WinRT `.join()`, DDC/CI, display changes) on the
+/// blocking pool, so slow calls can't starve the async workers other commands use.
+pub async fn blocking<T: Send + 'static>(f: impl FnOnce() -> T + Send + 'static) -> Result<T, String> {
+    tauri::async_runtime::spawn_blocking(f).await.map_err(|e| e.to_string())
+}

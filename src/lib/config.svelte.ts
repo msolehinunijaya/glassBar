@@ -17,7 +17,12 @@ export async function update(mutate: (c: Config) => void) {
   const next: Config = JSON.parse(JSON.stringify(store.config));
   mutate(next);
   store.config = next;
-  await ipc.saveConfig(next);
+  try {
+    await ipc.saveConfig(next);
+  } catch (e) {
+    store.config = await ipc.getConfig(); // Rust rejected it: show what is really saved
+    console.error('save_config failed', e);
+  }
 }
 
 export function updateWidgetSettings(instance: string, patch: Record<string, unknown>) {

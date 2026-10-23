@@ -50,7 +50,9 @@
       items.push({ id: 'close', text: g.windows.length > 1 ? `Close all ${g.windows.length} windows` : 'Close window',
         action: () => { g.windows.forEach((w) => ipc.appClose(w.id)); } });
     }
-    (await Menu.new({ items })).popup();
+    const m = await Menu.new({ items });
+    await m.popup();
+    await m.close();
   }
 </script>
 

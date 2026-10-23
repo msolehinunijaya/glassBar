@@ -53,6 +53,17 @@ pub struct RadioInfo { pub kind: RadioKind, pub name: String, pub on: bool }
 #[serde(rename_all = "lowercase")]
 pub enum DisplayMode { Internal, Clone, Extend, External }
 
+/// OS events the bar must react to.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum SystemEvent {
+    /// Resolution, monitor added/removed, projection mode changed.
+    DisplayChanged,
+    /// Explorer restarted: AppBar registration and taskbar state must be re-applied.
+    ShellRestarted,
+    /// A fullscreen app appeared (true) or left (false) on the bar's monitor.
+    Fullscreen(bool),
+}
+
 /// How a window's glass is drawn.
 pub struct Glass { pub native: bool, pub dark: bool, pub opacity: f64 }
 
@@ -60,10 +71,16 @@ pub trait Shell: Send + Sync {
     /// Native blur + rounded corners (or plain transparent window for CSS glass).
     fn style_window(&self, win: &tauri::WebviewWindow, glass: &Glass);
     /// Reserve `strip` on `edge` so maximized windows stop short of the bar.
+    /// Start the system event source and set where to keep state that must survive a crash.
+    /// Call once at startup, before any other Shell method.
+    fn init(&self, data_dir: &std::path::Path, on_event: Box<dyn Fn(SystemEvent) + Send>);
     /// Returns the strip Windows actually granted (it may shift to avoid other bars).
-    fn appbar_set(&self, win: isize, edge: Edge, strip: Rect) -> Rect;
-    fn appbar_remove(&self, win: isize);
+    fn appbar_set(&self, edge: Edge, strip: Rect) -> Rect;
+    fn appbar_remove(&self);
+    /// No-op when the mode is unchanged. Restores the user's original state on `Show`.
     fn set_taskbar(&self, mode: TaskbarMode);
+    /// Is the left mouse button down right now (used to detect the end of a window drag)?
+    fn mouse_down(&self) -> bool;
     fn list_windows(&self) -> Vec<AppWindow>;
     /// Calls `on_change` (debounced) whenever top-level windows change.
     fn watch_windows(&self, on_change: Box<dyn Fn() + Send>);

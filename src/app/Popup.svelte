@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { getCurrentWindow } from '@tauri-apps/api/window';
   import { onMount } from 'svelte';
   import { profile } from '../lib/config.svelte';
   import { events, ipc } from '../lib/ipc';
@@ -7,7 +6,8 @@
   import { settingsOf, widgets } from '../widgets/registry';
   import Gallery from './Gallery.svelte';
 
-  // Which widget's panel is showing. Cleared on blur so hidden panels stop their timers.
+  // Which widget's panel is showing. Cleared when Rust hides the popup, so hidden
+  // panels stop their timers. (Rust sends hide before the next show, so no race.)
   let instance = $state<string | null>(null);
   const w = $derived(instance ? profile().widgets.find((x) => x.instance === instance) : undefined);
   const m = $derived(w ? widgets[w.id] : undefined);
@@ -15,10 +15,8 @@
 
   onMount(() => {
     const offs = [
-      events.popupShow((i) => (instance = i)),
-      getCurrentWindow().onFocusChanged(({ payload: focused }) => {
-        if (!focused) setTimeout(() => (instance = null), 150);
-      }),
+      events.popupShow((i) => { instance = i; }),
+      events.popupHide(() => { instance = null; }),
     ];
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && close();
     addEventListener('keydown', onKey);
