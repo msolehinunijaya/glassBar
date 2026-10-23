@@ -102,7 +102,7 @@
   .huge small { font-size: 22px; opacity: 0.6; }
   .controls { display: flex; align-items: center; gap: 22px; }
   .play { width: 56px; height: 56px; background: var(--accent); color: #fff; }
-  .laps { width: 100%; max-height: 160px; overflow: auto; }
+  .laps { width: 100%; }
   .lap { display: flex; justify-content: space-between; padding: 6px 4px; border-bottom: 1px solid var(--line-soft); font-variant-numeric: tabular-nums; }
   .err { color: #ff453a; font-size: 12px; }
 </style>

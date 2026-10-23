@@ -60,7 +60,7 @@
   .head { display: flex; justify-content: space-between; align-items: center; margin: 10px 2px 6px; }
   h4 { margin: 0; font-size: 12px; font-weight: 500; }
   .link { color: var(--accent); font-size: 12px; }
-  .list { display: flex; flex-direction: column; gap: 6px; max-height: 300px; overflow-y: auto; scrollbar-width: thin; }
+  .list { display: flex; flex-direction: column; gap: 6px; }
   .item { border-radius: 12px; background: var(--pill); overflow: hidden; }
   .body { display: block; width: 100%; text-align: left; padding: 8px 10px 4px; }
   .body:hover { background: var(--pill-hover); }

@@ -92,7 +92,7 @@
 <style>
   .head { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
   h3 { flex: 1; margin: 0; font-size: 15px; font-weight: 600; }
-  .list { display: flex; flex-direction: column; gap: 4px; max-height: 420px; overflow-y: auto; scrollbar-width: thin; }
+  .list { display: flex; flex-direction: column; gap: 4px; }
   .net { border-radius: 12px; background: var(--pill); padding: 2px 6px 2px 2px; display: flex; flex-wrap: wrap; align-items: center; }
   .net.on { background: color-mix(in srgb, var(--accent) 22%, var(--pill)); }
   .row { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 8px; text-align: left; border-radius: 10px; }

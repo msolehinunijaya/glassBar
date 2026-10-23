@@ -58,7 +58,7 @@
   textarea { width: 100%; box-sizing: border-box; resize: none; padding: 10px 40px 10px 12px; border-radius: 12px; border: none; background: var(--pill); color: inherit; font: inherit; font-size: 13px; }
   .send { position: absolute; right: 8px; bottom: 10px; width: 28px; height: 28px; border-radius: 14px; display: grid; place-items: center; background: var(--accent); color: #fff; }
   .send:disabled { opacity: 0.4; }
-  .ans { position: relative; margin-top: 8px; padding: 10px 12px; max-height: 200px; overflow: auto; }
+  .ans { position: relative; margin-top: 8px; padding: 10px 12px; }
   .ans pre { margin: 0; white-space: pre-wrap; word-break: break-word; font: 13px/1.5 inherit; font-family: inherit; }
   .cp { position: absolute; top: 6px; right: 6px; opacity: 0.6; }
   .cp:hover { opacity: 1; }

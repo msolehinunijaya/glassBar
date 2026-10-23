@@ -80,7 +80,7 @@
   .head { display: flex; justify-content: space-between; align-items: center; margin: 12px 2px 6px; }
   h4 { margin: 0; font-size: 12px; font-weight: 500; }
   .link { display: inline-flex; align-items: center; gap: 3px; color: var(--accent); font-size: 12px; margin-left: 8px; }
-  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; max-height: 250px; overflow-y: auto; scrollbar-width: thin; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .shot { border-radius: 12px; background: var(--pill); overflow: hidden; }
   .thumb { display: block; width: 100%; height: 86px; background: #0002; }
   .thumb img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; }

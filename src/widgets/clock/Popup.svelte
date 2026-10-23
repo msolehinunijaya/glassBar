@@ -108,7 +108,7 @@
   .wtitle { display: flex; align-items: center; justify-content: space-between; font-size: 12px; padding: 0 4px; }
   .add { width: 26px; height: 26px; }
   .search { width: 100%; padding: 7px 10px; border-radius: 10px; border: 1px solid var(--line-soft); background: var(--pill); margin: 4px 0; outline: none; }
-  .results { display: flex; flex-direction: column; max-height: 130px; overflow: auto; }
+  .results { display: flex; flex-direction: column; }
   .results button { text-align: left; padding: 5px 8px; border-radius: 8px; font-size: 12px; }
   .results button:hover { background: var(--pill-hover); }
   .zrow { display: flex; align-items: center; gap: 8px; padding: 6px 6px; border-radius: 10px; }

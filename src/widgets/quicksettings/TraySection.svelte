@@ -37,7 +37,7 @@
   .refresh:hover { opacity: 1; background: var(--pill-hover); }
   .n { opacity: 0.7; }
   .sw { display: flex; align-items: center; gap: 6px; font-size: 11px; }
-  .grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2px; max-height: 150px; overflow-x: hidden; overflow-y: auto; scrollbar-width: thin; }
+  .grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2px; }
   .item { min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 7px 2px 5px; border-radius: 10px; transition: background 0.15s, transform 0.2s var(--spring); }
   .item:hover { background: var(--pill-hover); }
   .item:active { transform: scale(0.94); }

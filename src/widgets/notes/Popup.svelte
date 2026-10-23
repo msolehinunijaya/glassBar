@@ -144,7 +144,8 @@
           background: color-mix(in srgb, var(--c) 30%, transparent); border: 1px solid transparent; font-size: 12px; }
   .chip.sel { border-color: var(--c); }
   .paper { border-radius: 16px; background: color-mix(in srgb, var(--c) 22%, var(--pill)); padding: 10px; display: flex; flex-direction: column; gap: 8px; }
-  textarea { width: 100%; height: 220px; resize: none; border: 0; background: none; outline: none; line-height: 1.5; }
+  /* grows with the note; the panel itself scrolls only past 85 % of the screen */
+  textarea { width: 100%; min-height: 220px; field-sizing: content; resize: none; border: 0; background: none; outline: none; line-height: 1.5; }
   .strip { display: flex; gap: 6px; overflow-x: auto; }
   .thumb { position: relative; flex: none; }
   .thumb img { height: 64px; border-radius: 8px; display: block; cursor: grab; }
@@ -153,7 +154,7 @@
   .dot { width: 18px; height: 18px; border-radius: 50%; border: 2px solid transparent; }
   .dot.sel { border-color: var(--fg); }
   .grow { flex: 1; }
-  .preview { white-space: pre-wrap; max-height: 260px; overflow: auto; margin-bottom: 8px; }
+  .preview { white-space: pre-wrap; margin-bottom: 8px; }
   .small { font-size: 12px; }
   .err { color: #ff453a; font-size: 12px; }
   .empty { display: grid; place-items: center; padding: 60px 0; }
