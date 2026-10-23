@@ -11,8 +11,9 @@
   let { instance, settings }: PopupProps<OcrSettings> = $props();
   const hist = live<OcrItem[]>('ocr', ipc.ocrHistory, []);
   let hotkeyError = $state<string | null>(null);
+  let activeKey = $state('');
   let copied = $state<number | null>(null);
-  $effect(() => { ipc.ocrHotkeyStatus().then((s) => (hotkeyError = s.error)); });
+  $effect(() => { ipc.ocrHotkeyStatus().then((s) => { hotkeyError = s.error; activeKey = s.hotkey; }); });
   const modes = [['text', 'Text'], ['code', 'Code'], ['terminal', 'Terminal']] as const;
 
   async function snap() {
@@ -26,7 +27,7 @@
   }
 </script>
 
-<button class="go" onclick={snap}><ScanText size={16} /> Snap text <span class="k">{hotkeyLabel(settings.hotkey)}</span></button>
+<button class="go" onclick={snap}><ScanText size={16} /> Snap text <span class="k">{hotkeyLabel(activeKey || settings.hotkey)}</span></button>
 {#if hotkeyError}<p class="err small">{hotkeyError}. Pick another in the widget settings.</p>{/if}
 
 <div class="seg">

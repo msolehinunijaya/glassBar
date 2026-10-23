@@ -14,6 +14,7 @@ use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
 use tauri_plugin_notification::NotificationExt;
 
 pub const DEFAULT_HOTKEY: &str = "Super+Shift+T";
+const FALLBACK_HOTKEY: &str = "Control+Alt+T";
 static SHOT: Mutex<Option<Shot>> = Mutex::new(None);
 static HOTKEY: Mutex<(String, Option<String>)> = Mutex::new((String::new(), None)); // (registered, error)
 
@@ -40,14 +41,18 @@ pub fn register_hotkey(app: &AppHandle) {
         cfg.widget_settings("ocr")["hotkey"].as_str().filter(|s| !s.is_empty()).unwrap_or(DEFAULT_HOTKEY).to_string()
     };
     let mut cur = HOTKEY.lock().unwrap();
-    if cur.0 == want && cur.1.is_none() { return; }
+    if (cur.0 == want || (want == DEFAULT_HOTKEY && cur.0 == FALLBACK_HOTKEY)) && cur.1.is_none() { return; }
     let gs = app.global_shortcut();
     let _ = gs.unregister_all();
-    cur.1 = match want.parse::<Shortcut>() {
-        Err(e) => Some(format!("\"{want}\" isn't a valid shortcut ({e})")),
-        Ok(sc) => gs.register(sc).err().map(|_| format!("{want} is already used by Windows or another app")),
-    };
-    cur.0 = want;
+    let try_reg = |s: &str| s.parse::<Shortcut>().map_err(|e| format!("\"{s}\" isn't a valid shortcut ({e})"))
+        .and_then(|sc| gs.register(sc).map_err(|_| format!("{s} is already used by Windows or another app")));
+    cur.1 = try_reg(&want).err();
+    cur.0 = want.clone();
+    // The default is often taken (PowerToys Text Extractor uses Win+Shift+T): fall back once.
+    if cur.1.is_some() && want == DEFAULT_HOTKEY && try_reg(FALLBACK_HOTKEY).is_ok() {
+        cur.0 = FALLBACK_HOTKEY.into();
+        cur.1 = None;
+    }
 }
 
 /// Called by the global-shortcut plugin on key press.

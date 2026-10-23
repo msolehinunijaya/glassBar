@@ -33,11 +33,18 @@ The bar can dock to any edge or float. You can drag it, resize it, and edit it i
 - **Waktu Solat:** prayer times by JAKIM zone (auto-detected), with Aladhan outside Malaysia. Shows a countdown and can alert you, with an optional azan sound.
 - **IPU (Air Quality):** live Air Pollutant Index from the nearest JAS/DOE station, with haze alerts.
 
+**OCR & AI**
+- **OCR Snap:** press **Win+Shift+T** (changeable), drag a box over anything on screen, and the text is on your clipboard. The screen is frozen while you select, so video text can't move. Modes: Text, Code (keeps indentation) and Terminal (drops shell prompts). Engine: Windows OCR (offline, default) or Claude (sends the selection to Anthropic). Keeps the last 200 captures.
+- **AI Usage:** ask Claude a quick question from the bar, and see tokens used today and this month (as reported by Anthropic). Your API key is stored in Windows Credential Manager, never in GlassBar's files.
+
 ### Known limitations
 - **CPU temperature** comes from Windows' ACPI thermal zones. It's close to the CPU package on most laptops but isn't a per-core sensor. PCs that expose no thermal zone show **N/A**; nothing is estimated.
 - **Tray icons:** Windows 11 doesn't let other programs draw its tray icons. GlassBar opens Windows' own hidden-icons flyout, which only works while the Windows taskbar is shown; otherwise it opens tray settings.
 - **Windows notifications:** only packaged (MSIX/Store) apps may read other apps' notifications, so the Windows tab opens Notification Center instead of listing them. A combined Dock + Windows list isn't possible for the same reason.
 - **Currency rates** are indicative mid-market rates, not bank or card rates. ExchangeRate-API updates daily; Frankfurter uses ECB reference rates (working days).
+- **OCR quality** depends on the Windows language packs installed (Settings › Time & language). Tesseract isn't bundled; Windows OCR covers the same languages without a 30 MB+ install.
+- **AI token counts** only cover GlassBar's own requests; no cost is shown because prices change. Check console.anthropic.com for billing.
+- **Hotkeys** that Windows reserves can't be used; GlassBar shows when registering fails.
 - **Keyboard language** switches the app you were last using; a few elevated (admin) apps ignore the request from a normal-privilege program.
 
 To-dos, notes, timers, screen time, and alert history are stored on this PC in `%APPDATA%\GlassBar\glassbar.db`. Settings live in `config.json` in the same folder.
@@ -125,5 +132,5 @@ Keep a backup of `glassbar.key`. If it is lost, existing installs can't verify f
 
 ## Roadmap
 
-- **Phase 3:** OCR Snap, AI Usage, hotkeys, secure API keys
+- **Phase 3:** OCR Snap, AI Usage, hotkeys, secure API keys (done)
 - **Phase 4:** macOS
