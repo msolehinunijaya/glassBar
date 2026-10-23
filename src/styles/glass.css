@@ -69,6 +69,14 @@ input, select, textarea { font: inherit; color: inherit; }
   border: 1px solid var(--line);
   border-radius: var(--radius-bar);
 }
+/* Windows' Transparency effects off: nothing can show through (it would be black), so a
+   solid theme-coloured surface; Windows rounds the window's corners itself. */
+:root[data-solid='true'] .surface {
+  background: rgb(var(--tint));
+  backdrop-filter: none;
+  border: 0;
+  border-radius: 0;
+}
 
 .pill {
   display: flex; align-items: center; gap: 8px;

@@ -190,7 +190,10 @@ pub fn style_window(win: &tauri::WebviewWindow, g: &Glass) {
     }
     let _ = win.set_shadow(g.native);
     if let Ok(h) = win.hwnd() {
-        let pref = if g.native { DWMWCP_ROUND } else { DWMWCP_DONOTROUND };
+        // Transparency effects off: see-through pixels show black, so the page draws a solid
+        // bar and Windows rounds its corners (CSS-rounded corners would leave black wedges).
+        let solid = !crate::platform::shell().transparency_effects();
+        let pref = if g.native || solid { DWMWCP_ROUND } else { DWMWCP_DONOTROUND };
         unsafe {
             let _ = DwmSetWindowAttribute(HWND(h.0), DWMWA_WINDOW_CORNER_PREFERENCE,
                 &pref as *const _ as *const _, std::mem::size_of_val(&pref) as u32);
