@@ -1,6 +1,5 @@
 <script lang="ts">
-  import { PredefinedMenuItem } from '@tauri-apps/api/menu';
-  import { showMenu } from '../../lib/menu';
+  import { showMenu, type Item } from '../../lib/menu';
   import { onMount } from 'svelte';
   import { updateWidgetSettings } from '../../lib/config.svelte';
   import { events, ipc, type AppWindow } from '../../lib/ipc';
@@ -151,7 +150,7 @@
   async function menu(e: MouseEvent, g: Group) {
     e.preventDefault();
     e.stopPropagation();
-    const items: ({ text: string; action: () => unknown } | PredefinedMenuItem)[] = [
+    const items: Item[] = [
       { text: 'New window', action: () => launch(g) },
       g.pin
         ? { text: 'Unpin', action: () => setPins(settings.pinned.filter((p) => keyOf(p.path) !== g.key)) }
@@ -173,7 +172,7 @@
     if (recent.length) {
       items.unshift(
         ...recent.map((r, i) => ({ text: r.name, action: () => ipc.appLaunch(r.path) })),
-        await PredefinedMenuItem.new({ item: 'Separator' }),
+        '-',
       );
     }
     await showMenu(items);

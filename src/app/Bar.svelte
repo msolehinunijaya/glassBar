@@ -11,7 +11,6 @@
   // Bundled adzan: "Beautiful adhan" by Adam-synagda, Wikimedia Commons, CC0.
   import adhanUrl from '../assets/adhan.ogg?url';
   import { showMenu } from '../lib/menu';
-  import { PredefinedMenuItem } from '@tauri-apps/api/menu';
   import { settingsOf, widgets } from '../widgets/registry';
   import { visibleOnDock } from '../widgets/layout';
   import { jumpTarget } from '../lib/notify';
@@ -212,9 +211,9 @@
         action: () => setBar((b) => { b.edge = e; b.floating = null; }),
       })) },
       { text: 'Auto-hide', checked: autoHide, action: () => setBar((b) => { b.autoHide = !autoHide; b.floating = null; }) },
-      await PredefinedMenuItem.new({ item: 'Separator' }),
+      '-',
       { text: 'Settings…', action: () => ipc.openSettings() },
-      await PredefinedMenuItem.new({ item: 'Separator' }),
+      '-',
       { text: 'Task Manager', action: () => ipc.appLaunch('taskmgr.exe') },
     ]);
   }
