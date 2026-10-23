@@ -23,7 +23,7 @@
   } = $props();
 </script>
 
-<section class="opts card">
+<section class="opts">
   <h4>{title}</h4>
   {#each options as o (o.label)}
     {#if o.type === 'choice'}
@@ -67,16 +67,21 @@
 </section>
 
 <style>
-  .opts { padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
-  h4 { margin: 0; font-size: 12px; font-weight: 600; }
-  .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-  .lbl { font-size: 12px; display: flex; flex-direction: column; flex: none; }
-  .hint { font-size: 10px; }
+  /* Design rules: a flat section (no box inside the panel box), a small heading, 40 px rows,
+     a hairline under each section. */
+  .opts { display: flex; flex-direction: column; padding: 0 var(--s-1) var(--s-3); margin-bottom: var(--s-3); border-bottom: 1px solid var(--border); }
+  h4 { margin: 0 0 var(--s-1); font-size: 12px; font-weight: 600; color: var(--fg-dim); }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); min-height: 40px; }
+  .lbl { font-size: 13px; display: flex; flex-direction: column; flex: none; }
+  .lbl.dim { color: var(--fg); }
+  .hint { font-size: 11px; color: var(--fg-3); }
   /* A toggle's text wraps instead of pushing its switch out of a narrow panel. */
   .toggle .lbl { flex: 1; min-width: 0; }
-  .seg { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 2px; padding: 2px; border-radius: 9px; background: var(--pill); min-width: 0; }
-  .seg button { padding: 4px 10px; border-radius: 7px; font-size: 12px; white-space: nowrap; transition: background 0.2s var(--ease); }
-  select { min-width: 0; max-width: 68%; padding: 5px 8px; border-radius: 9px; border: none; background: var(--pill); color: inherit;
+  .seg { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 2px; padding: 2px; border-radius: var(--r-inner); background: var(--bg-2); border: 1px solid var(--border); min-width: 0; }
+  .seg button { padding: 4px 10px; border-radius: 8px; font-size: 12px; white-space: nowrap; transition: background 0.2s var(--ease); }
+  .seg button:hover:not(.sel) { background: var(--pill-hover); }
+  .seg button:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  select { min-width: 0; max-width: 68%; height: 32px; padding: 0 10px; border-radius: var(--r-inner); border: 1px solid var(--border); background: var(--bg-2); color: inherit;
            font: inherit; font-size: 12px; cursor: pointer; text-overflow: ellipsis; }
   select:hover { background: var(--pill-hover); }
   .seg .sel { background: var(--accent); color: #fff; }
@@ -84,8 +89,4 @@
   .checks label { display: flex; align-items: center; gap: 4px; }
   .checks .locked { opacity: 0.6; }
   input[type='checkbox'] { accent-color: var(--accent); }
-  .switch { appearance: none; width: 34px; height: 20px; border-radius: 10px; background: var(--track); position: relative; transition: background 0.2s var(--ease); flex: none; }
-  .switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: transform 0.25s var(--spring); box-shadow: 0 1px 2px rgba(0,0,0,.3); }
-  .switch:checked { background: var(--accent); }
-  .switch:checked::after { transform: translateX(14px); }
 </style>

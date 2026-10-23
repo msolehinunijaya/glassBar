@@ -77,15 +77,17 @@
 </script>
 
 <PanelHeader title="Clock">
-  <button class="icon-btn" class:on={showFormat} onclick={() => (showFormat = !showFormat)} aria-label="Time and date format" title="Time and date format"><Settings2 size={16} /></button>
+  <button class="icon-btn" class:on={showFormat} onclick={() => (showFormat = !showFormat)} aria-label="Clock options" title="Clock options"><Settings2 size={16} /></button>
 </PanelHeader>
 <div class="hero">
   <div class="big"><Time now={clock.now} {settings} /></div>
   <div class="dim">{date(clock.now, settings)}</div>
 </div>
+{#if !showFormat}
 <label class="wxsw dim">Weather on the clock
   <input type="checkbox" class="switch" checked={settings.showWeather} onchange={(e) => updateWidgetSettings(instance, { showWeather: e.currentTarget.checked })} />
 </label>
+{/if}
 {#if showFormat}
   <div class="fmt"><FormatOptions {settings} save={(p) => updateWidgetSettings(instance, p)} /></div>
   <div class="fmt"><WeatherOptions {settings} save={(p) => updateWidgetSettings(instance, p)} /></div>
@@ -146,7 +148,7 @@
   .hero { padding: 0 4px var(--s-3); }
   .wxsw { display: flex; align-items: center; justify-content: space-between; font-size: 12px; margin: 0 4px 10px; }
   .icon-btn.on { color: var(--accent); }
-  .fmt { margin-bottom: 10px; }
+  .fmt { margin: 0; }
   .dn { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 13px; flex: none; }
   .dayrow .dn { color: #ffb340; }
   .night .dn { color: #9fb4ff; }

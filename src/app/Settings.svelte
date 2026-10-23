@@ -308,12 +308,6 @@
     .wico { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; background: var(--accent); color: #fff; flex: none; }
     .wform { padding: 4px 0 12px 36px; display: flex; flex-direction: column; gap: 8px; }
     .wform label { display: flex; align-items: center; gap: 8px; }
-    /* On/off switch (a checkbox with role="switch"). */
-    .switch { appearance: none; flex: none; width: 34px; height: 20px; border-radius: 999px; background: var(--track); position: relative; transition: background 0.2s var(--ease); margin: 0; }
-    .switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3); transition: translate 0.2s var(--ease); }
-    .switch:checked { background: var(--accent); }
-    .switch:checked::after { translate: 14px 0; }
-    .switch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
     .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
     .gcard { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 14px; text-align: left; border-radius: 14px; background: var(--panel); border: 1px solid var(--line-soft); transition: transform 0.3s var(--spring); }
     .gcard:hover { transform: translateY(-2px); }

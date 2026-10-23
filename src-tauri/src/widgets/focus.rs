@@ -75,6 +75,26 @@ impl Pomo {
     }
 }
 
+/// Focus done today: finished work sessions and their minutes. A new day starts at zero.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
+#[serde(rename_all = "camelCase", default)]
+pub struct FocusDay { pub day: String, pub sessions: u32, pub minutes: u32 }
+impl FocusDay {
+    /// This record as of `day` (zero if it is from another day).
+    pub fn on(self, day: &str) -> Self { if self.day == day { self } else { FocusDay { day: day.into(), ..Default::default() } } }
+    /// After a finished work session of `minutes`.
+    pub fn add(self, day: &str, minutes: u32) -> Self {
+        let d = self.on(day);
+        FocusDay { sessions: d.sessions + 1, minutes: d.minutes + minutes, ..d }
+    }
+}
+fn today_key() -> String { chrono::Local::now().format("%Y-%m-%d").to_string() }
+fn focus_today(app: &AppHandle) -> FocusDay {
+    let db = app.state::<Db>();
+    let c = db.0.lock().unwrap();
+    kv_get(&c, "pomo:today").and_then(|s| serde_json::from_str::<FocusDay>(&s).ok()).unwrap_or_default().on(&today_key())
+}
+
 fn pomo_cfg(app: &AppHandle) -> PomoCfg {
     let v = app.state::<crate::AppState>().config.lock().unwrap().widget_settings("productivity");
     serde_json::from_value(v).unwrap_or_default()
@@ -87,7 +107,7 @@ fn load_pomo(app: &AppHandle) -> Pomo {
 }
 
 #[derive(Serialize, Clone)]
-pub struct PomoState { pub pomo: Pomo, pub cfg: PomoCfg, pub label: String }
+pub struct PomoState { pub pomo: Pomo, pub cfg: PomoCfg, pub label: String, pub today: FocusDay }
 
 fn save_pomo(app: &AppHandle, p: &Pomo) -> PomoState {
     {
@@ -95,7 +115,7 @@ fn save_pomo(app: &AppHandle, p: &Pomo) -> PomoState {
         kv_set(&db.0.lock().unwrap(), "pomodoro", &serde_json::to_string(p).unwrap());
     }
     let cfg = pomo_cfg(app);
-    let s = PomoState { label: p.label(&cfg), pomo: p.clone(), cfg };
+    let s = PomoState { label: p.label(&cfg), pomo: p.clone(), cfg, today: focus_today(app) };
     let _ = app.emit("pomodoro:changed", ());
     scheduler::poke();
     s
@@ -111,7 +131,7 @@ fn pomo_do(app: &AppHandle, f: impl FnOnce(Pomo, i64, &PomoCfg) -> Pomo) -> Pomo
 pub fn pomo_get(app: AppHandle) -> PomoState {
     let cfg = pomo_cfg(&app);
     let p = load_pomo(&app);
-    PomoState { label: p.label(&cfg), pomo: p, cfg }
+    PomoState { label: p.label(&cfg), pomo: p, cfg, today: focus_today(&app) }
 }
 #[tauri::command]
 pub fn pomo_start(app: AppHandle) -> PomoState { pomo_do(&app, |mut p, now, c| { p.start(now, c); p }) }
@@ -123,7 +143,15 @@ pub fn pomo_skip(app: AppHandle) -> PomoState { pomo_do(&app, |p, now, c| p.skip
 pub fn pomo_reset(app: AppHandle) -> PomoState { pomo_do(&app, |_, _, _| Pomo::default()) }
 
 /// Scheduler hook: the running phase ended.
-pub fn on_pomo_due(app: &AppHandle) { pomo_do(app, |p, now, c| p.finish(now, c)); }
+pub fn on_pomo_due(app: &AppHandle) {
+    let p = load_pomo(app);
+    if p.phase == Phase::Work && p.ends_at.is_some() {
+        let t = focus_today(app).add(&today_key(), pomo_cfg(app).work_min);
+        let db = app.state::<Db>();
+        kv_set(&db.0.lock().unwrap(), "pomo:today", &serde_json::to_string(&t).unwrap());
+    }
+    pomo_do(app, |p, now, c| p.finish(now, c));
+}
 
 // ---- Timers ----
 
@@ -261,6 +289,14 @@ mod tests {
     use super::*;
 
     fn cfg() -> PomoCfg { PomoCfg::default() }
+
+    #[test]
+    fn focus_today_adds_and_resets_each_day() {
+        let d = FocusDay::default().add("2026-10-24", 25).add("2026-10-24", 25);
+        assert_eq!((d.sessions, d.minutes), (2, 50));
+        assert_eq!(d.clone().on("2026-10-25"), FocusDay { day: "2026-10-25".into(), sessions: 0, minutes: 0 });
+        assert_eq!(d.add("2026-10-25", 30), FocusDay { day: "2026-10-25".into(), sessions: 1, minutes: 30 });
+    }
 
     #[test]
     fn work_to_short_then_long_on_fourth() {

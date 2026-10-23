@@ -18,3 +18,13 @@ describe('time helpers', () => {
     expect(duration(40)).toBe('40s');
   });
 });
+
+import { fmtMinutes } from './time';
+describe('fmtMinutes', () => {
+  it('reads as hours and minutes', () => {
+    expect(fmtMinutes(0)).toBe('0 min');
+    expect(fmtMinutes(45)).toBe('45 min');
+    expect(fmtMinutes(60)).toBe('1 h');
+    expect(fmtMinutes(75)).toBe('1 h 15 min');
+  });
+});

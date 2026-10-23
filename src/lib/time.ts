@@ -24,3 +24,9 @@ export function duration(sec: number): string {
   if (m) return `${m}m`;
   return `${Math.floor(sec)}s`;
 }
+
+/** Minutes as "45 min", "1 h", "1 h 15 min". */
+export function fmtMinutes(m: number): string {
+  const h = Math.floor(m / 60), r = Math.round(m % 60);
+  return h ? (r ? `${h} h ${r} min` : `${h} h`) : `${r} min`;
+}

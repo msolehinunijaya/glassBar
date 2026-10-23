@@ -33,7 +33,7 @@ export interface Todo { id: number; text: string; done: boolean; dueAt: number |
 export interface Note { id: number; text: string; color: string; pinned: boolean; images: string[]; updatedAt: number; deletedAt: number | null }
 export type Phase = 'work' | 'short' | 'long';
 export interface PomoCfg { workMin: number; shortMin: number; longMin: number; every: number }
-export interface PomoState { pomo: { phase: Phase; done: number; endsAt: number | null; pausedMs: number | null; completed: Phase | null }; cfg: PomoCfg; label: string }
+export interface PomoState { pomo: { phase: Phase; done: number; endsAt: number | null; pausedMs: number | null; completed: Phase | null }; cfg: PomoCfg; label: string; today: { day: string; sessions: number; minutes: number } }
 export interface Timer { id: number; label: string; durationMs: number; endsAt: number | null; remainingMs: number | null }
 /** Downloads widget: finished files, newest first; total size of the folder. */
 export interface DlItem { path: string; name: string; size: number; at: number }
