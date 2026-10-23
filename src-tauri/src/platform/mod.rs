@@ -71,10 +71,8 @@ pub struct RecentItem { pub name: String, pub path: String }
 pub struct Glass { pub native: bool, pub dark: bool, pub opacity: f64 }
 
 pub trait Shell: Send + Sync {
-    /// Show a window without activating it (hover popups).
-    fn show_passive(&self, win: &tauri::WebviewWindow);
-    /// Hide a window at the OS level. Needed after `show_passive`: Tauri didn't see that
-    /// show, so its own hide() thinks the window is already hidden and does nothing.
+    /// Hide a window at the OS level as well as through Tauri (belt and braces: a preview
+    /// must never stay on screen as an empty box).
     fn hide_window(&self, win: &tauri::WebviewWindow);
     /// Native blur + rounded corners (or plain transparent window for CSS glass).
     fn style_window(&self, win: &tauri::WebviewWindow, glass: &Glass);

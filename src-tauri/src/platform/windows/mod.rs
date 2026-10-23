@@ -40,10 +40,6 @@ impl Shell for WinShell {
         use windows::Win32::UI::WindowsAndMessaging::{ShowWindow, SW_HIDE};
         if let Ok(h) = win.hwnd() { unsafe { let _ = ShowWindow(windows::Win32::Foundation::HWND(h.0), SW_HIDE); } }
     }
-    fn show_passive(&self, win: &tauri::WebviewWindow) {
-        use windows::Win32::UI::WindowsAndMessaging::{ShowWindow, SW_SHOWNOACTIVATE};
-        if let Ok(h) = win.hwnd() { unsafe { let _ = ShowWindow(windows::Win32::Foundation::HWND(h.0), SW_SHOWNOACTIVATE); } }
-    }
     fn init(&self, dir: &std::path::Path, f: Box<dyn Fn(SystemEvent) + Send>) {
         appbar::set_state_dir(dir);
         system::start(f);

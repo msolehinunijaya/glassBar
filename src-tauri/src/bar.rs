@@ -188,7 +188,7 @@ pub fn popup_hidden(app: &AppHandle) {
     shell().thumbs_clear(); // never leave live thumbnails behind
     if let Some(p) = app.get_webview_window("popup") {
         let _ = p.hide();
-        shell().hide_window(&p); // also covers popups shown with show_passive (hover previews)
+        shell().hide_window(&p); // belt and braces: never leave an empty preview on screen
     }
     app.state::<AppState>().popup.lock().unwrap().hidden_at = Some(Instant::now());
     let _ = app.emit("popup:hide", ());
@@ -228,12 +228,11 @@ pub fn popup_open(app: AppHandle, instance: String, x: f64, y: f64, w: f64, h: f
     let r = popup_rect(br, anchor, (width * s).round() as i32, (height * s).round() as i32, edge, mon, (8.0 * s) as i32);
     let _ = app.emit("popup:show", &instance);
     set_rect(&popup, r);
-    if focus {
-        popup.show().map_err(e)?;
-        popup.set_focus().map_err(e)?;
-    } else {
-        shell().show_passive(&popup); // hover popups must not steal focus from the user's app
-    }
+    // Hover previews must not steal focus from the user's app: make the window
+    // non-activating for them, then show it through Tauri so its visible state stays right.
+    popup.set_focusable(focus).map_err(e)?;
+    popup.show().map_err(e)?;
+    if focus { popup.set_focus().map_err(e)?; }
     Ok(())
 }
 
