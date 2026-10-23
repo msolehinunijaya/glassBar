@@ -30,6 +30,7 @@
   --line-soft: rgba(0, 0, 0, 0.08);
   --shadow: 0 8px 28px rgba(0, 0, 0, 0.14), 0 1px 3px rgba(0, 0, 0, 0.08);
   --track: rgba(0, 0, 0, 0.12);
+  --menu-bg: #ffffff;
   color-scheme: light;
 }
 :root[data-theme='dark'] {
@@ -42,12 +43,17 @@
   --line-soft: rgba(255, 255, 255, 0.08);
   --shadow: 0 8px 28px rgba(0, 0, 0, 0.45), 0 1px 3px rgba(0, 0, 0, 0.3);
   --track: rgba(255, 255, 255, 0.16);
+  --menu-bg: #2b2b30;
   color-scheme: dark;
 }
 
 html, body, #app { margin: 0; height: 100%; background: transparent; color: var(--fg); overflow: hidden; }
 * { box-sizing: border-box; }
 button { font: inherit; color: inherit; border: 0; background: none; padding: 0; cursor: default; }
+/* Dropdown lists are drawn by Windows outside the glass: give them a solid, readable
+   background and text in the current theme (otherwise light text on a white list). */
+select { color: var(--fg); }
+select option, select optgroup { background-color: var(--menu-bg); color: var(--fg); }
 input, select, textarea { font: inherit; color: inherit; }
 
 /* The root surface of bar and popup windows.
