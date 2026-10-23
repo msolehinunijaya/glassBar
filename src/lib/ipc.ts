@@ -16,7 +16,7 @@ export interface LocationCfg { auto: boolean; useDevice: boolean; lat: number | 
 export interface Config {
   version: number; activeProfile: string; profiles: Record<string, Profile>;
   theme: Theme; startup: { launchAtLogin: boolean };
-  dnd: boolean; location: LocationCfg; deviceSounds: { connect: boolean; disconnect: boolean; volume: number };
+  dnd: boolean; location: LocationCfg; deviceSounds: { connect: boolean; disconnect: boolean; charger: boolean; volume: number };
 }
 
 export interface Alert { id: number; source: string; title: string; body: string; at: number; missed: boolean; read: boolean }
@@ -57,7 +57,7 @@ export interface TrayIcon { id: string; tip: string; icon: string | null; exe: s
 export interface KeyboardLayout { id: number; code: string; name: string; locale: string; active: boolean }
 export interface DiskInfo { mount: string; label: string; total: number; available: number; removable: boolean; fs: string }
 export interface ScreenToday { total: number; apps: { exe: string; name: string; seconds: number }[] }
-export type Sound = { kind: 'chime' } | { kind: 'azan'; src: string } | { kind: 'connect' | 'disconnect'; volume: number };
+export type Sound = { kind: 'chime' } | { kind: 'azan'; src: string } | { kind: 'connect' | 'disconnect' | 'plug' | 'unplug'; volume: number };
 
 export interface AppWindow { id: number; title: string; exe: string; active: boolean; minimized: boolean }
 export interface AudioDevice { id: string; name: string; isDefault: boolean }

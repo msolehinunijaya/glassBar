@@ -7,7 +7,7 @@
   import { events, ipc, type WidgetInst, type WidgetSize } from '../lib/ipc';
   import { insertIndex, snap } from '../lib/geometry';
   import { GALLERY, openPopup } from '../lib/popup';
-  import { chime, deviceTone, playFile } from '../lib/sound';
+  import { chargerTone, chime, deviceTone, playFile } from '../lib/sound';
   import { showMenu } from '../lib/menu';
   import { PredefinedMenuItem } from '@tauri-apps/api/menu';
   import { settingsOf, widgets } from '../widgets/registry';
@@ -56,7 +56,7 @@
       events.editMode((on) => (edit = on)),
       win.onMoved(onMoved),
       // Alert sounds play here: the bar window is always alive.
-      events.soundPlay((s) => (s.kind === 'azan' ? playFile(s.src) : s.kind === 'connect' || s.kind === 'disconnect' ? deviceTone(s.kind === 'connect', s.volume) : chime())),
+      events.soundPlay((s) => (s.kind === 'azan' ? playFile(s.src) : s.kind === 'connect' || s.kind === 'disconnect' ? deviceTone(s.kind === 'connect', s.volume) : s.kind === 'plug' || s.kind === 'unplug' ? chargerTone(s.kind === 'plug', s.volume) : chime())),
     ];
     return () => offs.forEach((p) => p.then((off) => off()));
   });

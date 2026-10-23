@@ -117,7 +117,7 @@ fn main() {
             let a = h.clone();
             platform::shell().init(&data_dir(), Box::new(move |e| match e {
                 SystemEvent::DisplayChanged | SystemEvent::ShellRestarted => bar::apply(&a),
-                SystemEvent::PowerChanged => { let _ = a.emit("battery:changed", ()); }
+                SystemEvent::PowerChanged => { let _ = a.emit("battery:changed", ()); widgets::sound::power_event(&a); }
                 SystemEvent::Device(on) => widgets::sound::device_event(&a, on),
                 // Step back from always-on-top while a game or video is fullscreen.
                 SystemEvent::Fullscreen(on) => {
@@ -125,6 +125,7 @@ fn main() {
                 }
             }));
             widgets::ocr::register_hotkey(h);
+            widgets::sound::charger_init();
             widgets::quick::sync_tray(h);
             let n = h.clone();
             platform::wireless().watch_network(Box::new(move || { let _ = n.emit("wifi:changed", ()); }));

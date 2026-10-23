@@ -58,3 +58,43 @@ mod tests {
         assert!(should_play(Some((true, 0)), false, 800), "unplug shortly after plug-in still sounds");
     }
 }
+
+// ---- Charger sounds ----
+
+/// Pure: returns Some(plugged_in) only when the charger state really flipped.
+/// Windows sends power events for battery % changes too; those must stay silent.
+pub fn charger_flip(last: Option<bool>, now: Option<bool>) -> Option<bool> {
+    match (last, now) { (Some(a), Some(b)) if a != b => Some(b), _ => None }
+}
+
+static LAST_AC: std::sync::Mutex<Option<bool>> = std::sync::Mutex::new(None);
+
+/// Remember the starting state so launching GlassBar never plays a sound.
+pub fn charger_init() { *LAST_AC.lock().unwrap() = crate::platform::power().battery().map(|b| b.on_ac); }
+
+pub fn power_event(app: &tauri::AppHandle) {
+    use tauri::{Emitter, Manager};
+    let now = crate::platform::power().battery().map(|b| b.on_ac);
+    let flip = { let mut l = LAST_AC.lock().unwrap(); let f = charger_flip(*l, now); if now.is_some() { *l = now; } f };
+    let Some(plugged) = flip else { return };
+    let s = {
+        let st = app.state::<crate::AppState>();
+        let c = st.config.lock().unwrap();
+        if c.dnd || !c.device_sounds.charger { return; }
+        c.device_sounds.clone()
+    };
+    let _ = app.emit_to("bar", "sound:play", serde_json::json!({ "kind": if plugged { "plug" } else { "unplug" }, "volume": s.volume }));
+}
+
+#[cfg(test)]
+mod charger_tests {
+    use super::charger_flip;
+    #[test]
+    fn only_real_plug_changes_make_a_sound() {
+        assert_eq!(charger_flip(Some(false), Some(true)), Some(true));
+        assert_eq!(charger_flip(Some(true), Some(false)), Some(false));
+        assert_eq!(charger_flip(Some(true), Some(true)), None, "battery % updates while plugged in");
+        assert_eq!(charger_flip(None, Some(true)), None, "first reading");
+        assert_eq!(charger_flip(Some(true), None), None, "no battery info");
+    }
+}

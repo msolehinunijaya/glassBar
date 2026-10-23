@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { deviceTone } from '../lib/sound';
+  import { chargerTone, deviceTone } from '../lib/sound';
   import { availableMonitors, type Monitor } from '@tauri-apps/api/window';
   import { ArrowDown, ArrowUp, ChevronDown, Copy, Trash2 } from '@lucide/svelte';
   import { profile, store, update, updateWidgetSettings } from '../lib/config.svelte';
@@ -186,6 +186,16 @@
       <p class="hint">Switch profiles from here or from the tray icon menu.</p>
 
     {:else if section === 'Sounds'}
+      <div class="group">
+        <label class="field"><span>Charger sounds (plugged in / unplugged)</span>
+          <input type="checkbox" checked={c.deviceSounds.charger} onchange={(e) => set((c) => (c.deviceSounds.charger = e.currentTarget.checked))} />
+        </label>
+        <div class="field"><span>Preview</span>
+          <span><button class="btn" onclick={() => chargerTone(true, c.deviceSounds.volume)}>Plugged in</button>
+          <button class="btn" onclick={() => chargerTone(false, c.deviceSounds.volume)}>Unplugged</button></span>
+        </div>
+        <p class="hint">Plays only when the charger state really changes (Windows power events), never repeatedly while it stays plugged in.</p>
+      </div>
       <div class="group">
         <label class="field"><span>Sound when a USB device is connected</span>
           <input type="checkbox" checked={c.deviceSounds.connect} onchange={(e) => set((c) => (c.deviceSounds.connect = e.currentTarget.checked))} />

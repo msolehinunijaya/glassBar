@@ -138,10 +138,13 @@ pub struct Config {
 /// Sounds when a USB device is plugged in / removed. Off by default: Windows plays its own.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase", default)]
-pub struct DeviceSounds { pub connect: bool, pub disconnect: bool, /// 0..1
+pub struct DeviceSounds { pub connect: bool, pub disconnect: bool,
+    /// Charger plugged in / unplugged (two different sounds).
+    pub charger: bool,
+    /// 0..1
     pub volume: f32 }
 impl Default for DeviceSounds {
-    fn default() -> Self { Self { connect: false, disconnect: false, volume: 0.4 } }
+    fn default() -> Self { Self { connect: false, disconnect: false, charger: true, volume: 0.4 } }
 }
 
 impl Default for Config {

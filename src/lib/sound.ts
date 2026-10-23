@@ -8,7 +8,15 @@ export const chime = () => tones([[880, 0], [1318.5, 0.18]], 0.25);
 export const deviceTone = (connected: boolean, volume = 0.4) =>
   tones(connected ? [[660, 0], [990, 0.09]] : [[990, 0], [660, 0.09]], 0.2 * Math.max(0, Math.min(1, volume)), 0.22);
 
-async function tones(notes: readonly (readonly [number, number])[], peak: number, len = 0.45) {
+/** Charger plugged in: bright rising C–E–G. Unplugged: soft falling E–A, lower and rounder. */
+export const chargerTone = (plugged: boolean, volume = 0.4) => {
+  const v = 0.22 * Math.max(0, Math.min(1, volume));
+  return plugged
+    ? tones([[1046.5, 0], [1318.5, 0.08], [1568, 0.16]], v, 0.3, 'triangle')
+    : tones([[659.3, 0], [440, 0.13]], v, 0.38, 'sine');
+};
+
+async function tones(notes: readonly (readonly [number, number])[], peak: number, len = 0.45, wave: OscillatorType = 'sine') {
   ctx ??= new AudioContext();
   clearTimeout(idle);
   await ctx.resume();
@@ -16,7 +24,7 @@ async function tones(notes: readonly (readonly [number, number])[], peak: number
   for (const [freq, at] of notes) {
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
-    osc.type = 'sine';
+    osc.type = wave;
     osc.frequency.value = freq;
     gain.gain.setValueAtTime(0, t + at);
     gain.gain.linearRampToValueAtTime(Math.max(peak, 0.0011), t + at + 0.02);
