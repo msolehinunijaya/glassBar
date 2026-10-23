@@ -157,8 +157,8 @@ impl Default for Config {
 }
 
 /// v2 added the Start/Search button widget.
-/// v3 folded the Disk widget into the System Monitor.
-pub const CURRENT_VERSION: u32 = 3;
+/// v3 folded the Disk widget into the System Monitor; v4 the Tray widget into Quick Settings.
+pub const CURRENT_VERSION: u32 = 4;
 
 impl Config {
     /// Repair values a hand-edited or imported file can get wrong, and upgrade old versions.
@@ -192,6 +192,23 @@ impl Config {
                 for w in p.widgets.iter_mut().filter(|w| w.id == "music" && w.settings["style"] == "mini") {
                     w.settings["style"] = "player".into();
                 }
+            }
+        }
+        if self.version < 4 {
+            // The System Tray widget became a section of Quick Settings.
+            for p in self.profiles.values_mut() {
+                let Some(i) = p.widgets.iter().position(|w| w.id == "tray") else { continue };
+                if let Some(q) = p.widgets.iter_mut().find(|w| w.id == "quicksettings") {
+                    if !q.settings.is_object() { q.settings = serde_json::json!({}); }
+                    q.settings["trayOnDock"] = true.into();
+                    p.widgets.remove(i);
+                } else {
+                    let w = &mut p.widgets[i];
+                    w.id = "quicksettings".into();
+                    w.instance = format!("quicksettings-{}", w.instance);
+                    w.settings = serde_json::json!({ "trayOnDock": true });
+                }
+                p.widgets.retain(|w| w.id != "tray");
             }
         }
         self.version = CURRENT_VERSION;
@@ -425,5 +442,21 @@ mod tests {
         let c = c.normalized();
         let ws = &c.profiles["Default"].widgets;
         assert_eq!((ws[0].id.as_str(), &ws[0].settings["disk"], &ws[0].settings["cpu"]), ("sysmon", &serde_json::json!(true), &serde_json::json!(false)));
+    }
+
+    #[test]
+    fn v4_moves_the_tray_widget_into_quick_settings() {
+        let w = |id: &str| WidgetInst { id: id.into(), instance: format!("{id}-1"), size: "small".into(), settings: serde_json::Value::Null };
+        let mut c = Config { version: 3, ..Config::default() };
+        c.profiles.get_mut("Default").unwrap().widgets = vec![w("quicksettings"), w("tray"), w("clock")];
+        let c = c.normalized();
+        let ws = &c.profiles["Default"].widgets;
+        assert_eq!(ws.iter().map(|x| x.id.as_str()).collect::<Vec<_>>(), ["quicksettings", "clock"]);
+        assert_eq!(ws[0].settings["trayOnDock"], true, "tray icons stay visible on the dock");
+        // Tray widget but no Quick Settings: it becomes Quick Settings with tray icons on.
+        let mut c = Config { version: 3, ..Config::default() };
+        c.profiles.get_mut("Default").unwrap().widgets = vec![w("tray")];
+        let ws = c.normalized().profiles["Default"].widgets.clone();
+        assert_eq!((ws[0].id.as_str(), &ws[0].settings["trayOnDock"]), ("quicksettings", &serde_json::json!(true)));
     }
 }

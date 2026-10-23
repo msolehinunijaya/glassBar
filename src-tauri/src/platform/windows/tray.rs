@@ -16,6 +16,7 @@ use windows::Win32::UI::WindowsAndMessaging::*;
 
 static DECOY: AtomicIsize = AtomicIsize::new(0);
 static DIRTY: AtomicBool = AtomicBool::new(false);
+static STEPPED_ASIDE: AtomicBool = AtomicBool::new(false);
 static ON_CHANGE: Mutex<Option<Box<dyn Fn() + Send>>> = Mutex::new(None);
 
 struct Icon { hwnd: u32, uid: u32, guid: Option<GUID>, callback: u32, version: u32, tip: String, hicon: isize, hidden: bool, png: Option<String>, rev: u64 }
@@ -120,7 +121,7 @@ unsafe extern "system" fn proc(h: HWND, msg: u32, wp: WPARAM, lp: LPARAM) -> LRE
         WM_TIMER => {
             // Stay first in line: Explorer re-raises its taskbar now and then.
             let cls = wide("Shell_TrayWnd");
-            if unsafe { FindWindowW(PCWSTR(cls.as_ptr()), PCWSTR::null()) }.map(|w| w != h).unwrap_or(true) {
+            if !STEPPED_ASIDE.load(Ordering::Relaxed) && unsafe { FindWindowW(PCWSTR(cls.as_ptr()), PCWSTR::null()) }.map(|w| w != h).unwrap_or(true) {
                 unsafe { let _ = SetWindowPos(h, Some(HWND_TOPMOST), 0, 0, 0, 0, SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE); }
             }
             if DIRTY.swap(false, Ordering::Relaxed) {
@@ -145,6 +146,23 @@ fn broadcast_taskbar_created() {
 }
 
 pub fn running() -> bool { DECOY.load(Ordering::Relaxed) != 0 }
+
+/// Run `f` with the stand-in tray out of the way, so FindWindow("Shell_TrayWnd") inside
+/// it (e.g. SHAppBarMessage) reaches Explorer's real taskbar. No-op when not hosting.
+pub fn bypass<T>(f: impl FnOnce() -> T) -> T {
+    let h = DECOY.load(Ordering::Relaxed);
+    if h == 0 { return f(); }
+    let w = HWND(h as *mut _);
+    STEPPED_ASIDE.store(true, Ordering::Relaxed);
+    unsafe {
+        let _ = SetWindowPos(w, Some(HWND_NOTOPMOST), 0, 0, 0, 0, SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE);
+        let _ = SetWindowPos(w, Some(HWND_BOTTOM), 0, 0, 0, 0, SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE);
+    }
+    let r = f();
+    unsafe { let _ = SetWindowPos(w, Some(HWND_TOPMOST), 0, 0, 0, 0, SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE); }
+    STEPPED_ASIDE.store(false, Ordering::Relaxed);
+    r
+}
 
 /// Start hosting (idempotent). Apps re-add their icons after the TaskbarCreated broadcast.
 pub fn start(on_change: Box<dyn Fn() + Send>) {

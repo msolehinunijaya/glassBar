@@ -44,6 +44,13 @@ fn data(h: HWND) -> APPBARDATA {
     APPBARDATA { cbSize: std::mem::size_of::<APPBARDATA>() as u32, hWnd: h, ..Default::default() }
 }
 
+/// AppBar messages must reach Explorer directly: with GlassBar's tray host running, its
+/// stand-in "Shell_TrayWnd" would receive them first, and the forwarded copy doesn't
+/// reserve any space. The host steps aside for the duration of the call.
+fn abmsg(msg: u32, abd: &mut APPBARDATA) -> usize {
+    super::tray::bypass(|| unsafe { SHAppBarMessage(msg, abd) })
+}
+
 fn owner() -> Option<HWND> {
     let h = super::system::hwnd();
     (h != 0).then(|| HWND(h as *mut _))
@@ -56,11 +63,11 @@ pub fn set(edge: Edge, strip: Rect) -> Rect {
     unsafe {
         if !*reg {
             abd.uCallbackMessage = APPBAR_MSG;
-            *reg = SHAppBarMessage(ABM_NEW, &mut abd) != 0;
+            *reg = abmsg(ABM_NEW, &mut abd) != 0;
         }
         abd.uEdge = match edge { Edge::Left => ABE_LEFT, Edge::Top => ABE_TOP, Edge::Right => ABE_RIGHT, Edge::Bottom => ABE_BOTTOM };
         abd.rc = RECT { left: strip.x, top: strip.y, right: strip.x + strip.w, bottom: strip.y + strip.h };
-        SHAppBarMessage(ABM_QUERYPOS, &mut abd);
+        abmsg(ABM_QUERYPOS, &mut abd);
         // QUERYPOS may move the strip's outer side to clear other bars; keep our thickness.
         match edge {
             Edge::Top => abd.rc.bottom = abd.rc.top + strip.h,
@@ -68,7 +75,7 @@ pub fn set(edge: Edge, strip: Rect) -> Rect {
             Edge::Left => abd.rc.right = abd.rc.left + strip.w,
             Edge::Right => abd.rc.left = abd.rc.right - strip.w,
         }
-        SHAppBarMessage(ABM_SETPOS, &mut abd);
+        abmsg(ABM_SETPOS, &mut abd);
     }
     let r = abd.rc;
     Rect { x: r.left, y: r.top, w: r.right - r.left, h: r.bottom - r.top }
@@ -78,7 +85,7 @@ pub fn remove() {
     let mut reg = REGISTERED.lock().unwrap();
     if let (true, Some(h)) = (*reg, owner()) {
         let mut abd = data(h);
-        unsafe { SHAppBarMessage(ABM_REMOVE, &mut abd) };
+        unsafe { abmsg(ABM_REMOVE, &mut abd) };
     }
     *reg = false;
 }
@@ -117,14 +124,14 @@ fn taskbars() -> Vec<HWND> {
 fn taskbar_state() -> u32 {
     let Some(&tray) = taskbars().first() else { return ABS_ALWAYSONTOP };
     let mut abd = data(tray);
-    unsafe { SHAppBarMessage(ABM_GETSTATE, &mut abd) as u32 }
+    unsafe { abmsg(ABM_GETSTATE, &mut abd) as u32 }
 }
 
 fn set_taskbar_state(state: u32) {
     if let Some(&tray) = taskbars().first() {
         let mut abd = data(tray);
         abd.lParam = LPARAM(state as isize);
-        unsafe { SHAppBarMessage(ABM_SETSTATE, &mut abd) };
+        unsafe { abmsg(ABM_SETSTATE, &mut abd) };
     }
 }
 

@@ -52,6 +52,22 @@ describe('snap: drag past the edge to auto-hide', () => {
     expect(snap({ x: 400, y: -40, w: 1000, h: 60 }, one, 24)).toMatchObject({ edge: 'top', hide: true });
     expect(snap({ x: -40, y: 200, w: 60, h: 700 }, one, 24)).toMatchObject({ edge: 'left', hide: true });
   });
+  it('hides once a third of the bar is past any of the four edges', () => {
+    // 60 px thick: 21 px past = hide, 15 px past = just snap
+    expect(snap({ x: 400, y: -21, w: 1000, h: 60 }, one, 24)).toMatchObject({ edge: 'top', hide: true });
+    expect(snap({ x: 400, y: 1080 - 60 + 21, w: 1000, h: 60 }, one, 24)).toMatchObject({ edge: 'bottom', hide: true });
+    expect(snap({ x: -21, y: 200, w: 60, h: 700 }, one, 24)).toMatchObject({ edge: 'left', hide: true });
+    expect(snap({ x: 1920 - 60 + 21, y: 200, w: 60, h: 700 }, one, 24)).toMatchObject({ edge: 'right', hide: true });
+    expect(snap({ x: 400, y: -15, w: 1000, h: 60 }, one, 24)).toMatchObject({ edge: 'top', hide: false });
+    expect(snap({ x: 1920 - 60 + 15, y: 200, w: 60, h: 700 }, one, 24)).toMatchObject({ edge: 'right', hide: false });
+  });
+  it('sliding a wide bar sideways off the screen does not hide it', () => {
+    expect(snap({ x: 1300, y: 0, w: 1000, h: 60 }, one, 24)).toMatchObject({ edge: 'top', hide: false });
+  });
+  it('a bar on the second monitor hides at that monitor\'s edge', () => {
+    const two = [{ x: -1920, y: 0, w: 1536, h: 864 }, { x: 0, y: 0, w: 1920, h: 1080 }];
+    expect(snap({ x: -1700, y: -25, w: 1200, h: 60 }, two, 24)).toEqual({ monitor: 0, edge: 'top', hide: true });
+  });
   it('does not hide when merely near the edge', () => {
     expect(snap({ x: 400, y: 1010, w: 1000, h: 60 }, one, 24)).toEqual({ monitor: 0, edge: 'bottom', hide: false });
   });

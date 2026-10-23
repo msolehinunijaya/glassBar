@@ -198,8 +198,7 @@ fn main() {
             widgets::quick::wifi_list, widgets::quick::wifi_connect, widgets::quick::wifi_disconnect,
             widgets::quick::bt_list, widgets::quick::bt_pair, widgets::quick::bt_unpair, widgets::quick::open_settings_uri,
             widgets::quick::tray_icons, widgets::quick::tray_click, widgets::sound::audio_meter,
-            widgets::quick::lang_list, widgets::quick::lang_set, widgets::quick::tray_overflow,
-            widgets::quick::tray_settings, widgets::quick::windows_notifications,
+            widgets::quick::lang_list, widgets::quick::lang_set, widgets::quick::windows_notifications,
         ])
         .build(tauri::generate_context!())
         .expect("error while building GlassBar")

@@ -4,17 +4,18 @@ import Pill from './Pill.svelte';
 import Popup from './Popup.svelte';
 import SettingsForm from './SettingsForm.svelte';
 
-export interface QuickSettings { showLanguage: boolean; showTray: boolean }
+/** trayOnDock: real tray icons inside the Quick Settings pill on the dock. */
+export interface QuickSettings { showLanguage: boolean; showTray: boolean; trayOnDock: boolean }
 
 export default defineWidget<QuickSettings>({
   id: 'quicksettings',
   name: 'Quick Settings',
-  description: 'Wi-Fi, Bluetooth, hotspot, airplane mode, display, brightness, keyboard language, tray',
+  description: 'Wi-Fi, Bluetooth, hotspot, airplane mode, display, brightness, keyboard language, system tray icons',
   icon: SlidersHorizontal,
   sizes: ['small'],
   defaultSize: 'small',
-  defaults: { showLanguage: true, showTray: true },
+  defaults: { showLanguage: true, showTray: true, trayOnDock: false },
   Pill,
-  Popup: { component: Popup, width: 340, height: 600 },
+  Popup: { component: Popup, width: 360, height: 680 },
   SettingsForm,
 });

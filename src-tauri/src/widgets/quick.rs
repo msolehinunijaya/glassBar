@@ -33,23 +33,10 @@ pub fn lang_list() -> Vec<KeyboardLayout> { shell().keyboard_layouts() }
 /// Falls back to Win+Space (Windows' own switcher) when there's no app window to switch.
 #[tauri::command]
 pub fn lang_set(id: isize) { if !shell().keyboard_layout_set(id) { shell().press_keys(&[0x5B, 0x20]) } }
-/// Opens Windows' hidden-icons flyout: Win+B focuses the tray, Enter opens it.
-/// Only works while the native taskbar is shown; otherwise opens tray settings.
-#[tauri::command]
-pub async fn tray_overflow(native_visible: bool) -> Res<()> {
-    if !native_visible { return shell().launch("ms-settings:taskbar", ""); }
-    shell().press_keys(&[0x5B, b'B' as u16]);
-    tokio_sleep(150).await;
-    shell().press_keys(&[0x0D]);
-    Ok(())
-}
-#[tauri::command]
-pub fn tray_settings() -> Res<()> { shell().launch("ms-settings:taskbar", "") }
 /// Windows' own notification center (Win+N).
 #[tauri::command]
 pub fn windows_notifications() { shell().press_keys(&[0x5B, b'N' as u16]) }
 
-async fn tokio_sleep(ms: u64) { let _ = blocking(move || std::thread::sleep(std::time::Duration::from_millis(ms))).await; }
 
 #[tauri::command]
 pub async fn radios_list() -> Res<Vec<RadioInfo>> { blocking(move || radios().list()).await? }
@@ -74,13 +61,14 @@ pub async fn hotspot_set(on: bool) -> Res<()> { blocking(move || radios().set_ho
 
 // ---- Tray icons on the dock (opt-in) ----
 
-/// Host tray icons while the Tray widget is on the bar (unless the user switched hosting off).
+/// Host tray icons while Quick Settings shows them (its panel section or on the dock).
 pub fn sync_tray(app: &tauri::AppHandle) {
     use tauri::{Emitter, Manager};
     let want = {
         let st = app.state::<crate::AppState>();
         let c = st.config.lock().unwrap();
-        c.uses("tray") && c.widget_settings("tray")["native"] != false
+        let q = c.widget_settings("quicksettings");
+        c.uses("quicksettings") && (q["showTray"] != false || q["trayOnDock"] == true)
     };
     let t = crate::platform::tray();
     if want && !t.running() {

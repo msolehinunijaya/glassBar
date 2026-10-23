@@ -6,9 +6,9 @@
   import type { PopupProps } from '../types';
   import type { QuickSettings } from './index';
   import LangList from '../lang/LangList.svelte';
-  import TrayButtons from '../tray/TrayButtons.svelte';
+  import TraySection from './TraySection.svelte';
 
-  let { settings }: PopupProps<QuickSettings> = $props();
+  let { instance, settings }: PopupProps<QuickSettings> = $props();
   let view = $state<'main' | 'wifi' | 'bluetooth'>('main');
   let radios = $state<RadioInfo[]>([]);
   let mode = $state<DisplayMode | null>(null);
@@ -104,8 +104,7 @@
   <LangList />
 {/if}
 {#if settings.showTray}
-  <h4 class="dim">System tray</h4>
-  <TrayButtons />
+  <TraySection {instance} onDock={settings.trayOnDock} />
 {/if}
 
 {#if hotspotWhy}<p class="dim small">Hotspot: {hotspotWhy}</p>{/if}

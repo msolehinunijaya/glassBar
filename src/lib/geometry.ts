@@ -9,13 +9,19 @@ const dist2 = (r: Rect, px: number, py: number) => {
 };
 
 /** Which monitor the window belongs to and the edge to dock to (null = float).
- *  `hide` = the bar was dragged past that edge (its centre left the screen): auto-hide there. */
+ *  `hide` = a third of the bar was dragged past that edge: auto-hide there. */
 export function snap(win: Rect, monitors: Rect[], threshold: number): { monitor: number; edge: Edge | null; hide: boolean } {
   const cx = win.x + win.w / 2, cy = win.y + win.h / 2;
   let monitor = 0;
   monitors.forEach((m, i) => { if (dist2(m, cx, cy) < dist2(monitors[monitor], cx, cy)) monitor = i; });
   const m = monitors[monitor];
-  const past: Edge | null = cy > m.y + m.h ? 'bottom' : cy < m.y ? 'top' : cx < m.x ? 'left' : cx > m.x + m.w ? 'right' : null;
+  // A third of the bar's thickness pushed past an edge counts as "push it off-screen".
+  // A wide bar only hides off the top/bottom, a tall one off the sides, so sliding a bar
+  // sideways towards another monitor never hides it by accident.
+  const wide = win.w >= win.h;
+  const past: Edge | null = wide
+    ? (win.y + win.h > m.y + m.h + win.h / 3 ? 'bottom' : win.y < m.y - win.h / 3 ? 'top' : null)
+    : (win.x < m.x - win.w / 3 ? 'left' : win.x + win.w > m.x + m.w + win.w / 3 ? 'right' : null);
   if (past) return { monitor, edge: past, hide: true };
   const gaps: [Edge, number][] = [
     ['top', win.y - m.y],
