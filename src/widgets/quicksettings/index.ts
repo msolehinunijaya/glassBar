@@ -19,7 +19,7 @@ export default defineWidget<QuickSettings>({
   icon: SlidersHorizontal,
   sizes: ['small'],
   defaultSize: 'small',
-  defaults: { showLanguage: true, langOnDock: false, showTray: true, trayOnDock: false, showBattery: true, batteryOnDock: false, batteryStyle: 'classic', soundOnDock: true },
+  defaults: { showLanguage: true, langOnDock: false, showTray: true, trayOnDock: true, showBattery: true, batteryOnDock: false, batteryStyle: 'classic', soundOnDock: true },
   Pill,
   Popup: { component: Popup, width: 360, height: 680 },
   SettingsForm,

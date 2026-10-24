@@ -60,9 +60,10 @@ impl BarCfg {
 
 impl Default for BarCfg {
     fn default() -> Self {
-        // Top + taskbar shown: safe first run, nothing hidden if the app is killed.
+        // Fresh install: GlassBar replaces the Windows taskbar. Quit, a crash or the tray's
+        // "Restore Windows taskbar" bring it back.
         Self { edge: Edge::Top, monitor: None, length: 0.7, size: BarSize::Normal, floating: None,
-               reserve_space: true, native_taskbar: TaskbarMode::Show, auto_hide: false, side_width: "regular".into() }
+               reserve_space: true, native_taskbar: TaskbarMode::Hidden, auto_hide: false, side_width: "regular".into() }
     }
 }
 
@@ -175,7 +176,7 @@ impl Theme {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Startup { pub launch_at_login: bool }
-impl Default for Startup { fn default() -> Self { Self { launch_at_login: false } } }
+impl Default for Startup { fn default() -> Self { Self { launch_at_login: true } } }
 
 /// The one shared location (Weather, sunrise/sunset, Waktu Solat, IPU, world clock).
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]

@@ -78,6 +78,12 @@ impl Shell for WinShell {
         use windows::Win32::UI::WindowsAndMessaging::{ShowWindow, SW_HIDE};
         if let Ok(h) = win.hwnd() { unsafe { let _ = ShowWindow(windows::Win32::Foundation::HWND(h.0), SW_HIDE); } }
     }
+    fn raise_top(&self, win: &tauri::WebviewWindow) {
+        use windows::Win32::UI::WindowsAndMessaging::{SetWindowPos, HWND_TOPMOST, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE};
+        if let Ok(h) = win.hwnd() {
+            unsafe { let _ = SetWindowPos(windows::Win32::Foundation::HWND(h.0), Some(HWND_TOPMOST), 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE); }
+        }
+    }
     fn init(&self, dir: &std::path::Path, f: Box<dyn Fn(SystemEvent) + Send>) {
         appbar::set_state_dir(dir);
         system::start(f);

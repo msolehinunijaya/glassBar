@@ -37,6 +37,9 @@ pub fn lang_list() -> Vec<KeyboardLayout> { shell().keyboard_layouts() }
 /// Falls back to Win+Space (Windows' own switcher) when there's no app window to switch.
 #[tauri::command]
 pub fn lang_set(id: isize) { if !shell().keyboard_layout_set(id) { shell().press_keys(&[0x5B, 0x20]) } }
+/// Minimise everything to the desktop, or bring it all back (Win+D).
+#[tauri::command]
+pub fn show_desktop() { shell().press_keys(&[0x5B, b'D' as u16]) }
 /// Windows' own notification center (Win+N).
 #[tauri::command]
 pub fn windows_notifications() { shell().press_keys(&[0x5B, b'N' as u16]) }
