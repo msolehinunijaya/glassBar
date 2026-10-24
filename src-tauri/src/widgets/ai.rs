@@ -9,7 +9,9 @@ use tauri::{AppHandle, Emitter, Manager};
 pub const DEFAULT_MODEL: &str = "claude-opus-5-5";
 const API: &str = "https://api.anthropic.com/v1/messages";
 
-fn entry() -> Result<keyring::Entry, String> { keyring::Entry::new("GlassBar", "anthropic-api-key").map_err(|e| e.to_string()) }
+/// A GlassBar secret in Windows Credential Manager (also used by the AI Usage widget).
+pub fn cred(name: &str) -> Result<keyring::Entry, String> { keyring::Entry::new("GlassBar", name).map_err(|e| e.to_string()) }
+fn entry() -> Result<keyring::Entry, String> { cred("anthropic-api-key") }
 fn api_key() -> Result<String, String> {
     entry()?.get_password().map_err(|_| "No Anthropic API key yet: add one in the AI widget's settings".to_string())
 }

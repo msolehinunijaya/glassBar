@@ -8,7 +8,7 @@ export interface AiSettings { model: string; showTokens: boolean }
 
 export default defineWidget<AiSettings>({
   id: 'ai',
-  name: 'AI Usage',
+  name: 'Ask Claude',
   description: 'Ask Claude a quick question; see tokens used today and this month',
   category: 'ai',
   icon: Sparkles,

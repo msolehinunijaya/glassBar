@@ -80,6 +80,7 @@ _To be added (not in the brief received)._
 | Currency | converter, saved pairs as chips, 7-day sparkline, rate source |
 | Waktu Solat | full prayer list, zone picker, Hijri date, adhan notification toggle |
 | File | path, size, modified date; Open / Show in folder / Copy path |
+| AI Usage | Claude / ChatGPT / All tabs; plan limits (Session, Weekly: bar, time to reset, % used) and the most used model, or tokens today; session/today/week/month rows, token split, 30-day chart, by model, by project, cost estimate; source and age in the footer |
 
 ## 5. Lists and rows (prayer times, world clocks)
 

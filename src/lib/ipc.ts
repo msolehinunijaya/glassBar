@@ -74,6 +74,20 @@ export type CaptureDone =
   | { kind: 'ocr'; text: string; copied: boolean; lines: number }
   | { kind: 'error'; text: string };
 export interface OcrItem { id: number; at: number; text: string; mode: 'text' | 'code' | 'terminal'; engine: 'windows' | 'ai' }
+/** AI Usage widget: one source's reading (see src-tauri/src/widgets/aiusage.rs). */
+export type AiuSource = 'anthropic' | 'claudecode' | 'openai' | 'claudeplan' | 'chatgptweb';
+export interface AiuTotals { input: number; output: number; cacheRead: number; cacheWrite: number }
+export interface AiuLimit { key: string; label: string; pct: number; resetsAt: number | null }
+export interface AiuNamed { name: string; tokens: number; full: string }
+export interface AiuReading {
+  source: AiuSource; connected: boolean; hint: string | null; updatedAt: number;
+  error: string | null; errorKind: 'auth' | 'offline' | 'broken' | 'other' | null;
+  hasUsage: boolean; limits: AiuLimit[];
+  session: { totals: AiuTotals; startedAt: number; resetsAt: number } | null;
+  today: AiuTotals; week: AiuTotals; month: AiuTotals;
+  daily: [string, number][]; models: AiuNamed[]; projects: AiuNamed[];
+  costToday: number | null; costMonth: number | null; costEstimated: boolean;
+}
 export interface AiUsage { day: string; dayIn: number; dayOut: number; dayRequests: number; month: string; monthIn: number; monthOut: number }
 export interface PinTarget { path: string; args: string }
 export interface InstalledApp { name: string; path: string; args: string }
@@ -244,6 +258,10 @@ export const ipc = {
   aiKeySet: (key: string) => invoke<void>('ai_key_set', { key }),
   aiKeyClear: () => invoke<void>('ai_key_clear'),
   aiUsage: () => invoke<AiUsage>('ai_usage'),
+  aiuState: () => invoke<AiuReading[]>('aiu_state'),
+  aiuRefresh: () => invoke<void>('aiu_refresh'),
+  aiuConnect: (source: AiuSource, key?: string) => invoke<void>('aiu_connect', { source, key: key ?? null }),
+  aiuDisconnect: (source: AiuSource) => invoke<void>('aiu_disconnect', { source }),
   aiAsk: (question: string) => invoke<string>('ai_ask', { question }),
   appPinTarget: (path: string) => invoke<PinTarget>('app_pin_target', { path }),
   appBrowse: () => invoke<PinTarget | null>('app_browse'),

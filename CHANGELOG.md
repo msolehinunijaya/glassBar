@@ -16,7 +16,8 @@
 - Clock formats (12/24 h, date presets, custom pattern, layouts) and world clocks with day/night.
 - Waktu Solat with adzan at prayer time (short, full or normal alert) and a prayer pill.
 - IPU air quality with a Malaysia state/station browser, other-country AQI and favourites.
-- Currency converter, AI Usage with quick-ask, Time Progress, Screen Time with a mini graph, Timer & Stopwatch.
+- **AI Usage:** how much of your Claude and ChatGPT limits you have used. Connect an Anthropic or OpenAI Admin key (kept in Windows Credential Manager, checked on save), Claude Code (read from its local logs, no sign-in), your Claude plan limits (from Claude Code's login, no sign-in, unofficial) or your ChatGPT plan (sign-in window, unofficial). On the dock: rings (S), the most urgent number (M) or a row per provider with time to reset (L), coloured by how full. The panel shows the limit, session / today / week / month, token split, a 30-day chart, models, projects and a cost estimate in USD and RM. Banners at 80% and 95% and when a limit resets. Only limits a source publishes are shown.
+- Currency converter, Ask Claude (quick questions), Time Progress, Screen Time with a mini graph, Timer & Stopwatch.
 - System Monitor: CPU, RAM, network, disk and CPU temperature.
 - App launcher: pinning, drag-reorder, live window previews, recent-file jump lists, Start & Search buttons.
 - Music player with album art and a live level visualizer.

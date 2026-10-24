@@ -20,6 +20,15 @@ pub fn get_json(url: &str) -> Result<serde_json::Value, String> {
     r.json().map_err(|e| format!("bad response: {e}"))
 }
 
+/// GET JSON with extra headers: (HTTP status, body). The body is Null when it isn't JSON.
+pub fn get_json_h(url: &str, headers: &[(&str, &str)]) -> Result<(u16, serde_json::Value), String> {
+    let mut rq = client().get(url).timeout(Duration::from_secs(30));
+    for (k, v) in headers { rq = rq.header(*k, *v); }
+    let r = rq.send().map_err(|e| format!("network: {}", e.without_url()))?;
+    let status = r.status().as_u16();
+    Ok((status, r.json().unwrap_or(serde_json::Value::Null)))
+}
+
 /// POST JSON with extra headers; returns the JSON body even for HTTP errors (APIs put the
 /// reason there). `timeout_s` overrides the default 10 s for slow endpoints such as AI.
 pub fn post_json(url: &str, headers: &[(&str, &str)], body: &serde_json::Value, timeout_s: u64) -> Result<serde_json::Value, String> {

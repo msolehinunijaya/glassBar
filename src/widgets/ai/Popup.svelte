@@ -25,7 +25,7 @@
 
 <h3>Ask Claude <span class="dim model">{settings.model}</span></h3>
 {#if hasKey === false}
-  <p class="card note">Add your Anthropic API key in Settings › Widgets › AI Usage. It's stored in Windows Credential Manager, not in GlassBar's files.</p>
+  <p class="card note">Add your Anthropic API key in Settings › Widgets › Ask Claude. It's stored in Windows Credential Manager, not in GlassBar's files.</p>
 {:else}
   <div class="ask">
     <textarea rows="3" placeholder="Ask anything… (Ctrl+Enter to send)" bind:value={q}
