@@ -3,13 +3,14 @@ import type { AiuLimit, AiuReading, AiuSource, AiuTotals } from '../../lib/ipc';
 
 export type Provider = 'claude' | 'chatgpt';
 
-export const PROVIDERS: Record<Provider, { name: string; usage: AiuSource[]; web: AiuSource }> = {
-  claude: { name: 'Claude', usage: ['claudecode', 'anthropic'], web: 'claudeplan' },
-  chatgpt: { name: 'ChatGPT', usage: ['openai'], web: 'chatgptweb' },
+/** `web`: sources of plan limits, best first; the first one that works is shown. */
+export const PROVIDERS: Record<Provider, { name: string; usage: AiuSource[]; web: AiuSource[] }> = {
+  claude: { name: 'Claude', usage: ['claudecode', 'anthropic'], web: ['claudeweb', 'claudeplan'] },
+  chatgpt: { name: 'ChatGPT', usage: ['openai'], web: ['chatgptweb'] },
 };
 
 export const SOURCE_LABEL: Record<AiuSource, string> = {
-  anthropic: 'Admin API', claudecode: 'Local logs', openai: 'Admin API', claudeplan: 'Claude Code login, unofficial', chatgptweb: 'Web, unofficial',
+  anthropic: 'Admin API', claudecode: 'Local logs', openai: 'Admin API', claudeplan: 'Claude Code login, unofficial', claudeweb: 'claude.ai, unofficial', chatgptweb: 'Web, unofficial',
 };
 
 export interface View {
@@ -42,7 +43,8 @@ export const totalOf = sum;
 export function view(p: Provider, rs: AiuReading[], prefer?: string): View | null {
   const by = (s: AiuSource) => rs.find((r) => r.source === s && r.connected) ?? null;
   const usageSources = PROVIDERS[p].usage.map(by).filter((r): r is AiuReading => !!r);
-  const web = by(PROVIDERS[p].web);
+  const webs = PROVIDERS[p].web.map(by).filter((r): r is AiuReading => !!r);
+  const web = webs.find((r) => r.updatedAt && !r.error) ?? webs.find((r) => r.updatedAt) ?? webs[0] ?? null;
   if (!usageSources.length && !web) return null;
   const usage = usageSources.find((r) => r.source === prefer) ?? usageSources.find((r) => r.updatedAt) ?? usageSources[0] ?? null;
   const limits = web?.updatedAt ? web.limits : [];
@@ -112,7 +114,7 @@ export function resetShort(at: number, now: number): string {
 }
 
 /** Plan-limit row labels: "Session", "Weekly", "Weekly · Opus". */
-export const limitName = (l: { key: string; label: string }) => (l.key === 'session' ? 'Session' : l.key === 'week' ? 'Weekly' : l.label);
+export const limitName = (l: { key: string; label: string }) => (l.key === 'session' ? 'Current session' : l.key === 'week' ? 'This week' : l.label);
 
 /** "3:40 pm" today, "Mon 3:40 pm" on another day. */
 export function at(ms: number, now: number): string {

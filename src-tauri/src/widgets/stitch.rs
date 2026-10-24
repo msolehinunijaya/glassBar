@@ -24,23 +24,87 @@ pub fn fixed_edges(a: &[u64], b: &[u64]) -> (usize, usize) {
     (top, bottom)
 }
 
+/// A row to compare: one hash (u64) or one hash per vertical strip (Vec<u64>). Strips let a
+/// row match even when one part of it changes on its own (a parallax picture, a video).
+pub trait Cells {
+    fn same(&self, o: &Self) -> usize;
+    fn cells(&self) -> usize;
+}
+impl Cells for u64 {
+    fn same(&self, o: &Self) -> usize { (self == o) as usize }
+    fn cells(&self) -> usize { 1 }
+}
+impl Cells for Vec<u64> {
+    fn same(&self, o: &Self) -> usize { self.iter().zip(o).filter(|(a, b)| a == b).count() }
+    fn cells(&self) -> usize { self.len() }
+}
+
+/// Share of matching cells when `prev[d..]` is laid over `next[..]`.
+fn score<R: Cells>(prev: &[R], next: &[R], d: usize) -> f64 {
+    let rows = prev.len().min(next.len()) - d;
+    let (same, all) = (0..rows).fold((0, 0), |(s, a), i| (s + prev[i + d].same(&next[i]), a + next[i].cells()));
+    if all == 0 { 0.0 } else { same as f64 / all as f64 }
+}
+
+/// The two frames are (nearly) the same: nothing moved, only e.g. a cursor blinked.
+pub fn unchanged<R: Cells>(prev: &[R], next: &[R]) -> bool {
+    prev.len().min(next.len()) > 0 && score(prev, next, 0) >= 0.90
+}
+
 /// How far the page moved (in rows) from `prev` to `next` (both the scrolling part only):
 /// the shift d where prev[d..] best lines up with next[..]. None when nothing moved or no
-/// reliable overlap (≥ 95 % of at least 16 rows must match).
-pub fn scroll_offset(prev: &[u64], next: &[u64]) -> Option<usize> {
+/// reliable overlap (≥ 85 % of the cells of at least 16 rows must match: web pages have
+/// animated ads, videos and images fading in, so an exact match is too strict).
+pub fn scroll_offset<R: Cells>(prev: &[R], next: &[R]) -> Option<usize> {
     let n = prev.len().min(next.len());
     // Already lined up without a shift (only a cursor blinked): the page didn't move. Without
     // this, repetitive content (lists, code) could "match" at some period and repeat forever.
-    if n > 0 && (0..n).filter(|&i| prev[i] == next[i]).count() * 100 >= n * 90 { return None; }
+    if unchanged(prev, next) { return None; }
     let mut best: Option<(usize, f64)> = None;
     for d in 1..n {
-        let overlap = n - d;
-        if overlap < 16 { break; }
-        let same = (0..overlap).filter(|&i| prev[i + d] == next[i]).count();
-        let score = same as f64 / overlap as f64;
-        if score >= 0.95 && best.is_none_or(|(_, s)| score > s) { best = Some((d, score)); if score == 1.0 { break; } }
+        if n - d < 16 { break; }
+        let sc = score(prev, next, d);
+        if sc >= 0.85 && best.is_none_or(|(_, s)| sc > s) { best = Some((d, sc)); if sc == 1.0 { break; } }
     }
     best.map(|(d, _)| d)
+}
+
+/// Columns at the left and right edge that are (almost all) identical in both frames over
+/// `rows`: side panels and vertical tab strips that don't scroll with the page. A few rows
+/// may differ (a see-through bar or a tooltip over them).
+pub fn fixed_sides(a: &[u8], b: &[u8], w: usize, rows: std::ops::Range<usize>) -> (usize, usize) {
+    let still = |x: usize| rows.clone().filter(|&r| { let i = (r * w + x) * 4; a[i..i + 4] == b[i..i + 4] }).count() * 100 >= rows.len() * 97;
+    let left = (0..w).take_while(|&x| still(x)).count();
+    if left == w { return (0, 0); }
+    let right = (0..w - left).take_while(|&i| still(w - 1 - i)).count();
+    (left, right)
+}
+
+/// How many columns left of `x_end` (searching the last `span`) are a scrollbar: they line
+/// up better unshifted than shifted by the scroll `d`, the opposite of page content. Their
+/// thumb would otherwise appear in pieces down the joined image.
+pub fn scrollbar_cols(a: &[u8], b: &[u8], w: usize, rows: std::ops::Range<usize>, d: usize, x_end: usize, span: usize) -> usize {
+    let px = |f: &[u8], r: usize, x: usize| { let i = (r * w + x) * 4; [f[i], f[i + 1], f[i + 2]] };
+    let frac = |x: usize, shift: usize| {
+        let n = rows.len().saturating_sub(shift).max(1);
+        rows.clone().take(n).filter(|&r| px(a, r + shift, x) == px(b, r, x)).count() as f64 / n as f64
+    };
+    (x_end.saturating_sub(span)..x_end).find(|&x| frac(x, 0) > frac(x, d) + 0.02).map_or(0, |x| x_end - x)
+}
+
+pub const STRIPS: usize = 8;
+
+/// Per row, one hash per vertical strip of columns `x0..x1` (the scrolling page only).
+pub fn cell_hashes(bgra: &[u8], w: u32, h: u32, x0: usize, x1: usize) -> Vec<Vec<u64>> {
+    let w = w as usize;
+    let k = if x1 - x0 >= STRIPS * 16 { STRIPS } else { 1 };
+    let step = (x1 - x0) / k;
+    (0..h as usize).map(|r| (0..k).map(|j| {
+        let (c0, c1) = (x0 + j * step, if j + 1 == k { x1 } else { x0 + (j + 1) * step });
+        let mut s = std::collections::hash_map::DefaultHasher::new();
+        bgra[(r * w + c0) * 4..(r * w + c1) * 4].hash(&mut s);
+        s.finish()
+    }).collect()).collect()
 }
 
 #[cfg(test)]
@@ -73,6 +137,53 @@ mod tests {
         let mut b = page(40..140);
         b[10] = 9999; // e.g. a blinking cursor
         assert_eq!(scroll_offset(&a, &b), Some(40));
+    }
+
+    #[test]
+    fn tolerates_animated_content_on_web_pages() {
+        let a = page(0..200);
+        let mut b = page(60..260);
+        for r in 20..40 { b[r] = 10_000 + r as u64; } // a playing video / carousel: 10 % of rows differ
+        assert_eq!(scroll_offset(&a, &b), Some(60));
+        assert!(!unchanged(&a, &b));
+    }
+
+    #[test]
+    fn strips_line_up_a_page_with_a_parallax_picture() {
+        // 8 strips; strip 7 is a picture that moves at half speed in the top third of the view.
+        let frame = |off: u64| -> Vec<Vec<u64>> { (0..120u64).map(|r| (0..8u64).map(|k|
+            if k == 7 && r < 40 { 900_000 + r + off / 2 } else { k * 10_000 + r + off }).collect()).collect() };
+        assert_eq!(scroll_offset(&frame(0), &frame(30)), Some(30));
+        // As whole rows (one hash each) those top rows never match, and it would stop.
+        let whole = |f: Vec<Vec<u64>>| -> Vec<u64> { f.iter().map(|r| r.iter().fold(0u64, |h, c| h.wrapping_mul(31).wrapping_add(*c))).collect() };
+        assert_eq!(scroll_offset(&whole(frame(0)), &whole(frame(30))), None);
+    }
+
+    #[test]
+    fn finds_side_panels_that_do_not_scroll() {
+        let (w, h) = (10usize, 4usize);
+        let mut a = vec![0u8; w * h * 4];
+        let mut b = a.clone();
+        for r in 0..h { for x in 3..8 { a[(r * w + x) * 4] = r as u8; b[(r * w + x) * 4] = r as u8 + 1; } }
+        assert_eq!(fixed_sides(&a, &b, w, 0..h), (3, 2));
+        assert_eq!(fixed_sides(&a, &a, w, 0..h), (0, 0), "nothing moved: no sides");
+    }
+
+    #[test]
+    fn finds_the_scrollbar_at_the_right() {
+        // 20 columns: page content (moves with the scroll) and a 4 px scrollbar whose thumb
+        // only creeps down a little.
+        let (w, h, d) = (20usize, 60usize, 10usize);
+        let frame = |off: usize, thumb: usize| -> Vec<u8> {
+            let mut f = vec![0u8; w * h * 4];
+            for r in 0..h { for x in 0..w {
+                f[(r * w + x) * 4] = if x < 16 { ((r + off) * 7 + x) as u8 } else if (thumb..thumb + 20).contains(&r) { 200 } else { 90 };
+            } }
+            f
+        };
+        assert_eq!(scrollbar_cols(&frame(0, 10), &frame(d, 12), w, 0..h, d, w, 8), 4);
+        let no_bar = |off: usize| -> Vec<u8> { let mut f = frame(off, 0); for r in 0..h { for x in 16..w { f[(r * w + x) * 4] = ((r + off) * 3) as u8; } } f };
+        assert_eq!(scrollbar_cols(&no_bar(0), &no_bar(d), w, 0..h, d, w, 8), 0);
     }
 
     #[test]
