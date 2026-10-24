@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "GlassBar",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "identifier": "com.glassbar.app",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -26,6 +26,21 @@
         "visible": false
       },
       {
+        "label": "banner",
+        "title": "GlassBar notification",
+        "url": "index.html",
+        "width": 340,
+        "height": 120,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "resizable": false,
+        "focus": false,
+        "shadow": false,
+        "visible": false
+      },
+      {
         "label": "popup",
         "title": "GlassBar Popup",
         "width": 360,
@@ -38,12 +53,38 @@
         "visible": false
       }
     ],
-    "security": { "csp": null }
+    "security": {
+      "csp": null
+    }
   },
   "bundle": {
     "active": true,
-    "targets": ["msi", "nsis"],
-    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.ico"],
-    "windows": { "webviewInstallMode": { "type": "downloadBootstrapper" } }
+    "targets": [
+      "msi",
+      "nsis"
+    ],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.ico"
+    ],
+    "windows": {
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper"
+      }
+    },
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IENCMEI5MDRDMTNGRkZBMEEKUldRSyt2OFRUSkFMeXdyTjlvQWo1dmtZek5DSDVuejhzMDBKVEp1TGVsK2lqeE5CMTVKUVlLVzUK",
+      "endpoints": [
+        "https://github.com/msolehinunijaya/glassBar/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
   }
 }

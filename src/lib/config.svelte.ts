@@ -1,5 +1,6 @@
 // Shared reactive config. Rust owns the truth; every window mirrors it via `config:changed`.
-import { events, ipc, type Config, type Profile } from './ipc';
+import { emit, listen } from '@tauri-apps/api/event';
+import { events, ipc, type Config, type Profile, type Theme } from './ipc';
 import { applyTheme } from './theme';
 
 export const store = $state<{ config: Config | null }>({ config: null });
@@ -8,7 +9,12 @@ export async function initConfig() {
   store.config = await ipc.getConfig();
   applyTheme(store.config.theme);
   await events.configChanged((c) => { store.config = c; applyTheme(c.theme); });
+  await listen<Theme>('appearance:preview', (e) => applyTheme(e.payload));
 }
+
+/** Restyle every window at once without saving (a slider being dragged). The save on
+ *  release then makes it stick; a closed Settings window leaves the saved look. */
+export const previewTheme = (t: Theme) => emit('appearance:preview', t);
 
 export const profile = (): Profile => store.config!.profiles[store.config!.activeProfile];
 
@@ -17,7 +23,12 @@ export async function update(mutate: (c: Config) => void) {
   const next: Config = JSON.parse(JSON.stringify(store.config));
   mutate(next);
   store.config = next;
-  await ipc.saveConfig(next);
+  try {
+    await ipc.saveConfig(next);
+  } catch (e) {
+    store.config = await ipc.getConfig(); // Rust rejected it: show what is really saved
+    console.error('save_config failed', e);
+  }
 }
 
 export function updateWidgetSettings(instance: string, patch: Record<string, unknown>) {

@@ -23,9 +23,14 @@ src/                         Svelte frontend (one bundle, three windows)
 src-tauri/src/
   main.rs                    builder, plugins, AppState, commit(), command list
   config.rs                  Config types, load (corrupt -> config.bad.json), atomic save, import/export
+  db.rs                      SQLite (glassbar.db): forward-only migrations, kv cache table, fired markers
+  alerts.rs                  alert center: history, toast, sound, Do Not Disturb
+  scheduler.rs               one thread that sleeps until the next due item and fires it exactly once
+  net.rs                     shared HTTP client (10 s timeout)
+  updates.rs                 update check (GitHub Releases), one alert per version
   bar.rs                     bar placement + AppBar, popup placement, settings window, tray
-  widgets/*.rs               thin Tauri commands per widget, + start_watchers()
-  platform/mod.rs            traits: Shell, Audio, Media, Radios, Display + shared data types
+  widgets/*.rs               Tauri commands per widget (todo, notes, focus, weather, solat, ipu, sysmon, ...)
+  platform/mod.rs            traits: Shell, Audio, Media, Radios, Display, Location, Power, Gpu + data types
   platform/windows/*.rs      Windows implementation (windows-rs 0.62)
 ```
 
@@ -40,11 +45,18 @@ All OS calls go through traits in `platform/mod.rs`, reached through `platform::
 | Media | `GlobalSystemMediaTransportControlsSessionManager` (WinRT), with events |
 | Radios | `Windows.Devices.Radios` (Wi-Fi, Bluetooth; airplane = all off) |
 | Display | `SetDisplayConfig` topology (Win+P modes); brightness via DDC/CI (`dxva2`), WMI fallback for laptops |
+| Location | `Windows.Devices.Geolocation` (falls back to IP lookup in `widgets/location.rs`) |
+| Power | `GetSystemPowerStatus` |
+| Gpu | PDH counter `\GPU Engine(*engtype_3D)\Utilization Percentage` |
 
 ## Data flow
 
 - **Request/response:** Svelte calls `ipc.*`, which invokes a `#[tauri::command]`, which calls a platform trait.
 - **Live updates:** platform watchers emit Tauri events (`apps:changed`, `audio:changed`, `media:changed`). Widgets subscribe through `events.*`.
+- **Stored data:** to-dos, notes, timers, alerts, and screen time live in SQLite. Every write emits `<name>:changed` (for example `todos:changed`), and widgets reload through `live()` in `src/lib/live.svelte.ts`.
+- **Time-based work:** Pomodoro phases, timers, to-do due dates, prayer times, and daily housekeeping are `Due` items. The scheduler thread fires each once (recorded in the `fired` table) and sleeps until the next one, capped at 60 s so it notices PC sleep. Anything more than 15 minutes late is recorded as missed, with no toast or sound. Webviews never count time themselves; they compute countdowns from timestamps.
+- **Network data:** weather (30 min), prayer times (weekly per zone), IPU (15 min), and location (6 h) are fetched in Rust and cached in the `kv` table. When offline, the cache is returned, marked `offline`.
+- **Background samplers:** screen time (5 s), system monitor (2 s), and battery (30 s) run only while their widget is placed in some profile (`Config::uses`).
 - **Config:** Rust holds `Mutex<Config>`. `save_config` calls `commit()`, which normalizes, writes the file atomically, re-applies the bar and tray, syncs autostart, and broadcasts `config:changed` to every window.
 
 ## Windows
@@ -61,7 +73,14 @@ A widget is a folder `src/widgets/<id>/` whose `index.ts` default-exports `defin
 
 ## Config file
 
-The config lives at `%APPDATA%\GlassBar\config.json`. It holds profiles (each with bar settings and an ordered widget list), the theme, and startup options. A bad file is copied to `config.bad.json` and replaced with defaults.
+The config lives at `%APPDATA%\GlassBar\config.json`. It holds:
+- profiles, each with bar settings and an ordered widget list;
+- the theme;
+- startup options;
+- Do Not Disturb;
+- the shared location used by Weather, Waktu Solat and IPU.
+
+Rust reads widget settings with `Config::widget_settings(id)`. A bad file is copied to `config.bad.json` and replaced with defaults.
 
 ## Safety
 

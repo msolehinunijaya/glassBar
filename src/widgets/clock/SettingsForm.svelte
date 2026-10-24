@@ -1,16 +1,18 @@
 <script lang="ts">
   import type { SettingsProps } from '../types';
   import type { ClockSettings } from './index';
+  import FormatOptions from './FormatOptions.svelte';
+  import WeatherOptions from './WeatherOptions.svelte';
+  import LocationTag from '../../lib/LocationTag.svelte';
+  import { zonesOf } from './zones';
 
   let { settings, save }: SettingsProps<ClockSettings> = $props();
-  const zones = Intl.supportedValuesOf('timeZone');
+  const zones = $derived(zonesOf(settings));
 </script>
 
-<label><input type="checkbox" checked={settings.hour12} onchange={(e) => save({ hour12: e.currentTarget.checked })} /> 12-hour clock</label>
-<label><input type="checkbox" checked={settings.showSeconds} onchange={(e) => save({ showSeconds: e.currentTarget.checked })} /> Show seconds</label>
-<label>
-  Second time zone
-  <input list="tz-list" placeholder="e.g. Asia/Tokyo" value={settings.secondTz}
-         onchange={(e) => save({ secondTz: e.currentTarget.value.trim() })} />
-  <datalist id="tz-list">{#each zones as z (z)}<option value={z}></option>{/each}</datalist>
-</label>
+<FormatOptions {settings} {save} />
+<WeatherOptions {settings} {save} />
+{#if settings.showWeather}<div>Weather location: <LocationTag /></div>{/if}
+<p class="dim" style="font-size:12px;margin:0">
+  World clocks: {zones.length ? zones.map((z) => z.label).join(', ') : 'none yet'}. Add, remove and reorder them in the clock's panel (click the clock, then +).
+</p>

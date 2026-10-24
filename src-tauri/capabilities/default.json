@@ -2,7 +2,13 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Permissions for all GlassBar windows",
-  "windows": ["bar", "popup", "settings"],
+  "windows": [
+    "bar",
+    "popup",
+    "settings",
+    "snap",
+    "banner"
+  ],
   "permissions": [
     "core:default",
     "core:window:allow-start-dragging",
@@ -10,6 +16,9 @@
     "core:window:allow-show",
     "core:window:allow-set-focus",
     "core:menu:default",
-    "autostart:default"
+    "autostart:default",
+    "notification:default",
+    "updater:default",
+    "process:allow-restart"
   ]
 }

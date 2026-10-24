@@ -1,37 +1,93 @@
 <script lang="ts">
-  import { X } from '@lucide/svelte';
+  import { ArrowDown, ArrowUp, FolderOpen, X } from '@lucide/svelte';
   import type { SettingsProps } from '../types';
-  import type { AppsSettings } from './index';
-  import { nameOf } from './groups';
+  import type { AppsSettings, Pin } from './index';
+  import { keyOf, nameOf } from './groups';
+  import OptionsPopover from '../../lib/OptionsPopover.svelte';
+  import { ipc, type InstalledApp, type PinTarget } from '../../lib/ipc';
 
   let { settings, save }: SettingsProps<AppsSettings> = $props();
   let path = $state('');
+  let error = $state('');
+  let installed = $state<InstalledApp[] | null>(null);
+  let q = $state('');
+  const shown = $derived((installed ?? []).filter((a) => a.name.toLowerCase().includes(q.toLowerCase())).slice(0, 60));
+  const pinnedKeys = $derived(new Set(settings.pinned.map((p) => keyOf(p.path))));
 
-  function add() {
+  function pin(t: PinTarget) {
+    error = '';
+    if (pinnedKeys.has(keyOf(t.path))) { error = `${nameOf(t.path)} is already pinned.`; return; }
+    save({ pinned: [...settings.pinned, { path: t.path, args: t.args || undefined }] });
+  }
+  async function addTyped() {
     const p = path.trim().replace(/^"|"$/g, '');
-    if (p) save({ pinned: [...settings.pinned, { path: p }] });
-    path = '';
+    if (!p) return;
+    try { pin(await ipc.appPinTarget(p)); path = ''; } catch (e) { error = String(e); }
+  }
+  async function browse() {
+    try { const t = await ipc.appBrowse(); if (t) pin(t); } catch (e) { error = String(e); }
+  }
+  function move(i: number, by: number) {
+    const pins: Pin[] = [...settings.pinned];
+    const [p] = pins.splice(i, 1);
+    pins.splice(i + by, 0, p);
+    // Keep the bar's drag order in step with the list.
+    save({ pinned: pins, order: [...pins.map((x) => keyOf(x.path)), ...settings.order.filter((k) => !pins.some((x) => keyOf(x.path) === k))] });
   }
 </script>
 
+<OptionsPopover title="Start & Search" values={settings} save={(p) => save(p as Partial<AppsSettings>)} options={[
+  { type: 'choice', key: 'startPlacement', label: 'Placement', choices: [{ value: 'inline', label: 'Before app icons' }, { value: 'separate', label: 'Own widget' }] },
+  { type: 'choice', key: 'searchStyle', label: 'Search', choices: [{ value: 'icon', label: 'Icon' }, { value: 'bar', label: 'Search bar' }] },
+]} />
 <label><input type="checkbox" checked={settings.showTitles} onchange={(e) => save({ showTitles: e.currentTarget.checked })} /> Show active window title (large size)</label>
-<p class="dim">Pinned apps — tip: right-click a running app in the bar and choose "Pin to bar".</p>
+
+<p class="dim">Pinned apps stay on the bar even when closed. Drag icons on the bar to reorder them, or right-click an icon to pin/unpin.</p>
 <ul>
   {#each settings.pinned as p, i (p.path + i)}
     <li>
-      <span class="ellipsis" title={p.path}><b>{nameOf(p.path)}</b> <span class="dim">{p.path}</span></span>
-      <button class="icon-btn" aria-label="Unpin" onclick={() => save({ pinned: settings.pinned.filter((_, j) => j !== i) })}><X size={14} /></button>
+      <span class="ellipsis" title={p.path}><b>{nameOf(p.path)}</b> <span class="dim">{p.path}{p.args ? ` ${p.args}` : ''}</span></span>
+      <span class="acts">
+        <button class="icon-btn" aria-label="Move up" disabled={i === 0} onclick={() => move(i, -1)}><ArrowUp size={14} /></button>
+        <button class="icon-btn" aria-label="Move down" disabled={i === settings.pinned.length - 1} onclick={() => move(i, 1)}><ArrowDown size={14} /></button>
+        <button class="icon-btn" aria-label="Unpin" onclick={() => save({ pinned: settings.pinned.filter((_, j) => j !== i) })}><X size={14} /></button>
+      </span>
     </li>
   {/each}
 </ul>
+
 <div class="row">
-  <input placeholder="C:\Program Files\App\app.exe" bind:value={path} onkeydown={(e) => e.key === 'Enter' && add()} />
-  <button class="btn" onclick={add}>Pin</button>
+  <input placeholder="Paste a path to an .exe or shortcut" bind:value={path} onkeydown={(e) => e.key === 'Enter' && addTyped()} />
+  <button class="btn" onclick={addTyped}>Pin</button>
+  <button class="btn" onclick={browse} title="Browse for a program"><FolderOpen size={14} /> Browse…</button>
 </div>
+{#if error}<p class="err">{error}</p>{/if}
+
+<details ontoggle={(e) => { if ((e.currentTarget as HTMLDetailsElement).open && !installed) ipc.appsInstalled().then((a) => (installed = a)); }}>
+  <summary>Pin from installed apps</summary>
+  <input placeholder="Search apps…" bind:value={q} />
+  {#if !installed}<p class="dim">Reading the Start menu…</p>{/if}
+  <div class="inst">
+    {#each shown as a (a.path + a.args)}
+      <button class="ia" disabled={pinnedKeys.has(keyOf(a.path))} onclick={() => pin(a)} title={a.path}>
+        <span class="ellipsis">{a.name}</span><span class="dim">{pinnedKeys.has(keyOf(a.path)) ? 'Pinned' : 'Pin'}</span>
+      </button>
+    {/each}
+  </div>
+  <p class="dim small">Store apps without a program file can't be pinned by path yet: pin them from the bar while they're running.</p>
+</details>
 
 <style>
   ul { list-style: none; padding: 0; margin: 4px 0; }
   li { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .acts { display: flex; gap: 2px; flex: none; }
   .row { display: flex; gap: 6px; }
   .row input { flex: 1; }
+  .err { color: #ff453a; font-size: 12px; }
+  summary { cursor: pointer; margin: 10px 0 6px; }
+  .inst { max-height: 220px; overflow: auto; display: flex; flex-direction: column; gap: 2px; margin-top: 6px; }
+  .ia { display: flex; justify-content: space-between; gap: 8px; padding: 6px 8px; border-radius: calc(8px * var(--rs)); text-align: left; }
+  .ia:hover:not(:disabled) { background: var(--pill); }
+  .ia:disabled { opacity: 0.5; }
+  .small { font-size: 11px; }
 </style>

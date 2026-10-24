@@ -87,9 +87,35 @@ pub fn control(a: MediaAction) -> Res<()> {
     op.and_then(|op| op.join()).map(|_| ()).map_err(err)
 }
 
+/// Pause every session that is playing; returns their app ids so `resume` can restart just those.
+pub fn pause_playing() -> Res<Vec<String>> {
+    use GlobalSystemMediaTransportControlsSessionPlaybackStatus as St;
+    let mut paused = vec![];
+    for s in manager().and_then(|m| m.GetSessions()).map_err(err)? {
+        let playing = s.GetPlaybackInfo().and_then(|p| p.PlaybackStatus()).map(|p| p == St::Playing).unwrap_or(false);
+        if playing && s.TryPauseAsync().and_then(|op| op.join()).unwrap_or(false) {
+            paused.push(s.SourceAppUserModelId().map(|t| t.to_string()).unwrap_or_default());
+        }
+    }
+    Ok(paused)
+}
+
+/// Play again the sessions `pause_playing` paused, if they are still paused (not closed or stopped).
+pub fn resume(ids: &[String]) -> Res<()> {
+    use GlobalSystemMediaTransportControlsSessionPlaybackStatus as St;
+    for s in manager().and_then(|m| m.GetSessions()).map_err(err)? {
+        let id = s.SourceAppUserModelId().map(|t| t.to_string()).unwrap_or_default();
+        let paused = s.GetPlaybackInfo().and_then(|p| p.PlaybackStatus()).map(|p| p == St::Paused).unwrap_or(false);
+        if paused && ids.contains(&id) { let _ = s.TryPlayAsync().and_then(|op| op.join()); }
+    }
+    Ok(())
+}
+
 pub fn seek(position_ms: i64) -> Res<()> {
     let s = session().ok_or("nothing is playing")?;
-    s.TryChangePlaybackPositionAsync(position_ms * 10_000).and_then(|op| op.join()).map(|_| ()).map_err(err)
+    // Our positions are relative to StartTime; the API wants an absolute position.
+    let start = s.GetTimelineProperties().and_then(|t| t.StartTime()).map(|t| t.Duration).unwrap_or(0);
+    s.TryChangePlaybackPositionAsync(start + position_ms * 10_000).and_then(|op| op.join()).map(|_| ()).map_err(err)
 }
 
 pub fn watch(on_change: Box<dyn Fn(Option<MediaInfo>) + Send>) {

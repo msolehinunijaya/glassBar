@@ -3,17 +3,27 @@ import { defineWidget } from '../types';
 import Pill from './Pill.svelte';
 import SettingsForm from './SettingsForm.svelte';
 
-export interface Pin { path: string; args?: string }
-export interface AppsSettings { pinned: Pin[]; showTitles: boolean }
+/** aumid: Store-app identity (Store apps can only be started through it). */
+export interface Pin { path: string; args?: string; aumid?: string; /** shown name (web apps: the app, not the browser) */ name?: string }
+export interface AppsSettings {
+  pinned: Pin[];
+  showTitles: boolean;
+  /** Start & Search: 'inline' = right before the app icons, 'separate' = their own widget. */
+  startPlacement: 'inline' | 'separate';
+  searchStyle: 'icon' | 'bar';
+  /** Icon order chosen by dragging (program keys = lower-case paths). */
+  order: string[];
+}
 
 export default defineWidget<AppsSettings>({
   id: 'apps',
   name: 'App Launcher',
   description: 'Pinned and running apps, grouped by program',
+  category: 'apps',
   icon: LayoutGrid,
   sizes: ['small', 'medium', 'large'],
   defaultSize: 'large',
-  defaults: { pinned: [], showTitles: false },
+  defaults: { pinned: [], showTitles: false, startPlacement: 'inline', searchStyle: 'icon', order: [] },
   Pill,
   SettingsForm,
 });

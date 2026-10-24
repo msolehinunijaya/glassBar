@@ -1,10 +1,13 @@
 <script lang="ts">
   import { Check, Speaker, Volume2, VolumeX } from '@lucide/svelte';
   import { ipc, type AudioSession } from '../../lib/ipc';
-  import type { PopupProps } from '../types';
+  import { layoutOf, type SoundSettings } from './settings';
+  import OptionsPopover from '../../lib/OptionsPopover.svelte';
   import { liveAudio, pct, volumeIcon } from './audio.svelte';
+  import { volumeBlip } from '../../lib/sound';
 
-  let {}: PopupProps = $props();
+  // Opened from the volume segment of Quick Settings; its options are saved there.
+  let { settings, save }: { settings: SoundSettings; save: (p: Partial<SoundSettings>) => void } = $props();
   const audio = liveAudio();
   const Icon = $derived(volumeIcon(audio.v));
   let sessions = $state<AudioSession[]>([]);
@@ -23,10 +26,11 @@
     return () => clearInterval(t);
   });
 
-  function setMaster(v: number) {
+  function setMaster(v: number, final = false) {
     if (!audio.v) return;
     audio.v = { ...audio.v, volume: v };
     ipc.audioSetVolume(v);
+    volumeBlip(final);
   }
   function toggleMute() {
     if (!audio.v) return;
@@ -41,13 +45,13 @@
   function muteApp(s: AudioSession) { s.muted = !s.muted; ipc.audioSetSessionMute(s.pid, s.muted); }
 </script>
 
-<h3>Sound</h3>
+<div class="head"><h3>Sound</h3></div>
 {#if audio.v}
   <div class="master">
     <button class="icon-btn" onclick={toggleMute} aria-label={audio.v.muted ? 'Unmute' : 'Mute'}><Icon size={18} /></button>
     <input class="slider" type="range" min="0" max="1" step="0.01" value={audio.v.volume}
            style:--fill={pct(audio.v.muted ? 0 : audio.v.volume)}
-           oninput={(e) => setMaster(+e.currentTarget.value)} aria-label="Master volume" />
+           oninput={(e) => setMaster(+e.currentTarget.value)} onchange={(e) => setMaster(+e.currentTarget.value, true)} aria-label="Master volume" />
     <span class="num">{pct(audio.v.volume)}</span>
   </div>
 
@@ -84,13 +88,29 @@
 {/if}
 {#if error}<p class="err">{error}</p>{/if}
 
+<div class="opts">
+  <OptionsPopover title="On the bar" values={{ ...settings, layout: layoutOf(settings) }}
+    save={(p) => save({ ...p, showSlider: false })} options={[
+      { type: 'choice', key: 'layout', label: 'Volume', choices: [{ value: 'icon', label: 'Icon', hint: 'Speaker icon (click it to mute)' }, { value: 'horizontal', label: 'Horizontal', hint: 'Icon and percentage; a slider opens when you hover' }] },
+      { type: 'toggle', key: 'wheel', label: 'Mouse wheel changes volume', hint: 'Off: scrolling over it never changes the volume' },
+  ]} />
+  {#if layoutOf(settings) === 'horizontal'}
+    <label class="slen">Slider length <input type="range" min="60" max="240" step="10" value={settings.sliderWidth}
+      oninput={(e) => save({ sliderWidth: +e.currentTarget.value })} /> <span class="dim">{settings.sliderWidth}px</span></label>
+  {/if}
+</div>
+
 <style>
-  h3 { margin: 0 0 10px; font-size: 15px; font-weight: 600; }
+  h3 { margin: 0; font-size: 15px; font-weight: 600; }
+  .head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .opts { margin-top: 12px; }
+  .slen { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-top: 8px; }
+  .slen input { flex: 1; }
   h4 { margin: 14px 2px 6px; font-size: 12px; font-weight: 500; }
   .master { display: flex; align-items: center; gap: 8px; }
   .num { font-variant-numeric: tabular-nums; width: 4ch; text-align: right; }
   .list { padding: 4px; display: flex; flex-direction: column; }
-  .row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 12px; text-align: left; }
+  .row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: calc(12px * var(--rs)); text-align: left; }
   .row span { flex: 1; }
   .row:hover { background: var(--pill-hover); }
   .app { display: flex; align-items: center; gap: 10px; padding: 6px 8px; }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { group, nextWindow, nameOf } from './groups';
+import { group, keyFor, nextWindow, nameOf } from './groups';
 
 const win = (id: number, exe: string, active = false) => ({ id, title: `w${id}`, exe, active, minimized: false });
 
@@ -30,4 +30,60 @@ describe('nextWindow', () => {
 it('nameOf strips folders and extensions', () => {
   expect(nameOf('C:\\x\\Spotify.exe')).toBe('Spotify');
   expect(nameOf('C:/y/Chrome.lnk')).toBe('Chrome');
+});
+
+describe('stableOrder', () => {
+  it('keeps the order apps were first seen, whatever Windows z-order says', async () => {
+    const { stableOrder } = await import('./groups');
+    let order: string[] = [];
+    order = stableOrder(order, ['a', 'b', 'c']);
+    expect(order).toEqual(['a', 'b', 'c']);
+    order = stableOrder(order, ['c', 'a', 'b']); // focusing c moves it to the top of z-order
+    expect(order).toEqual(['a', 'b', 'c']);
+    order = stableOrder(order, ['d', 'a', 'c']); // b closed, d opened
+    expect(order).toEqual(['a', 'c', 'd']);
+  });
+});
+
+import { moveKey, pinsInOrder } from './groups';
+describe('reorder', () => {
+  it('moves a key to a new index', () => {
+    expect(moveKey(['a', 'b', 'c', 'd'], 'a', 2)).toEqual(['b', 'c', 'a', 'd']);
+    expect(moveKey(['a', 'b', 'c'], 'c', 0)).toEqual(['c', 'a', 'b']);
+    expect(moveKey(['a', 'b'], 'x', 0)).toEqual(['a', 'b']);
+  });
+  it('sorts pins by the saved order, unknown pins last', () => {
+    const pins = [{ path: 'A.exe' }, { path: 'B.exe' }, { path: 'C.exe' }];
+    expect(pinsInOrder(pins, ['c.exe', 'zz.exe', 'a.exe']).map((p) => p.path)).toEqual(['C.exe', 'A.exe', 'B.exe']);
+  });
+});
+
+import { keyOf as k } from './groups';
+describe('store apps', () => {
+  it('treat every version of a Store app as the same program', () => {
+    expect(k('C:\\Program Files\\WindowsApps\\SpotifyAB.SpotifyMusic_1.306.1921.0_x64__zpdnekdrzrea0\\Spotify.exe'))
+      .toBe(k('C:\\Program Files\\WindowsApps\\SpotifyAB.SpotifyMusic_1.400.0.0_x64__zpdnekdrzrea0\\Spotify.exe'));
+    expect(k('C:\\Apps\\Code.exe')).toBe('c:\\apps\\code.exe');
+  });
+  it('carries the app identity from the pin or a running window', () => {
+    const g = group([{ path: 'C:\\x\\a.exe', aumid: 'A!App' }], [{ id: 1, title: '', exe: 'C:\\y\\b.exe', active: false, minimized: false, aumid: 'B!App' }]);
+    expect(g.map((x) => x.aumid)).toEqual(['A!App', 'B!App']);
+  });
+});
+
+describe('installed web apps', () => {
+  const chrome = 'C:/Program Files/Google/Chrome/Application/chrome.exe';
+  const app = 'Chrome._crx_agimnkijcaahngcdmfeangaknmldooml';
+  const w = (id: number, title: string, aumid?: string) => ({ id, title, exe: chrome, active: false, minimized: false, aumid });
+  it('are their own group, named after the app, not merged with the browser', () => {
+    const g = group([{ path: chrome }], [w(1, 'Inbox - Gmail'), w(2, 'YouTube', app), w(3, 'Docs')]);
+    expect(g.map((x) => [x.name, x.windows.map((y) => y.id)])).toEqual([['chrome', [1, 3]], ['YouTube', [2]]]);
+    expect(g[1].aumid).toBe(app);
+  });
+  it('a pinned web app matches its running window', () => {
+    const g = group([{ path: chrome, aumid: app, name: 'YouTube' }], [w(5, 'YouTube - Home', app)]);
+    expect(g).toHaveLength(1);
+    expect(g[0].windows.map((y) => y.id)).toEqual([5]);
+    expect(keyFor(chrome, app)).not.toBe(keyFor(chrome));
+  });
 });
