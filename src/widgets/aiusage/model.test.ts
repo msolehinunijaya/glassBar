@@ -22,6 +22,16 @@ describe('aiusage model', () => {
     expect(windows(vs[0]).map((w) => [w.key, w.current])).toEqual([['session', true], ['today', false], ['week', false], ['month', false]]);
   });
 
+  it('shows claude.ai limits when the Claude Code login has expired', () => {
+    const v = view('claude', [
+      r({ source: 'claudeplan', updatedAt: 0, error: 'Claude Code login expired', errorKind: 'auth' }),
+      r({ source: 'claudeweb', hasUsage: false, limits: [{ key: 'session', label: 'Current session', pct: 2, resetsAt: 5 }, { key: 'week', label: 'This week', pct: 89, resetsAt: 9 }] }),
+    ])!;
+    expect(v.web?.source).toBe('claudeweb');
+    expect(v.limit?.pct).toBe(89);
+    expect(v.problem).toBeNull();
+  });
+
   it('never makes up a limit, and shows the worst problem', () => {
     const v = view('chatgpt', [r({ source: 'openai', error: 'OpenAI rejected this key', errorKind: 'auth', today: { ...z, output: 5 } })])!;
     expect(v.limit).toBeNull();

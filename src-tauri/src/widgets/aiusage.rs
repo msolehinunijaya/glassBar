@@ -5,6 +5,8 @@
 //!   on change, no sign-in
 //! - `claudeplan`: the Claude plan's limits (session, weekly), asked for with Claude Code's own
 //!   login on this PC, like Claude Code's /usage (unofficial endpoint, no sign-in)
+//! - `claudeweb`: the Claude plan's limits read from claude.ai › Settings › Usage inside a
+//!   sign-in webview (for people signed in through the Claude app rather than Claude Code)
 //! - `chatgptweb`: the ChatGPT plan's limits, read inside a sign-in webview with its own
 //!   cookie folder (unofficial: the site's own internal endpoint)
 //! Only limits a source publishes are shown; none are made up. The last good reading is
@@ -19,7 +21,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager};
 
-pub const SOURCES: [&str; 5] = ["anthropic", "claudecode", "openai", "claudeplan", "chatgptweb"];
+pub const SOURCES: [&str; 6] = ["anthropic", "claudecode", "openai", "claudeplan", "claudeweb", "chatgptweb"];
 const EVERY_MS: i64 = 5 * 60_000;
 /// Opening the flyout refreshes the APIs at once, but not more often than this.
 const FORCE_GAP_MS: i64 = 30_000;
@@ -451,13 +453,16 @@ fn web_dir(source: &str) -> PathBuf { crate::data_dir().join("aiusage-web").join
 
 /// Runs inside the signed-in page: fetches the site's own usage JSON (with the page's own
 /// cookies, to the same site) and hands only that JSON back through the page title.
+/// claude.ai: the signed-in organisation's usage (the numbers on Settings › Usage).
+const JS_CLAUDE: &str = r#"(async()=>{const out=x=>{document.title='GBR:'+JSON.stringify(x)};try{const o=await fetch('/api/organizations',{credentials:'include'});if(!o.ok){out(o.status===401||o.status===403?{signin:true}:{status:o.status});return}const orgs=await o.json();const org=(orgs.find(x=>(x.capabilities||[]).includes('chat'))||orgs[0]);if(!org){out({signin:true});return}const u=await fetch('/api/organizations/'+org.uuid+'/usage',{credentials:'include'});out(u.ok?{usage:await u.json()}:{status:u.status})}catch(e){out({error:String(e)})}})()"#;
+const CLAUDE_URL: &str = "https://claude.ai/settings/usage";
 const JS_CHATGPT: &str = r#"(async()=>{const out=x=>{document.title='GBR:'+JSON.stringify(x)};try{const s=await fetch('/api/auth/session',{credentials:'include'});const j=s.ok?await s.json():{};if(!j.accessToken){out({signin:true});return}const u=await fetch('/backend-api/wham/usage',{headers:{Authorization:'Bearer '+j.accessToken}});out(u.ok?{usage:await u.json()}:{status:u.status})}catch(e){out({error:String(e)})}})()"#;
 
 fn ms_of(s: &str) -> Option<i64> { chrono::DateTime::parse_from_rfc3339(s).ok().map(|d| d.timestamp_millis()) }
 
 pub fn parse_claude_web(u: &Value) -> Vec<Limit> {
-    [("five_hour", "session", "5-hour limit"), ("seven_day", "week", "Weekly limit"),
-     ("seven_day_opus", "week_opus", "Weekly · Opus"), ("seven_day_sonnet", "week_sonnet", "Weekly · Sonnet")]
+    [("five_hour", "session", "Current session"), ("seven_day", "week", "This week"),
+     ("seven_day_opus", "week_opus", "This week · Opus"), ("seven_day_sonnet", "week_sonnet", "This week · Sonnet")]
         .iter().filter_map(|(k, key, label)| {
             let w = &u[*k];
             Some(Limit { key: (*key).into(), label: (*label).into(), pct: w["utilization"].as_f64()?, resets_at: w["resets_at"].as_str().and_then(ms_of) })
@@ -481,13 +486,18 @@ pub fn parse_chatgpt_web(u: &Value, now: i64) -> Vec<Limit> {
 }
 
 /// What the ChatGPT page script sent back → limits, or why not (message, kind).
-pub fn parse_web(v: &Value, now: i64) -> Result<Vec<Limit>, Fail> {
-    let out = || ("Signed out of ChatGPT: sign in again".to_string(), "auth");
-    if v["signin"] == true || v["status"].as_i64().is_some_and(|s| s == 401 || s == 403) { return Err(out()); }
-    let limits = parse_chatgpt_web(&v["usage"], now);
-    if limits.is_empty() { return Err(("Couldn't read ChatGPT usage page (unofficial source)".into(), "broken")); }
+pub fn parse_web(source: &str, v: &Value, now: i64) -> Result<Vec<Limit>, Fail> {
+    let name = web_name(source);
+    if v["signin"] == true || v["status"].as_i64().is_some_and(|s| s == 401 || s == 403) {
+        return Err((format!("Signed out of {name}: sign in again"), "auth"));
+    }
+    let limits = if source == "claudeweb" { parse_claude_web(&v["usage"]) } else { parse_chatgpt_web(&v["usage"], now) };
+    if limits.is_empty() { return Err((broken_msg(source), "broken")); }
     Ok(limits)
 }
+
+fn web_name(source: &str) -> &'static str { if source == "claudeweb" { "Claude" } else { "ChatGPT" } }
+fn broken_msg(source: &str) -> String { format!("Couldn't read {} usage page (unofficial source)", web_name(source)) }
 
 static WEB_BUSY: Mutex<Vec<String>> = Mutex::new(Vec::new());
 
@@ -501,12 +511,13 @@ fn web_open(app: &AppHandle, source: &str, visible: bool) -> Result<(), String> 
     }
     { let mut b = WEB_BUSY.lock().unwrap(); if !b.iter().any(|s| s == source) { b.push(source.into()); } }
     let src = source.to_string();
-    let js = JS_CHATGPT;
-    let url = WEB_URL.parse::<tauri::Url>().map_err(|e| e.to_string())?;
+    let claude = source == "claudeweb";
+    let js = if claude { JS_CLAUDE } else { JS_CHATGPT };
+    let url = (if claude { CLAUDE_URL } else { WEB_URL }).parse::<tauri::Url>().map_err(|e| e.to_string())?;
     let a = app.clone();
-    let title = "Sign in to ChatGPT · GlassBar reads only your usage";
+    let title = format!("Sign in to {} · GlassBar reads only your usage", web_name(source));
     let w = tauri::WebviewWindowBuilder::new(app, &label, tauri::WebviewUrl::External(url))
-        .title(title)
+        .title(&title)
         .inner_size(960.0, 720.0)
         .visible(visible)
         .data_directory(web_dir(source))
@@ -514,7 +525,7 @@ fn web_open(app: &AppHandle, source: &str, visible: bool) -> Result<(), String> 
         .on_document_title_changed(move |w, t| {
             let Some(json) = t.strip_prefix("GBR:") else { return };
             let v: Value = serde_json::from_str(json).unwrap_or(Value::Null);
-            let res = parse_web(&v, now_ms());
+            let res = parse_web(&src, &v, now_ms());
             // Signing in: keep the window open until the usage numbers come through.
             if w.is_visible().unwrap_or(false) && matches!(&res, Err((_, "auth"))) { return; }
             // Off the UI thread: DB, alerts and banners.
@@ -543,7 +554,7 @@ fn web_open(app: &AppHandle, source: &str, visible: bool) -> Result<(), String> 
             if !w.is_visible().unwrap_or(true) {
                 let _ = w.close();
                 let mut r = cached(&a, &s);
-                r.error = Some("Couldn't read ChatGPT usage page (unofficial source)".into());
+                r.error = Some(broken_msg(&s));
                 r.error_kind = Some("broken".into());
                 put(&a, r);
             }
@@ -679,9 +690,10 @@ fn refresh(app: &AppHandle, force: bool) {
     }
     // The Claude plan is a cheap API call: as often as the APIs (it also notices a new login).
     if due("claudeplan", if force { FORCE_GAP_MS } else { EVERY_MS }) { refresh_plan(app); }
-    let s = "chatgptweb";
-    if cached(app, s).connected && !WEB_BUSY.lock().unwrap().iter().any(|x| x == s) && due(s, EVERY_MS) {
-        let _ = web_open(app, s, false);
+    for s in ["claudeweb", "chatgptweb"] {
+        if cached(app, s).connected && !WEB_BUSY.lock().unwrap().iter().any(|x| x == s) && due(s, EVERY_MS) {
+            let _ = web_open(app, s, false);
+        }
     }
 }
 
@@ -780,7 +792,7 @@ pub async fn aiu_connect(app: AppHandle, source: String, key: Option<String>) ->
             refresh_plan(&app);
             if cached(&app, "claudeplan").connected { Ok(()) } else { Err("Claude Code isn't signed in on this PC: run claude and sign in first".to_string()) }
         }).await?,
-        "chatgptweb" => web_open(&app, &source, true),
+        "claudeweb" | "chatgptweb" => web_open(&app, &source, true),
         _ => Err("unknown source".into()),
     }
 }
@@ -904,11 +916,15 @@ mod tests {
         assert_eq!(l[0].resets_at, Some(1792827600000));
         let g = json!({"usage":{"rate_limit":{"primary_window":{"used_percent":40,"limit_window_seconds":18000,"reset_after_seconds":60},
             "secondary_window":{"used_percent":5,"limit_window_seconds":604800,"reset_at":1792900000}}}});
-        let l = parse_web(&g, 1000).unwrap();
+        let l = parse_web("chatgptweb", &g, 1000).unwrap();
         assert_eq!((l[0].label.as_str(), l[0].resets_at), ("5-hour limit", Some(61_000)));
         assert_eq!((l[1].key.as_str(), l[1].resets_at), ("week", Some(1792900000000)));
-        assert_eq!(parse_web(&json!({"signin":true}), 0).unwrap_err().1, "auth");
-        assert_eq!(parse_web(&json!({"usage":{"other":1}}), 0).unwrap_err().1, "broken");
+        assert_eq!(parse_web("chatgptweb", &json!({"signin":true}), 0).unwrap_err().1, "auth");
+        assert_eq!(parse_web("chatgptweb", &json!({"usage":{"other":1}}), 0).unwrap_err().1, "broken");
+        // claude.ai's Settings › Usage: same shape as Claude Code's /usage.
+        let l = parse_web("claudeweb", &c, 0).unwrap();
+        assert_eq!((l[0].label.as_str(), l[1].label.as_str()), ("Current session", "This week"));
+        assert_eq!(parse_web("claudeweb", &json!({"status":403}), 0).unwrap_err().0, "Signed out of Claude: sign in again");
     }
 
     #[test]

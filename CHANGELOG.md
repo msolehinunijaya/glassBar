@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.2 — 2026-10-24
+
+### New
+- **AI Usage:** a "Claude plan (claude.ai)" source. Sign in to claude.ai once and see Current session and This week, like claude.ai › Settings › Usage. Works for people who use the Claude app rather than Claude Code.
+- **Music (Classic):** Previous and Next buttons at every size, not only Large.
+
+### Fixed
+- Scrolling screenshots capture the whole page in browsers: they wait for smooth scrolling to finish, ignore side panels and vertical tabs that don't scroll, cope with moving pictures and videos, leave out the taskbar or a dock covering the window, and no longer show the scrollbar or corner marks at each join.
+
 ## 0.2.1 — 2026-10-24
 
 ### New

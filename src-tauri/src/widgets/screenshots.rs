@@ -1,7 +1,7 @@
 //! Screenshots: full screen, a region, a window, or a whole scrolling page. Each one is
 //! copied to the clipboard, saved as a PNG in %APPDATA%\GlassBar\screenshots, listed in
 //! the history, and deleted automatically after the number of days chosen (default 7).
-use super::stitch::{fixed_edges, row_hashes, scroll_offset};
+use super::stitch::{cell_hashes, fixed_edges, fixed_sides, scrollbar_cols, row_hashes, scroll_offset, unchanged};
 use crate::db::{now_ms, Db};
 use crate::platform::{screen, WinRect};
 use base64::Engine as _;
@@ -134,38 +134,114 @@ pub async fn shot_fullscreen(app: AppHandle) -> Result<i64, String> {
 pub fn scroll_capture(win: &WinRect) -> Result<(Vec<u8>, u32, u32), String> {
     let s = screen();
     let at = (win.x + win.w / 2, win.y + win.h / 2);
-    let grab = || s.capture_rect(win.x, win.y, win.w, win.h).ok_or_else(|| "couldn't capture the window".to_string());
-    s.scroll_window(win.id, at, 0, true); // bring it forward
+    s.scroll_window(win.id, at, 0, true); // bring it forward (before measuring what covers it)
     std::thread::sleep(Duration::from_millis(300));
-    let (w, n) = (win.w as usize, win.h as usize);
+    let (cx, cy, cw, ch) = s.unobscured(win.id, (win.x, win.y, win.w, win.h));
+    if ch < 120 { return Err("the window is mostly covered".into()); }
+    let grab = || s.capture_rect(cx, cy, cw, ch).ok_or_else(|| "couldn't capture the window".to_string());
+    let (w, n) = (cw as usize, ch as usize);
+    // Browsers scroll smoothly: wait until the picture stops moving (two frames alike,
+    // at most ~1.5 s) so a frame is never taken mid-animation.
+    let settled = || -> Result<Vec<u8>, String> {
+        std::thread::sleep(Duration::from_millis(200));
+        let mut last = grab()?.bgra;
+        for _ in 0..13 {
+            std::thread::sleep(Duration::from_millis(100));
+            let f = grab()?.bgra;
+            let same = unchanged(&row_hashes(&last, w as u32, n as u32), &row_hashes(&f, w as u32, n as u32));
+            last = f;
+            if same { break; }
+        }
+        Ok(last)
+    };
     let row = w * 4;
     let mut prev = grab()?.bgra;
-    let mut prev_h = row_hashes(&prev, w as u32, n as u32);
-    let mut edges: Option<(usize, usize)> = None;
+    let prev_h = row_hashes(&prev, w as u32, n as u32);
+    // Window parts that don't scroll, found from the first pair of frames: toolbars at the
+    // top, status bars at the bottom, side panels / vertical tabs at the left and right.
+    let mut layout: Option<(usize, usize, usize, usize)> = None;
+    let mut prev_c: Vec<Vec<u64>> = Vec::new();
     let mut body: Vec<u8> = prev.clone();
-    let mut footer: Vec<u8> = Vec::new();
     let mut notches = 3;
+    let mut bar = 0; // scrollbar columns at the right, cut off at the end
+    // The last rows of the view are left out of every join (and added once, from the last
+    // frame): browsers round the page's bottom corners, which would mark every seam.
+    const SEAM: usize = 12;
+    // The page's columns, without still side panels and the scrollbar (its thumb moves).
+    let cols = |left: usize, right: usize| -> (usize, usize) {
+        let x0 = if left == 0 && w > 120 { 8 } else { left };
+        let x1 = if w > 120 { (w - right).min(w - 36) } else { w - right };
+        if x1 > x0 + 16 { (x0, x1) } else { (0, w) }
+    };
     for _ in 0..150 {
         s.scroll_window(win.id, at, notches, false);
-        std::thread::sleep(Duration::from_millis(300));
-        let next = grab()?.bgra;
+        let next = settled()?;
         let next_h = row_hashes(&next, w as u32, n as u32);
-        let (top, bottom) = *edges.get_or_insert_with(|| {
-            let e = fixed_edges(&prev_h, &next_h);
-            // First pair: keep the first frame's footer aside, to add once at the very end.
-            if e.0 < n { footer = prev[(n - e.1) * row..].to_vec(); body.truncate((n - e.1) * row); }
-            e
-        });
-        if top + bottom >= n { break; }
-        let Some(d) = scroll_offset(&prev_h[top..n - bottom], &next_h[top..n - bottom]) else { break };
+        let (top, bottom, left, right) = match layout {
+            Some(l) => l,
+            None => {
+                let (top, bottom) = fixed_edges(&prev_h, &next_h);
+                if top + bottom >= n { break; } // nothing moved at all
+                let (left, right) = fixed_sides(&prev, &next, w, top..n - bottom);
+                if n - top - bottom < 3 * SEAM { break; } // too short to scroll-capture
+                body.truncate((n - bottom - SEAM) * row);
+                let (x0, x1) = cols(left, right);
+                prev_c = cell_hashes(&prev, w as u32, n as u32, x0, x1);
+                *layout.insert((top, bottom, left, right))
+            }
+        };
+        let (x0, x1) = cols(left, right);
+        let next_c = cell_hashes(&next, w as u32, n as u32, x0, x1);
+        let (pv, nx) = (&prev_c[top..n - bottom], &next_c[top..n - bottom]);
+        if cfg!(test) {
+            eprintln!("step notches={notches} edges=({top},{bottom}) sides=({left},{right}) d={:?} body={}", scroll_offset(pv, nx), body.len() / row);
+        }
+        let Some(d) = scroll_offset(pv, nx) else {
+            if unchanged(pv, nx) || notches == 1 { break; } // end of the page (or truly lost)
+            // Moved too far to line up: go back and retry with the smallest step. `prev`
+            // stays the reference, so the join is still made against the last good frame.
+            s.scroll_window(win.id, at, -notches, false);
+            notches = 1;
+            settled()?;
+            continue;
+        };
         let view = n - top - bottom;
+        if bar == 0 { bar = scrollbar_cols(&prev, &next, w, top..n - bottom - d, d, w - right, 40.min(w / 8)); }
         if d * 3 < view { notches = (notches * 2).min(15); } else if d * 10 > view * 7 { notches = (notches / 2).max(1); }
-        body.extend_from_slice(&next[(n - bottom - d) * row..(n - bottom) * row]);
+        body.extend_from_slice(&next[(n - bottom - SEAM - d) * row..(n - bottom - SEAM) * row]);
         if body.len() / row > 30_000 { break; }
         prev = next;
-        prev_h = next_h;
+        prev_c = next_c;
     }
-    body.extend_from_slice(&footer);
-    let h = (body.len() / row) as u32;
-    Ok((body, w as u32, h))
+    if let Some((_, bottom, _, _)) = layout { body.extend_from_slice(&prev[(n - bottom - SEAM) * row..]); }
+    let h = body.len() / row;
+    // Leave still side panels and the scrollbar out: repeated down a long page they'd look broken.
+    let (left, right) = layout.map(|l| (l.2, l.3 + bar)).unwrap_or((0, 0));
+    if left + right == 0 { return Ok((body, w as u32, h as u32)); }
+    let cw = w - left - right;
+    let mut out = Vec::with_capacity(cw * h * 4);
+    for r in 0..h { out.extend_from_slice(&body[(r * w + left) * 4..(r * w + w - right) * 4]); }
+    Ok((out, cw as u32, h as u32))
+}
+
+#[cfg(test)]
+mod tests {
+    /// Live run on a real window: `GB_WIN=Chrome GB_OUT=out.png cargo test scroll_capture_live -- --ignored --nocapture`.
+    #[test]
+    #[ignore]
+    fn scroll_capture_live() {
+        let want = std::env::var("GB_WIN").unwrap_or_else(|_| "Chrome".into());
+        let s = crate::platform::screen();
+        let wins = s.window_rects((-10_000, -10_000, 20_000, 20_000));
+        let win = wins.into_iter().find(|w| w.title.contains(&want)).expect("no such window");
+        eprintln!("window {:?} {}x{} at {},{}", win.title, win.w, win.h, win.x, win.y);
+        for _ in 0..10 { // start at the top
+            s.scroll_window(win.id, (win.x + win.w / 2, win.y + win.h / 2), -10, true);
+            std::thread::sleep(std::time::Duration::from_millis(250));
+        }
+        std::thread::sleep(std::time::Duration::from_millis(1000));
+        let (px, w, h) = super::scroll_capture(&win).unwrap();
+        eprintln!("result {w}x{h}");
+        if let Ok(out) = std::env::var("GB_OUT") { image::RgbaImage::from_raw(w, h, super::rgba(px)).unwrap().save(out).unwrap(); }
+    }
 }

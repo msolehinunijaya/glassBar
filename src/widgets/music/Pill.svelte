@@ -49,15 +49,11 @@
       </span>
     {/if}
     {#if media.m && settings.showControls}
-      {#if size === 'large'}
-        <button class="ctl" disabled={!media.m.canPrev} onpointerdown={down} onclick={stop(() => ipc.mediaControl('prev'))} aria-label="Previous"><SkipBack size={14} /></button>
-      {/if}
+      <button class="ctl" disabled={!media.m.canPrev} onpointerdown={down} onclick={stop(() => ipc.mediaControl('prev'))} aria-label="Previous"><SkipBack size={14} /></button>
       <button class="ctl" onpointerdown={down} onclick={stop(() => toggle(media))} aria-label={media.m.playing ? 'Pause' : 'Play'}>
         {#if media.m.playing}<Pause size={15} />{:else}<Play size={15} />{/if}
       </button>
-      {#if size === 'large'}
-        <button class="ctl" disabled={!media.m.canNext} onpointerdown={down} onclick={stop(() => ipc.mediaControl('next'))} aria-label="Next"><SkipForward size={14} /></button>
-      {/if}
+      <button class="ctl" disabled={!media.m.canNext} onpointerdown={down} onclick={stop(() => ipc.mediaControl('next'))} aria-label="Next"><SkipForward size={14} /></button>
     {/if}
   {/if}
 </div>

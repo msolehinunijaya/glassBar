@@ -88,7 +88,7 @@ export type CaptureDone =
   | { kind: 'error'; text: string };
 export interface OcrItem { id: number; at: number; text: string; mode: 'text' | 'code' | 'terminal'; engine: 'windows' | 'ai' }
 /** AI Usage widget: one source's reading (see src-tauri/src/widgets/aiusage.rs). */
-export type AiuSource = 'anthropic' | 'claudecode' | 'openai' | 'claudeplan' | 'chatgptweb';
+export type AiuSource = 'anthropic' | 'claudecode' | 'openai' | 'claudeplan' | 'claudeweb' | 'chatgptweb';
 export interface AiuTotals { input: number; output: number; cacheRead: number; cacheWrite: number }
 export interface AiuLimit { key: string; label: string; pct: number; resetsAt: number | null }
 export interface AiuNamed { name: string; tokens: number; full: string }

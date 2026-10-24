@@ -19,6 +19,8 @@
       unlocks: 'Tokens, cost, by model, by day', how: 'Paste an Admin key from platform.openai.com › Organization › Admin keys.' },
     { source: 'claudeplan', provider: 'claude', name: 'Claude plan', method: 'auto', unofficial: true, off: 'Off, or Claude Code is not signed in here',
       unlocks: 'Session and weekly limits with reset times', how: 'Uses the Claude Code login on this PC, like the /usage command in Claude Code. No sign-in; the login is only sent to Anthropic. If it says expired, open Claude Code once.' },
+    { source: 'claudeweb', provider: 'claude', name: 'Claude plan (claude.ai)', method: 'web', unofficial: true,
+      unlocks: 'Current session and weekly limits with reset times', how: 'Sign in to claude.ai in a GlassBar window: use this if you use the Claude app rather than Claude Code. Its cookies stay in their own folder on this PC; usage is read at most every 5 minutes.' },
     { source: 'chatgptweb', provider: 'chatgpt', name: 'ChatGPT plan', method: 'web', unofficial: true,
       unlocks: 'Plan limit % and reset time', how: 'Sign in to chatgpt.com in a GlassBar window. Its cookies stay in their own folder on this PC; usage is read at most every 5 minutes.' },
   ];

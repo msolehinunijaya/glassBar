@@ -228,6 +228,8 @@ pub trait Screen: Send + Sync {
     fn capture_rect(&self, x: i32, y: i32, w: i32, h: i32) -> Option<Shot>;
     /// Visible app windows within (x, y, w, h), front-most first.
     fn window_rects(&self, area: (i32, i32, i32, i32)) -> Vec<WinRect>;
+    /// The part of a window's rectangle (x, y, w, h) not covered by bars in front of it.
+    fn unobscured(&self, _id: isize, r: (i32, i32, i32, i32)) -> (i32, i32, i32, i32) { r }
     /// Scroll a window by mouse-wheel notches at screen point `at`.
     fn scroll_window(&self, id: isize, at: (i32, i32), notches: i32, focus: bool);
     /// OCR with the OS engine: lines in reading order.

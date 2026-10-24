@@ -99,6 +99,33 @@ pub fn window_rects(area: (i32, i32, i32, i32)) -> Vec<WinRect> {
         .collect()
 }
 
+/// The part of window `id`'s rectangle not hidden by bars in front of it (the Windows
+/// taskbar, a dock): a visible window above it that covers a good part of its width in its
+/// top or bottom quarter trims that edge. Scrolling captures must not stitch those in.
+pub fn unobscured(id: isize, r: (i32, i32, i32, i32)) -> (i32, i32, i32, i32) {
+    use windows::Win32::Foundation::{HWND, RECT};
+    use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_CLOAKED, DWMWA_EXTENDED_FRAME_BOUNDS};
+    use windows::Win32::UI::WindowsAndMessaging::{GetWindow, IsWindowVisible, GW_HWNDPREV};
+    let (x, y, w, h) = r;
+    let (mut y0, mut y1) = (y, y + h);
+    let mut cur = HWND(id as *mut _);
+    for _ in 0..1000 {
+        let Ok(p) = (unsafe { GetWindow(cur, GW_HWNDPREV) }) else { break };
+        if p.is_invalid() { break; }
+        cur = p;
+        let mut cloaked = 0u32;
+        let _ = unsafe { DwmGetWindowAttribute(p, DWMWA_CLOAKED, &mut cloaked as *mut _ as *mut _, 4) };
+        if !unsafe { IsWindowVisible(p) }.as_bool() || cloaked != 0 { continue; }
+        let mut b = RECT::default();
+        if unsafe { DwmGetWindowAttribute(p, DWMWA_EXTENDED_FRAME_BOUNDS, &mut b as *mut _ as *mut _, std::mem::size_of::<RECT>() as u32) }.is_err() { continue; }
+        let across = b.right.min(x + w) - b.left.max(x);
+        if across * 3 < w || b.bottom <= y0 || b.top >= y1 { continue; }
+        if b.top <= y0 + h / 4 && b.bottom <= y0 + h / 4 { y0 = y0.max(b.bottom); }
+        else if b.bottom >= y1 - h / 4 && b.top >= y1 - h / 4 { y1 = y1.min(b.top); }
+    }
+    (x, y0, w, (y1 - y0).max(0))
+}
+
 /// Bring a window forward and roll the mouse wheel over it (`notches` > 0 scrolls down).
 /// The mouse pointer is put back where it was.
 pub fn scroll_window(id: isize, at: (i32, i32), notches: i32, focus: bool) {
