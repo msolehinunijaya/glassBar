@@ -97,7 +97,7 @@ export interface TrayIcon { id: string; tip: string; icon: string | null; exe: s
 export interface KeyboardLayout { id: number; code: string; name: string; locale: string; active: boolean }
 export interface DiskInfo { mount: string; label: string; total: number; available: number; removable: boolean; fs: string }
 export interface ScreenToday { total: number; apps: { exe: string; name: string; seconds: number }[] }
-export type Sound = { kind: 'chime' } | { kind: 'azan'; src: string; short?: boolean } | { kind: 'adhan'; short: boolean } | { kind: 'connect' | 'disconnect' | 'plug' | 'unplug'; volume: number };
+export type Sound = { kind: 'chime' } | { kind: 'azan'; src: string; short?: boolean; pauseMusic?: boolean } | { kind: 'adhan'; short: boolean; pauseMusic?: boolean } | { kind: 'connect' | 'disconnect' | 'plug' | 'unplug'; volume: number };
 
 export interface AppWindow { id: number; title: string; exe: string; active: boolean; minimized: boolean; aumid?: string | null }
 export interface AudioDevice { id: string; name: string; isDefault: boolean }
@@ -230,6 +230,9 @@ export const ipc = {
   mediaInfo: () => invoke<MediaInfo | null>('media_info'),
   mediaControl: (action: 'toggle' | 'next' | 'prev') => invoke<void>('media_control', { action }),
   mediaSeek: (positionMs: number) => invoke<void>('media_seek', { positionMs }),
+  /** Pause all playing media; returns the paused apps' ids for `mediaResume`. */
+  mediaPausePlaying: () => invoke<string[]>('media_pause_playing'),
+  mediaResume: (ids: string[]) => invoke<void>('media_resume', { ids }),
   // quick settings
   radios: () => invoke<RadioInfo[]>('radios_list'),
   setRadio: (kind: RadioInfo['kind'], on: boolean) => invoke<void>('radio_set', { kind, on }),

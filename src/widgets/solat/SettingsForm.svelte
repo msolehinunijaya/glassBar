@@ -27,6 +27,7 @@
   <button class="btn" disabled={!settings.alerts} onclick={() => ipc.solatTestSound(settings)}>Test</button>
 </label>
 {#if settings.azanSound !== 'chime'}
+<label><input type="checkbox" checked={settings.pauseMusic !== false} disabled={!settings.alerts} onchange={(e) => save({ pauseMusic: e.currentTarget.checked })} /> Pause music during adzan (resumes after)</label>
 <label>Own adzan recording (MP3/WAV, optional)
   <input style="flex:1" placeholder="C:\Users\me\Music\azan.mp3" value={settings.azanFile}
          onchange={(e) => save({ azanFile: e.currentTarget.value.trim().replace(/^"|"$/g, '') })} />

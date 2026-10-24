@@ -162,6 +162,8 @@ impl Media for WinMedia {
     fn info(&self) -> Res<Option<MediaInfo>> { media::info() }
     fn control(&self, a: MediaAction) -> Res<()> { media::control(a) }
     fn seek(&self, ms: i64) -> Res<()> { media::seek(ms) }
+    fn pause_playing(&self) -> Res<Vec<String>> { media::pause_playing() }
+    fn resume(&self, ids: &[String]) -> Res<()> { media::resume(ids) }
     fn watch(&self, f: Box<dyn Fn(Option<MediaInfo>) + Send>) { media::watch(f) }
 }
 

@@ -32,6 +32,7 @@
       { value: 'short', label: 'Short adzan', hint: 'The opening takbir, about 40 seconds' },
       { value: 'full', label: 'Full adzan' },
       { value: 'chime', label: 'Normal alert sound', hint: 'The usual short alert sound' }] },
+    ...(settings.azanSound !== 'chime' ? [{ type: 'toggle' as const, key: 'pauseMusic', label: 'Pause music during adzan' }] : []),
   ]} />
   <button class="btn test" disabled={!settings.alerts} onclick={() => ipc.solatTestSound(settings)}><Play size={12} /> Test sound</button>
   <p class="dim small hint">Press ✓ on the prayer pill to stop the adzan. Your own recording can be set in Settings › Widgets.</p>

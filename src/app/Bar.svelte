@@ -7,7 +7,7 @@
   import { events, ipc, type WidgetInst, type WidgetSize } from '../lib/ipc';
   import { hiddenCounts, insertIndex, snap } from '../lib/geometry';
   import { GALLERY, openPopup } from '../lib/popup';
-  import { chargerTone, chime, deviceTone, playFile, shutter, tick } from '../lib/sound';
+  import { chargerTone, chime, deviceTone, playAdzan, shutter, tick } from '../lib/sound';
   // Bundled adzan: "Beautiful adhan" by Adam-synagda, Wikimedia Commons, CC0.
   import adhanUrl from '../assets/adhan.ogg?url';
   import { showMenu } from '../lib/menu';
@@ -73,7 +73,7 @@
           }
         }, 450); // after the scroll settles
       }),
-      events.soundPlay((s) => (s.kind === 'azan' ? playFile(s.src, s.short) : s.kind === 'adhan' ? playFile(adhanUrl, s.short) : s.kind === 'connect' || s.kind === 'disconnect' ? deviceTone(s.kind === 'connect', s.volume) : s.kind === 'plug' || s.kind === 'unplug' ? chargerTone(s.kind === 'plug', s.volume) : chime())),
+      events.soundPlay((s) => (s.kind === 'azan' || s.kind === 'adhan' ? playAdzan(s.kind === 'azan' ? s.src : adhanUrl, !!s.short, !!s.pauseMusic, { pause: ipc.mediaPausePlaying, resume: ipc.mediaResume }) : s.kind === 'connect' || s.kind === 'disconnect' ? deviceTone(s.kind === 'connect', s.volume) : s.kind === 'plug' || s.kind === 'unplug' ? chargerTone(s.kind === 'plug', s.volume) : chime())),
     ];
     return () => offs.forEach((p) => p.then((off) => off()));
   });
@@ -227,30 +227,21 @@
     update((c) => { const t = c.profiles[c.activeProfile].widgets.find((x) => x.instance === w.instance); if (t) t.size = next; });
   };
 
-  // Press and hold any widget (~0.6 s) to start editing, like the iPhone home screen.
-  let holdTimer: ReturnType<typeof setTimeout>;
+  // The click that ends a pick-up must not open the widget's popup.
   let swallowClick = false;
-  function startHold(e: PointerEvent) {
-    if (edit || e.button !== 0) return;
-    const x = e.clientX, y = e.clientY, el = e.currentTarget as HTMLElement;
-    const cancel = () => { clearTimeout(holdTimer); el.removeEventListener('pointerup', cancel); el.removeEventListener('pointerleave', cancel); el.removeEventListener('pointermove', moved); };
-    const moved = (m: PointerEvent) => { if (Math.hypot(m.clientX - x, m.clientY - y) > 6) cancel(); };
-    holdTimer = setTimeout(() => { cancel(); swallowClick = true; ipc.setEditMode(true); }, 600);
-    el.addEventListener('pointerup', cancel);
-    el.addEventListener('pointerleave', cancel);
-    el.addEventListener('pointermove', moved);
-  }
 
-  // ---- Edit mode: free drag ----
-  // Hold ~250 ms (or start moving) to pick a widget up. It follows the pointer as a
-  // floating copy; a placeholder marks where it will land and the others slide aside
-  // (FLIP via animate:flip). Drop anywhere; Esc puts it back. The new order is saved on drop.
+  // ---- Free drag ----
+  // Pick a widget up: in edit mode hold ~250 ms or start moving; otherwise press and hold
+  // ~500 ms without moving (a quick move stays the widget's own tap or scroll). It follows
+  // the pointer as a floating copy; a placeholder marks where it will land and the others
+  // slide aside (FLIP via animate:flip). Drop anywhere; Esc puts it back. Saved on drop.
   let dragId = $state<string | null>(null);
   let ghost = $state<{ x: number; y: number; w: number; h: number } | null>(null);
 
   function onSlotDown(e: PointerEvent, instance: string) {
-    startHold(e);
-    if (!edit || e.button !== 0 || (e.target as HTMLElement).closest('.badge')) return;
+    swallowClick = false;
+    if (e.button !== 0 || (e.target as HTMLElement).closest('.badge')) return;
+    const editing = edit;
     const el = e.currentTarget as HTMLElement;
     // Track the pointer on the window, not with pointer capture on the slot: reordering
     // moves the slot's DOM node, which silently drops capture and ended the drag after
@@ -265,13 +256,14 @@
     const pick = () => {
       if (picked) return;
       picked = true;
+      swallowClick = true;
       const r = el.getBoundingClientRect();
       grab = { dx: start.x - r.left, dy: start.y - r.top };
       ghost = { x: r.left, y: r.top, w: r.width, h: r.height };
       dragId = instance;
       order = placed.map((w) => w.instance);
     };
-    const pickTimer = setTimeout(pick, 250);
+    const pickTimer = setTimeout(pick, editing ? 250 : 500);
 
     const frame = () => {
       raf = 0;
@@ -286,7 +278,10 @@
     };
     const move = (ev: PointerEvent) => {
       last = ev;
-      if (!picked && Math.hypot(ev.clientX - start.x, ev.clientY - start.y) > 6) { clearTimeout(pickTimer); pick(); }
+      if (!picked && Math.hypot(ev.clientX - start.x, ev.clientY - start.y) > 6) {
+        clearTimeout(pickTimer);
+        if (editing) pick(); else return reset(); // moved before the hold: not a pick-up
+      }
       if (picked && !raf) raf = requestAnimationFrame(frame);
     };
     const reset = () => {
@@ -428,12 +423,31 @@
     -webkit-mask-image: linear-gradient(to bottom, transparent, #000 var(--fb), #000 calc(100% - var(--fa)), transparent);
     mask-image: linear-gradient(to bottom, transparent, #000 var(--fb), #000 calc(100% - var(--fa)), transparent);
   }
+  /* Paging chip over the widgets: the dock's own material (its tint and opacity, a pill
+     layer on top, the widgets under it blurred), so it matches every theme and style. */
   .more {
+    --fill: var(--pill);
     position: absolute; z-index: 3; display: flex; align-items: center; gap: 1px;
-    padding: 2px 6px 2px 4px; border-radius: 999px; font-size: 10px; font-weight: 600; font-variant-numeric: tabular-nums;
-    background: rgb(var(--tint)); border: 1px solid var(--line); box-shadow: var(--shadow); color: var(--fg);
+    padding: 2px 6px 2px 4px; border-radius: var(--r-chip); font-size: 10px; font-weight: 600; font-variant-numeric: tabular-nums;
+    background: linear-gradient(var(--fill), var(--fill)), rgba(var(--tint), max(var(--tint-alpha), 0.6));
+    backdrop-filter: blur(var(--blur)) saturate(1.4);
+    border: 1px solid var(--line); box-shadow: inset 0 1px 0 var(--line), var(--shadow); color: var(--fg);
+    transition: background 0.2s var(--ease), transform 0.35s var(--spring);
   }
-  .more:hover { background: var(--accent); color: #fff; border-color: transparent; }
+  .more:hover { --fill: var(--pill-hover); }
+  .more:active { transform: scale(0.95); }
+  /* Transparency effects off: solid, like the dock. */
+  :global(:root[data-solid='true']) .more { background: linear-gradient(var(--fill), var(--fill)), rgb(var(--tint)); backdrop-filter: none; }
+  /* Liquid Glass: glass body, bright rim, specular top edge; the sheen on hover. */
+  :global(:root[data-preset='liquid']) .more {
+    background: linear-gradient(180deg, var(--glass-top), var(--glass-bot)), rgba(var(--tint), max(var(--tint-alpha), 0.35));
+    border-color: var(--glass-rim);
+    box-shadow: inset 0 1px 0 var(--glass-spec), inset 0 0 0 0.5px rgba(255, 255, 255, 0.15), var(--glass-shadow);
+  }
+  :global(:root[data-preset='liquid']) .more:hover {
+    background: radial-gradient(120% 60% at 30% 0%, var(--sheen), transparent 60%), linear-gradient(180deg, var(--glass-top), var(--glass-bot)), rgba(var(--tint), max(var(--tint-alpha), 0.35));
+  }
+  :global(:root:is([data-style='gnome'], [data-style='windows'])) .more { box-shadow: var(--shadow); }
   .more.before { left: 0; top: 50%; translate: 0 -50%; }
   .more.after { right: 0; top: 50%; translate: 0 -50%; }
   .vertical .more.before { left: 50%; top: 0; translate: -50% 0; }

@@ -186,6 +186,9 @@ pub trait Media: Send + Sync {
     fn info(&self) -> Res<Option<MediaInfo>>;
     fn control(&self, a: MediaAction) -> Res<()>;
     fn seek(&self, position_ms: i64) -> Res<()>;
+    /// Pause all playing sessions (for the adzan); returns their ids for `resume`.
+    fn pause_playing(&self) -> Res<Vec<String>>;
+    fn resume(&self, ids: &[String]) -> Res<()>;
     fn watch(&self, on_change: Box<dyn Fn(Option<MediaInfo>) + Send>);
 }
 

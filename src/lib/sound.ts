@@ -68,26 +68,46 @@ async function tones(notes: readonly (readonly [number, number])[], peak: number
 }
 
 let current: HTMLAudioElement | null = null;
+let onDone: (() => void) | undefined;
+
+/** The current file ended, was stopped or replaced: run its `done` once. */
+function finish(a: HTMLAudioElement) {
+  if (current !== a) return;
+  current = null;
+  const f = onDone;
+  onDone = undefined;
+  f?.();
+}
 
 /** Short adzan: the opening takbir of the bundled recording, which ends in a pause at 43.0-43.7 s (ffmpeg silencedetect). */
 export const SHORT_ADHAN_S = 43.3;
 const FADE_S = 1.5;
 
-/** Play a sound file (the adzan): whole, or with `short` only its opening, faded out. */
-export function playFile(src: string, short = false) {
-  current?.pause();
+/** Play a sound file (the adzan): whole, or with `short` only its opening, faded out.
+ *  `done` runs once when it ends, is stopped or is replaced. */
+export function playFile(src: string, short = false, done?: () => void) {
+  stopSound();
   const a = (current = new Audio(src));
+  onDone = done;
+  a.addEventListener('ended', () => finish(a));
   if (short) {
     a.addEventListener('timeupdate', () => {
       const left = SHORT_ADHAN_S - a.currentTime;
-      if (left <= 0) { a.pause(); if (current === a) current = null; }
+      if (left <= 0) { a.pause(); finish(a); }
       else if (left < FADE_S) a.volume = Math.max(0, left / FADE_S);
     });
   }
-  a.play().catch(() => chime());
+  a.play().catch(() => { finish(a); chime(); });
 }
 
 export function stopSound() {
   current?.pause();
-  current = null;
+  if (current) finish(current);
+}
+
+/** Play the adzan; with `pauseMusic`, pause other playing media first and resume it afterwards. */
+export function playAdzan(src: string, short: boolean, pauseMusic: boolean, media: { pause: () => Promise<string[]>; resume: (ids: string[]) => Promise<void> }) {
+  if (!pauseMusic) return playFile(src, short);
+  // Pause first, then play: our own adzan is a media session too and must not be caught by the pause.
+  void media.pause().catch(() => []).then((ids) => playFile(src, short, () => void (ids.length && media.resume(ids).catch(() => {}))));
 }
