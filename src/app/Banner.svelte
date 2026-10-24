@@ -52,8 +52,8 @@
 
   // ---- Buttons per type ----
   // A break just ended -> start work; work ended -> start the break (as the pill does).
-  const nextPomo = (title: string) => (title.toLowerCase().includes('break') ? 'Start work' : 'Start break');
-  const dataOf = (b: Banner) => (b.data ?? {}) as { timerId?: number; key?: string };
+  const nextPomo = (title: string) => (title.toLowerCase().includes('break') ? 'Start focus' : 'Start break');
+  const dataOf = (b: Banner) => (b.data ?? {}) as { timerId?: number; key?: string; auto?: boolean };
   async function act(e: Event, b: Banner, f: () => unknown) { e.stopPropagation(); await f(); close(b.id); }
   async function todoDone(key: string) {
     const id = Number(key.split(':')[1]);
@@ -85,7 +85,7 @@
             <button onclick={(e) => act(e, b, () => ipc.timerDelete(d.timerId!))}>Dismiss</button>
             <button onclick={(e) => act(e, b, () => ipc.timerSnooze(d.timerId!, 60_000))}>+1 min</button>
           </div>
-        {:else if b.source === 'pomodoro'}
+        {:else if b.source === 'pomodoro' && !d.auto}
           <div class="acts"><button onclick={(e) => act(e, b, () => ipc.pomoStart())}><Play size={11} /> {nextPomo(b.title)}</button></div>
         {:else if b.source === 'todo' && d.key}
           <div class="acts"><button onclick={(e) => act(e, b, () => todoDone(d.key!))}><Check size={11} /> Mark done</button></div>
@@ -106,7 +106,8 @@
   .stack[data-edge='bottom'] { flex-direction: column-reverse; }
   .banner {
     position: relative; overflow: hidden; display: flex; align-items: flex-start; gap: 10px; padding: 10px 10px 12px;
-    border-radius: 16px; background: rgba(var(--tint), 0.92); border: 1px solid var(--line); box-shadow: var(--shadow);
+    border-radius: calc(16px * var(--rs)); background: rgba(var(--tint), 0.92); border: 1px solid var(--line);
+    /* No drop shadow: the window is only 2 px bigger than the card, so it would be cut into a grey box. */
     color: var(--fg); cursor: default; animation: in 0.28s var(--ease);
   }
   /* Windows' transparency effects off: see-through pixels turn black, so the whole window is
@@ -124,16 +125,16 @@
   @keyframes in-left { from { opacity: 0; transform: translateX(-14px); } }
   @keyframes in-right { from { opacity: 0; transform: translateX(14px); } }
   .banner:hover { border-color: color-mix(in srgb, var(--accent) 60%, transparent); }
-  .ic { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; flex: none; background: var(--accent); color: #fff; }
+  .ic { display: grid; place-items: center; width: 30px; height: 30px; border-radius: calc(9px * var(--rs)); flex: none; background: var(--accent); color: #fff; }
   .txt { flex: 1; min-width: 0; }
   .row1 { display: flex; align-items: baseline; gap: 8px; }
   .row1 b { flex: 1; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .tm { font-size: 11px; flex: none; }
   .body { font-size: 12px; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .acts { display: flex; gap: 6px; margin-top: 7px; }
-  .acts button { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 8px; background: var(--pill); font-size: 11.5px; font-weight: 500; }
+  .acts button { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: calc(8px * var(--rs)); background: var(--pill); font-size: 11.5px; font-weight: 500; }
   .acts button:hover { background: var(--pill-hover); }
-  .x { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 7px; opacity: 0.6; flex: none; }
+  .x { display: grid; place-items: center; width: 22px; height: 22px; border-radius: calc(7px * var(--rs)); opacity: 0.6; flex: none; }
   .x:hover { opacity: 1; background: var(--pill-hover); }
   /* Time left: a thin line along the bottom (CSS only; pauses with hover). */
   .life { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--accent); transform-origin: left; animation: life linear forwards; }

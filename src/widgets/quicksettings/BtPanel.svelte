@@ -80,7 +80,7 @@
   h3 { flex: 1; margin: 0; font-size: 15px; font-weight: 600; }
   h4 { margin: 8px 2px 2px; font-size: 11px; font-weight: 500; }
   .list { display: flex; flex-direction: column; gap: 4px; }
-  .dev { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 12px; background: var(--pill); }
+  .dev { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 10px; border-radius: calc(12px * var(--rs)); background: var(--pill); }
   .dev.on { background: color-mix(in srgb, var(--accent) 22%, var(--pill)); }
   .name { flex: 1; min-width: 0; display: flex; flex-direction: column; font-size: 13px; }
   .dev p { width: 100%; margin: 0; }

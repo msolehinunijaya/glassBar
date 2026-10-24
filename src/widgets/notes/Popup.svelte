@@ -140,15 +140,15 @@
   .tools { display: flex; }
   .icon-btn.on { color: var(--accent); }
   .chips { display: flex; gap: 6px; overflow-x: auto; padding: 8px 0; scrollbar-width: none; }
-  .chip { flex: none; display: flex; align-items: center; gap: 4px; max-width: 120px; padding: 4px 10px; border-radius: 10px;
+  .chip { flex: none; display: flex; align-items: center; gap: 4px; max-width: 120px; padding: 4px 10px; border-radius: calc(10px * var(--rs));
           background: color-mix(in srgb, var(--c) 30%, transparent); border: 1px solid transparent; font-size: 12px; }
   .chip.sel { border-color: var(--c); }
-  .paper { border-radius: 16px; background: color-mix(in srgb, var(--c) 22%, var(--pill)); padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+  .paper { border-radius: calc(16px * var(--rs)); background: color-mix(in srgb, var(--c) 22%, var(--pill)); padding: 10px; display: flex; flex-direction: column; gap: 8px; }
   /* grows with the note; only a very long note scrolls (inside the box, so the panel stays put) */
   textarea { width: 100%; min-height: 220px; max-height: 560px; field-sizing: content; resize: none; border: 0; background: none; outline: none; line-height: 1.5; }
   .strip { display: flex; gap: 6px; overflow-x: auto; }
   .thumb { position: relative; flex: none; }
-  .thumb img { height: 64px; border-radius: 8px; display: block; cursor: grab; }
+  .thumb img { height: 64px; border-radius: calc(8px * var(--rs)); display: block; cursor: grab; }
   .rm { position: absolute; top: 2px; right: 2px; width: 16px; height: 16px; border-radius: 50%; background: rgba(0,0,0,.55); color: #fff; display: grid; place-items: center; }
   .bar { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
   .dot { width: 18px; height: 18px; border-radius: 50%; border: 2px solid transparent; }

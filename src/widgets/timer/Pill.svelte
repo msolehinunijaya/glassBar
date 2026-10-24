@@ -66,7 +66,7 @@
   /* Readable over any fill. */
   .t { font-variant-numeric: tabular-nums; font-weight: 600; text-shadow: 0 0 3px var(--pill); }
   .lbl { max-width: 90px; font-size: 12px; }
-  .more { font-size: 10px; font-weight: 600; padding: 1px 5px; border-radius: 8px; background: var(--pill-hover); }
+  .more { font-size: 10px; font-weight: 600; padding: 1px 5px; border-radius: calc(8px * var(--rs)); background: var(--pill-hover); }
   .ctl { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; margin-right: -4px; transition: background 0.2s, transform 0.25s var(--spring); }
   .ctl:hover { background: var(--pill-hover); }
   .ctl:active { transform: scale(0.85); }

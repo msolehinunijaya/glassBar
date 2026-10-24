@@ -21,7 +21,7 @@
   .bell { position: relative; display: grid; place-items: center; }
   .badge {
     position: absolute; top: -7px; right: -9px; min-width: 15px; height: 15px; padding: 0 4px;
-    border-radius: 8px; background: #ff453a; color: #fff; font-size: 9px; font-weight: 600;
+    border-radius: calc(8px * var(--rs)); background: #ff453a; color: #fff; font-size: 9px; font-weight: 600;
     display: grid; place-items: center;
   }
 </style>

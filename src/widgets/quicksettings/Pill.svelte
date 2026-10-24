@@ -141,10 +141,10 @@
   .qs { gap: 6px; }
   .qswrap { display: flex; align-items: stretch; gap: 2px; height: 100%; }
   /* Inner corners of the joined segments are nearly square. */
-  .qswrap > :global(.pill:not(:first-child)) { border-top-left-radius: 4px; border-bottom-left-radius: 4px; }
-  .qswrap > :global(.pill:not(:last-child)) { border-top-right-radius: 4px; border-bottom-right-radius: 4px; }
+  .qswrap > :global(.pill:not(:first-child)) { border-top-left-radius: calc(4px * var(--rs)); border-bottom-left-radius: calc(4px * var(--rs)); }
+  .qswrap > :global(.pill:not(:last-child)) { border-top-right-radius: calc(4px * var(--rs)); border-bottom-right-radius: calc(4px * var(--rs)); }
   .tray, .icons { display: flex; align-items: center; gap: 0; }
-  .chev { display: flex; align-items: center; gap: 2px; padding: 3px 4px; border-radius: 8px; transition: background 0.15s; }
+  .chev { display: flex; align-items: center; gap: 2px; padding: 3px 4px; border-radius: calc(8px * var(--rs)); transition: background 0.15s; }
   .chev:hover, .chev.open { background: var(--pill-hover); }
   .lang { font-size: 11.5px; letter-spacing: 0.04em; min-width: 18px; text-align: center; }
   .bat { gap: 2px; padding: 0 9px; }

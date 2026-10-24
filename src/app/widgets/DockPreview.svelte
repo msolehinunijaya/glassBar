@@ -57,7 +57,7 @@
 <style>
   /* The "screen": the settings background, a faint frame, the dock on one edge. */
   .stage {
-    position: relative; height: 132px; border-radius: 16px; overflow: auto;
+    position: relative; height: 132px; border-radius: calc(16px * var(--rs)); overflow: auto;
     background:
       radial-gradient(120% 90% at 20% 0%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 60%),
       radial-gradient(90% 80% at 100% 100%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 55%),
@@ -75,11 +75,11 @@
 
   /* The dock itself: the bar's tint and radius, solid enough to read on any background. */
   .pv {
-    display: flex; align-items: stretch; gap: var(--gap); padding: 5px;
+    display: flex; align-items: stretch; gap: var(--gap); padding: calc(5px * var(--sp));
     background: rgba(var(--tint), max(var(--tint-alpha), 0.72));
     border: 1px solid var(--line); border-radius: var(--radius-bar); box-shadow: var(--shadow);
   }
-  .pv[data-size='compact'] { padding: 4px; }
+  .pv[data-size='compact'] { padding: calc(4px * var(--sp)); }
   .pv.vertical { flex-direction: column; }
   .slot { border-radius: var(--radius-pill); cursor: grab; touch-action: none; }
   .slot .inert { display: flex; width: 100%; }

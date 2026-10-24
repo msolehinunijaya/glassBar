@@ -134,8 +134,8 @@
   .more { position: absolute; top: 0; right: 0; bottom: 0; width: 30px; display: grid; place-items: center; border-radius: 0 14px 14px 0; opacity: 0.75; }
   .more:hover { opacity: 1; background: var(--pill-hover); }
   .tile .state { font-size: 10px; font-weight: 400; opacity: 0.75; }
-  .seg { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; padding: 3px; border-radius: 12px; background: var(--pill); }
-  .seg button { padding: 7px 2px; border-radius: 9px; font-size: 11px; }
+  .seg { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; padding: 3px; border-radius: calc(12px * var(--rs)); background: var(--pill); }
+  .seg button { padding: 7px 2px; border-radius: calc(9px * var(--rs)); font-size: 11px; }
   .seg .sel { background: var(--accent); color: #fff; }
   .small { font-size: 12px; }
   .err { color: #ff453a; font-size: 12px; }

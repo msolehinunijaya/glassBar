@@ -8,6 +8,8 @@ One system for the dock and every widget. Each widget has two states: a **compac
 
 All values live as CSS custom properties in `src/styles/glass.css`. Widgets never hard-code colours, radii or spacing.
 
+Settings › Appearance changes these tokens at runtime (`src/lib/appearance.ts` → `src/lib/theme.ts`): the sizes below are the defaults of the original GlassBar style. A radius that isn't one of the tokens is written `calc(Npx * var(--rs))` so it follows the chosen corner radius; colours come from `--pill`, `--line`, `--line-soft`, `--border` and `--shadow`, which already carry the opacity, border and shadow strength.
+
 ### Spacing
 - 4 px grid only: **4 / 8 / 12 / 16 / 24 / 32**.
 - Card padding **16 px**. Gap between cards **8 px**.

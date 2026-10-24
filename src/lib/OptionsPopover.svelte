@@ -78,7 +78,7 @@
   /* A toggle's text wraps instead of pushing its switch out of a narrow panel. */
   .toggle .lbl { flex: 1; min-width: 0; }
   .seg { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 2px; padding: 2px; border-radius: var(--r-inner); background: var(--bg-2); border: 1px solid var(--border); min-width: 0; }
-  .seg button { padding: 4px 10px; border-radius: 8px; font-size: 12px; white-space: nowrap; transition: background 0.2s var(--ease); }
+  .seg button { padding: 4px 10px; border-radius: calc(8px * var(--rs)); font-size: 12px; white-space: nowrap; transition: background 0.2s var(--ease); }
   .seg button:hover:not(.sel) { background: var(--pill-hover); }
   .seg button:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   select { min-width: 0; max-width: 68%; height: 32px; padding: 0 10px; border-radius: var(--r-inner); border: 1px solid var(--border); background: var(--bg-2); color: inherit;

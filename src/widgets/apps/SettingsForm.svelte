@@ -86,7 +86,7 @@
   .err { color: #ff453a; font-size: 12px; }
   summary { cursor: pointer; margin: 10px 0 6px; }
   .inst { max-height: 220px; overflow: auto; display: flex; flex-direction: column; gap: 2px; margin-top: 6px; }
-  .ia { display: flex; justify-content: space-between; gap: 8px; padding: 6px 8px; border-radius: 8px; text-align: left; }
+  .ia { display: flex; justify-content: space-between; gap: 8px; padding: 6px 8px; border-radius: calc(8px * var(--rs)); text-align: left; }
   .ia:hover:not(:disabled) { background: var(--pill); }
   .ia:disabled { opacity: 0.5; }
   .small { font-size: 11px; }

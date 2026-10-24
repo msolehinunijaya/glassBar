@@ -74,8 +74,8 @@
   .row { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
   .row .ellipsis { flex: 1; font-size: 12px; }
   .on { display: inline-flex; gap: 4px; align-items: center; font-size: 11px; }
-  .track { height: 7px; border-radius: 4px; background: var(--track); overflow: hidden; }
-  .fill { display: block; height: 100%; border-radius: 4px; }
+  .track { height: 7px; border-radius: calc(4px * var(--rs)); background: var(--track); overflow: hidden; }
+  .fill { display: block; height: 100%; border-radius: calc(4px * var(--rs)); }
   .small { font-size: 11px; }
   .c b.small { font-size: 12px; line-height: 1.4; }
 </style>

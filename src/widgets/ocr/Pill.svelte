@@ -83,7 +83,7 @@
 <style>
   .capture-pill { gap: 1px; padding: 0 4px; }
   .capture-pill.vertical { flex-direction: column; padding: 4px 0; }
-  .ic { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; transition: background 0.15s, transform 0.25s var(--spring); }
+  .ic { display: grid; place-items: center; width: 30px; height: 30px; border-radius: calc(9px * var(--rs)); transition: background 0.15s, transform 0.25s var(--spring); }
   .ic:hover { background: var(--pill-hover); }
   .ic:active { transform: scale(0.88); }
   .ic.drag { transform: scale(1.18); background: var(--pill-hover); box-shadow: 0 4px 12px rgba(0,0,0,0.25); z-index: 1; }

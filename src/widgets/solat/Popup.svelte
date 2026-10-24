@@ -72,7 +72,7 @@
 
 <style>
   .icon-btn.on { color: var(--accent); }
-  .test { display: inline-flex; align-items: center; gap: 6px; margin: 8px 0 4px; padding: 6px 12px; border-radius: 10px; background: var(--pill); font-size: 12px; }
+  .test { display: inline-flex; align-items: center; gap: 6px; margin: 8px 0 4px; padding: 6px 12px; border-radius: calc(10px * var(--rs)); background: var(--pill); font-size: 12px; }
   .test:hover:not(:disabled) { background: var(--pill-hover); }
   .test:disabled { opacity: 0.4; }
   .hint { margin: 4px 0 10px; }

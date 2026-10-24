@@ -117,6 +117,9 @@
   /* Opening: 180 ms ease-out, 0.96 → 1 and a fade, from the dock side (content mounts on every show). */
   .content { animation: grow 180ms cubic-bezier(0.2, 0, 0, 1) both; transform-origin: var(--origin); }
   @keyframes grow { from { opacity: 0; transform: scale(0.96); } }
+  /* Liquid Glass: a softer, slightly longer grow out of the dock. */
+  :global(:root[data-preset='liquid']) .content { animation: liquid-grow 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+  @keyframes liquid-grow { from { opacity: 0; transform: scale(0.94); filter: blur(4px); } }
   @media (prefers-reduced-motion: reduce) { .content { animation: none; } }
   .popup.hover { padding: 8px; }
   /* A section shown as its own panel: no gap above its heading. */

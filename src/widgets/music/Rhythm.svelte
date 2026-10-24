@@ -10,7 +10,7 @@
 
 <style>
   .eq { display: inline-flex; align-items: flex-end; gap: 2px; height: 14px; }
-  i { width: 3px; height: 100%; border-radius: 2px; background: var(--c); transform-origin: bottom; transform: scaleY(0.25); }
+  i { width: 3px; height: 100%; border-radius: calc(2px * var(--rs)); background: var(--c); transform-origin: bottom; transform: scaleY(0.25); }
   .playing i { animation: bounce ease-in-out infinite alternate; }
   @keyframes bounce { from { transform: scaleY(0.2); } to { transform: scaleY(1); } }
 </style>

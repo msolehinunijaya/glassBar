@@ -80,7 +80,7 @@
 <div class="loctag"><LocationTag /></div>
 
 <style>
-  .hero { border-radius: 16px; padding: 12px 14px; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.2); }
+  .hero { border-radius: calc(16px * var(--rs)); padding: 12px 14px; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.2); }
   .top { display: flex; justify-content: space-between; align-items: flex-start; }
   .place { display: flex; align-items: center; gap: 4px; font-weight: 600; }
   .sub { font-size: 11px; opacity: 0.85; }

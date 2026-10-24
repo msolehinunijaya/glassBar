@@ -77,22 +77,22 @@
 
 <style>
   .modes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
-  .mode { display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 11px 4px 9px; border-radius: 14px; background: var(--pill); font-size: 11px; font-weight: 500; transition: background 0.15s, transform 0.2s var(--spring); }
+  .mode { display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 11px 4px 9px; border-radius: calc(14px * var(--rs)); background: var(--pill); font-size: 11px; font-weight: 500; transition: background 0.15s, transform 0.2s var(--spring); }
   .mode:hover { background: var(--pill-hover); }
   .mode:active { transform: scale(0.95); }
   .small { font-size: 11px; margin: 8px 2px 0; }
-  select { font-size: 11px; padding: 1px 4px; border-radius: 6px; background: var(--pill); color: inherit; border: none; }
+  select { font-size: 11px; padding: 1px 4px; border-radius: calc(6px * var(--rs)); background: var(--pill); color: inherit; border: none; }
   .head { display: flex; justify-content: space-between; align-items: center; margin: 12px 2px 6px; }
   h4 { margin: 0; font-size: 12px; font-weight: 500; }
   .link { display: inline-flex; align-items: center; gap: 3px; color: var(--accent); font-size: 12px; margin-left: 8px; }
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .shot { border-radius: 12px; background: var(--pill); overflow: hidden; opacity: var(--fade, 1); transition: opacity 0.15s; }
+  .shot { border-radius: calc(12px * var(--rs)); background: var(--pill); overflow: hidden; opacity: var(--fade, 1); transition: opacity 0.15s; }
   .shot:hover { opacity: 1; }
   .thumb { display: block; width: 100%; height: 86px; background: #0002; }
   .thumb img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; }
   .meta { display: flex; align-items: center; justify-content: space-between; padding: 4px 6px; font-size: 10px; }
   .acts { display: flex; gap: 2px; }
-  .acts button { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 6px; color: var(--fg); opacity: 0.75; }
+  .acts button { display: grid; place-items: center; width: 20px; height: 20px; border-radius: calc(6px * var(--rs)); color: var(--fg); opacity: 0.75; }
   .acts button:hover { opacity: 1; background: var(--pill-hover); }
   .empty { grid-column: 1 / -1; text-align: center; padding: 24px 0; }
 </style>

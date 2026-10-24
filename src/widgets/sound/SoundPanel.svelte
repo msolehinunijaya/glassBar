@@ -110,7 +110,7 @@
   .master { display: flex; align-items: center; gap: 8px; }
   .num { font-variant-numeric: tabular-nums; width: 4ch; text-align: right; }
   .list { padding: 4px; display: flex; flex-direction: column; }
-  .row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 12px; text-align: left; }
+  .row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: calc(12px * var(--rs)); text-align: left; }
   .row span { flex: 1; }
   .row:hover { background: var(--pill-hover); }
   .app { display: flex; align-items: center; gap: 10px; padding: 6px 8px; }

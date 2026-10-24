@@ -62,11 +62,11 @@
 </div>
 
 <style>
-  .go { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 10px; border-radius: 12px; background: var(--accent); color: #fff; font-weight: 600; }
-  .k { font-size: 11px; font-weight: 500; opacity: 0.8; padding: 1px 6px; border-radius: 6px; background: rgba(255,255,255,0.2); }
-  .seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; padding: 3px; border-radius: 10px; background: var(--pill); margin-top: 10px; }
+  .go { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 10px; border-radius: calc(12px * var(--rs)); background: var(--accent); color: #fff; font-weight: 600; }
+  .k { font-size: 11px; font-weight: 500; opacity: 0.8; padding: 1px 6px; border-radius: calc(6px * var(--rs)); background: rgba(255,255,255,0.2); }
+  .seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; padding: 3px; border-radius: calc(10px * var(--rs)); background: var(--pill); margin-top: 10px; }
   .seg.two { grid-template-columns: 1fr 1fr; margin-top: 6px; }
-  .seg button { padding: 6px; border-radius: 8px; font-size: 12px; }
+  .seg button { padding: 6px; border-radius: calc(8px * var(--rs)); font-size: 12px; }
   .seg .sel { background: var(--accent); color: #fff; }
   .head { display: flex; justify-content: space-between; align-items: center; margin: 12px 2px 6px; }
   h4 { margin: 0; font-size: 12px; font-weight: 500; }

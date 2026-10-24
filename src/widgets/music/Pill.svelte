@@ -76,7 +76,7 @@
   .progress.ending { background: color-mix(in srgb, #ff9f0a 34%, transparent); animation: ending 1s ease-in-out infinite; }
   @keyframes ending { 50% { opacity: 0.55; } }
 
-  .art { width: 28px; height: 28px; border-radius: 8px; object-fit: cover; flex: none; }
+  .art { width: 28px; height: 28px; border-radius: calc(8px * var(--rs)); object-fit: cover; flex: none; }
   .art.round { width: 24px; height: 24px; border-radius: 50%; }
   .noart { display: grid; place-items: center; background: var(--pill-hover); }
   .meta { display: flex; flex-direction: column; line-height: 1.2; max-width: 150px; min-width: 0; }
@@ -92,5 +92,5 @@
   .ctls { display: flex; gap: 0; }
   .vertical .ctls { flex-direction: column; }
   .mini .ctl { width: 22px; height: 22px; }
-  .mini-art { width: 22px; height: 22px; border-radius: 6px; margin: 0 2px; }
+  .mini-art { width: 22px; height: 22px; border-radius: calc(6px * var(--rs)); margin: 0 2px; }
 </style>

@@ -110,8 +110,8 @@
   .k { font-size: 10px; }
   .net { min-width: 64px; }
   .net .row { gap: 3px; }
-  .dtrack { display: inline-block; width: 46px; height: 4px; border-radius: 2px; background: var(--track); overflow: hidden; }
-  .dtrack span { display: block; height: 100%; border-radius: 2px; }
+  .dtrack { display: inline-block; width: 46px; height: 4px; border-radius: calc(2px * var(--rs)); background: var(--track); overflow: hidden; }
+  .dtrack span { display: block; height: 100%; border-radius: calc(2px * var(--rs)); }
   .hot { color: #ff453a; font-weight: 600; }
   .side-v.net { font-size: 0.85em; }
 </style>

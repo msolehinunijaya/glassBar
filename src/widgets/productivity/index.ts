@@ -16,7 +16,8 @@ export default defineWidget<ProductivitySettings>({
   icon: ListChecks,
   sizes: ['small', 'medium', 'large'],
   defaultSize: 'medium',
-  defaults: { showPomo: true, showTodo: true, showNotes: true, workMin: 25, shortMin: 5, longMin: 15, every: 4, temporaryDays: 0 },
+  defaults: { showPomo: true, showTodo: true, showNotes: true, workMin: 25, shortMin: 5, longMin: 15, every: 4,
+    autoStart: false, sound: true, volume: 60, goal: 4, dimOthers: false, temporaryDays: 0 },
   Pill,
   SettingsForm,
 });

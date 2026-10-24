@@ -2,6 +2,7 @@ import './styles/glass.css';
 import { mount } from 'svelte';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { initConfig } from './lib/config.svelte';
+import './lib/liquid';
 import Bar from './app/Bar.svelte';
 import Popup from './app/Popup.svelte';
 import Settings from './app/Settings.svelte';

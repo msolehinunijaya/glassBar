@@ -76,7 +76,7 @@
   .col { display: flex; flex-direction: column; }
   .col b { font-size: 18px; font-variant-numeric: tabular-nums; }
   .btns { display: flex; gap: 4px; }
-  .b { display: inline-flex; align-items: center; gap: 5px; padding: 6px 10px; border-radius: 9px; background: var(--pill); font-size: 12px; }
+  .b { display: inline-flex; align-items: center; gap: 5px; padding: 6px 10px; border-radius: calc(9px * var(--rs)); background: var(--pill); font-size: 12px; }
   .b:hover:not(:disabled) { background: var(--pill-hover); }
   .b:disabled { opacity: 0.4; }
   .danger { color: #ff453a; }
@@ -84,10 +84,10 @@
   .solid:hover { background: #ff5b50 !important; }
   .link { align-self: flex-start; color: var(--accent); font-size: 11.5px; }
   .drv { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
-  .mini { font-size: 11px; padding: 3px 8px; border-radius: 7px; background: var(--pill); color: #ff453a; }
+  .mini { font-size: 11px; padding: 3px 8px; border-radius: calc(7px * var(--rs)); background: var(--pill); color: #ff453a; }
   .mini:disabled { opacity: 0.35; }
   .small { font-size: 11.5px; }
-  .confirm { margin-top: 4px; padding: 10px; border-radius: 10px; background: color-mix(in srgb, #ff453a 14%, var(--pill)); }
+  .confirm { margin-top: 4px; padding: 10px; border-radius: calc(10px * var(--rs)); background: color-mix(in srgb, #ff453a 14%, var(--pill)); }
   .confirm p { margin: 0 0 8px; font-size: 12px; line-height: 1.4; }
   .cbtns { display: flex; justify-content: flex-end; gap: 6px; }
 </style>

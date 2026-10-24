@@ -150,7 +150,7 @@
   .mode input { margin-top: 3px; }
   .mode > span { display: flex; flex-direction: column; gap: 2px; }
   .mode em { font-style: normal; color: var(--fg); }
-  .res { display: flex; flex-direction: column; align-items: flex-start; text-align: left; padding: 6px 8px; border-radius: 8px; }
+  .res { display: flex; flex-direction: column; align-items: flex-start; text-align: left; padding: 6px 8px; border-radius: calc(8px * var(--rs)); }
   .res:hover { background: var(--pill); }
   details { padding: 4px 0 8px; }
   summary { cursor: pointer; font-size: 13px; }

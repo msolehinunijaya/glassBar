@@ -96,7 +96,7 @@
   @keyframes celebrate { 30% { transform: scale(1.08); box-shadow: 0 0 0 4px rgba(48, 209, 88, 0.35); } }
   .n { font-weight: 600; font-variant-numeric: tabular-nums; }
   /* fixed-size window: the dock never stretches, however many tasks there are */
-  .view { position: relative; width: var(--w); height: 22px; overflow: hidden; border-radius: 9px; background: var(--pill); }
+  .view { position: relative; width: var(--w); height: 22px; overflow: hidden; border-radius: calc(9px * var(--rs)); background: var(--pill); }
   .view::before, .view::after { content: ''; position: absolute; left: 0; right: 0; height: 4px; z-index: 1; pointer-events: none; opacity: 0; transition: opacity 0.2s; }
   .view::before { top: 0; background: linear-gradient(var(--fg), transparent); }
   .view::after { bottom: 0; background: linear-gradient(transparent, var(--fg)); }
@@ -107,7 +107,7 @@
   .item input { width: 14px; height: 14px; margin: 0; accent-color: var(--accent); flex: none; }
   .late { color: #ff453a; }
   .nav { display: flex; flex-direction: column; align-items: center; line-height: 1; }
-  .arrow { display: grid; place-items: center; height: 11px; width: 18px; border-radius: 4px; opacity: 0.7; }
+  .arrow { display: grid; place-items: center; height: 11px; width: 18px; border-radius: calc(4px * var(--rs)); opacity: 0.7; }
   .arrow:hover:not(:disabled) { opacity: 1; background: var(--pill-hover); }
   .arrow:disabled { opacity: 0.2; }
   .pos { font-size: 9.5px; font-variant-numeric: tabular-nums; color: var(--fg-dim); }

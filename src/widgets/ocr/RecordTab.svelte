@@ -28,7 +28,7 @@
 <style>
   .opts { display: flex; flex-direction: column; gap: 8px; }
   .opt { display: grid; grid-template-columns: 30px 1fr; grid-template-rows: auto auto; column-gap: 10px; row-gap: 3px; align-items: center; text-align: left;
-         padding: 12px; border-radius: 14px; background: var(--pill); transition: background 0.15s, transform 0.2s var(--spring); }
+         padding: 12px; border-radius: calc(14px * var(--rs)); background: var(--pill); transition: background 0.15s, transform 0.2s var(--spring); }
   .opt:hover { background: var(--pill-hover); }
   .opt:active { transform: scale(0.98); }
   .opt :global(svg) { grid-row: 1 / 3; color: #ff453a; }

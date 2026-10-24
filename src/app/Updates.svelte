@@ -56,7 +56,7 @@
 </div>
 
 <style>
-  .group { background: var(--panel); border-radius: 14px; padding: 6px 16px; border: 1px solid var(--line-soft); }
+  .group { background: var(--panel); border-radius: calc(14px * var(--rs)); padding: 6px 16px; border: 1px solid var(--line-soft); }
   .field { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 0; }
   .field + .field { border-top: 1px solid var(--line-soft); }
   .hint { font-size: 12px; color: var(--fg-dim); }

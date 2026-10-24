@@ -8,6 +8,7 @@
   import LocationSettings from './LocationSettings.svelte';
   import WidgetManager from './widgets/WidgetManager.svelte';
   import About from './About.svelte';
+  import AppearanceSettings from './AppearanceSettings.svelte';
 
   const sections = ['Bar', 'Appearance', 'Widgets', 'Location', 'Notifications', 'Sounds', 'Profiles', 'Startup', 'Updates', 'Backup', 'About'] as const;
   import { SOURCE_WIDGET } from '../lib/notify';
@@ -118,31 +119,7 @@
       </div>
 
     {:else if section === 'Appearance'}
-      <div class="group">
-        <div class="field"><span>Theme</span>
-          <div class="seg">
-            {#each ['auto', 'light', 'dark'] as const as m (m)}
-              <button class:sel={c.theme.mode === m} onclick={() => set((c) => (c.theme.mode = m))}>{m}</button>
-            {/each}
-          </div>
-        </div>
-        <label class="field"><span>Accent color</span>
-          <input type="color" value={c.theme.accent} onchange={(e) => set((c) => (c.theme.accent = e.currentTarget.value))} />
-        </label>
-        <label class="field"><span>Native blur (Windows acrylic)</span>
-          <input type="checkbox" checked={c.theme.nativeBlur} onchange={(e) => set((c) => (c.theme.nativeBlur = e.currentTarget.checked))} />
-        </label>
-        <p class="hint">On: real frosted glass over your wallpaper. Off: lighter CSS glass with larger rounded corners.</p>
-        {#await ipc.transparencyEffects() then on}{#if !on && c.theme.nativeBlur}
-          <p class="hint warn">Transparency effects are off in Windows (Settings › Personalization › Colors), so Windows can't draw the glass. GlassBar uses its own tint until you turn them on.</p>
-        {/if}{/await}
-        <div class="field"><span>Tint {Math.round(c.theme.opacity * 100)}%</span>
-          <input type="range" min="0" max="1" step="0.01" value={c.theme.opacity} onchange={(e) => set((c) => (c.theme.opacity = +e.currentTarget.value))} />
-        </div>
-        <div class="field" class:off={c.theme.nativeBlur}><span>CSS blur {c.theme.blur}px</span>
-          <input type="range" min="0" max="60" value={c.theme.blur} disabled={c.theme.nativeBlur} onchange={(e) => set((c) => (c.theme.blur = +e.currentTarget.value))} />
-        </div>
-      </div>
+      <AppearanceSettings />
 
     {:else if section === 'Widgets'}
       <WidgetManager />
@@ -275,28 +252,28 @@
   .settings { display: flex; height: 100%; }
   nav { width: 190px; padding: 18px 10px; display: flex; flex-direction: column; gap: 2px; border-right: 1px solid var(--line-soft); }
   .brand { font-weight: 600; font-size: 16px; padding: 0 10px 14px; }
-  nav button { text-align: left; padding: 8px 12px; border-radius: 10px; }
+  nav button { text-align: left; padding: 8px 12px; border-radius: calc(10px * var(--rs)); }
   nav button:hover { background: var(--pill); }
   nav .sel { background: var(--accent); color: #fff; }
   main { flex: 1; overflow: auto; padding: 18px 28px 40px; }
   /* Used by widget panels in every window too. */
-  :global(.btn) { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 9px; background: var(--accent); color: #fff; }
+  :global(.btn) { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: calc(9px * var(--rs)); background: var(--accent); color: #fff; }
   :global(.btn:disabled) { opacity: 0.5; }
   /* Shared by every section component (Location, About, widget manager…). */
   .settings :global {
     h1 { font-size: 22px; font-weight: 600; margin: 0 0 16px; }
     h2 { font-size: 15px; font-weight: 600; margin: 22px 0 10px; }
-    .group { background: var(--panel); border-radius: 14px; padding: 6px 16px; margin-bottom: 14px; display: flex; flex-direction: column; gap: 8px; border: 1px solid var(--line-soft); }
+    .group { background: var(--panel); border-radius: calc(14px * var(--rs)); padding: 6px 16px; margin-bottom: 14px; display: flex; flex-direction: column; gap: 8px; border: 1px solid var(--line-soft); }
     .field { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 8px 0; }
     .field + .field { border-top: 1px solid var(--line-soft); }
     .field.off { opacity: 0.5; }
     .field input[type='range'] { width: 220px; }
     .hint.warn { color: #ff9f0a; }
     .hint { font-size: 12px; color: var(--fg-dim); margin: -4px 0 6px; }
-    .seg { display: flex; gap: 2px; padding: 3px; border-radius: 10px; background: var(--pill); }
-    .seg button { padding: 5px 12px; border-radius: 8px; text-transform: capitalize; }
+    .seg { display: flex; gap: 2px; padding: 3px; border-radius: calc(10px * var(--rs)); background: var(--pill); }
+    .seg button { padding: 5px 12px; border-radius: calc(8px * var(--rs)); text-transform: capitalize; }
     .seg .sel { background: var(--accent); color: #fff; }
-    select, input:not([type]), textarea, .grow { padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line-soft); background: var(--settings-bg); }
+    select, input:not([type]), textarea, .grow { padding: 6px 10px; border-radius: calc(8px * var(--rs)); border: 1px solid var(--line-soft); background: var(--settings-bg); }
     textarea { width: 100%; font-family: Consolas, monospace; font-size: 12px; resize: vertical; }
     /* Choice buttons (Notifications): plain, the chosen one in the accent colour. */
     .segs { display: inline-flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
@@ -305,11 +282,11 @@
     .wrow { display: flex; align-items: center; gap: 8px; padding: 6px 0; }
     .wrow b { flex: 1; font-weight: 500; }
     .grow { flex: 1; }
-    .wico { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; background: var(--accent); color: #fff; flex: none; }
+    .wico { display: grid; place-items: center; width: 28px; height: 28px; border-radius: calc(8px * var(--rs)); background: var(--accent); color: #fff; flex: none; }
     .wform { padding: 4px 0 12px 36px; display: flex; flex-direction: column; gap: 8px; }
     .wform label { display: flex; align-items: center; gap: 8px; }
     .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
-    .gcard { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 14px; text-align: left; border-radius: 14px; background: var(--panel); border: 1px solid var(--line-soft); transition: transform 0.3s var(--spring); }
+    .gcard { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 14px; text-align: left; border-radius: calc(14px * var(--rs)); background: var(--panel); border: 1px solid var(--line-soft); transition: transform 0.3s var(--spring); }
     .gcard:hover { transform: translateY(-2px); }
     .gcard .hint { margin: 0; }
   }

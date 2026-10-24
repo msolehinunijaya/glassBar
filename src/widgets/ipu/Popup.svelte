@@ -61,7 +61,7 @@
   .where { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
   .change { font-size: 12px; color: var(--accent); }
   .browse { padding: 10px; margin-bottom: 10px; }
-  .hero { display: flex; flex-direction: column; align-items: center; padding: 18px; border-radius: 20px; margin-bottom: 12px;
+  .hero { display: flex; flex-direction: column; align-items: center; padding: 18px; border-radius: calc(20px * var(--rs)); margin-bottom: 12px;
           background: color-mix(in srgb, var(--c) 30%, var(--pill)); border: 1px solid color-mix(in srgb, var(--c) 60%, transparent); }
   .lbl { font-size: 12px; font-weight: 500; opacity: 0.8; }
   .big { font-size: 52px; font-weight: 700; line-height: 1.05; font-variant-numeric: tabular-nums; }

@@ -188,10 +188,10 @@
   .bar-tools select { max-width: 220px; }
   .spacer { flex: 1; }
   .btn.plain { background: var(--pill); color: var(--fg); }
-  .confirm { padding: 10px 14px; border-radius: 12px; background: color-mix(in srgb, var(--accent) 14%, var(--panel)); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); margin-bottom: 12px; }
+  .confirm { padding: 10px 14px; border-radius: calc(12px * var(--rs)); background: color-mix(in srgb, var(--accent) 14%, var(--panel)); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); margin-bottom: 12px; }
   .confirm span { flex: 1 1 260px; font-size: 13px; }
   .find { margin-top: 6px; }
-  .search { flex: 1 1 220px; display: flex; align-items: center; gap: 6px; padding: 0 10px; border-radius: 9px; border: 1px solid var(--line-soft); background: var(--panel); color: var(--fg-dim); }
+  .search { flex: 1 1 220px; display: flex; align-items: center; gap: 6px; padding: 0 10px; border-radius: calc(9px * var(--rs)); border: 1px solid var(--line-soft); background: var(--panel); color: var(--fg-dim); }
   .search input { flex: 1; border: 0; background: none; padding: 7px 0; outline: none; color: var(--fg); }
   .search:focus-within { border-color: var(--accent); }
   .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 4px; }
@@ -205,11 +205,11 @@
   .nowrap { white-space: nowrap; }
 
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; }
-  .card { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px 8px; border-radius: 14px; background: var(--panel); border: 1px solid var(--line-soft); min-width: 0; touch-action: none; }
+  .card { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px 8px; border-radius: calc(14px * var(--rs)); background: var(--panel); border: 1px solid var(--line-soft); min-width: 0; touch-action: none; }
   .card.off { background: transparent; border-style: dashed; }
   .card.off .look, .card.off .meta b { opacity: 0.45; }
   .card.lifted { opacity: 0.6; outline: 2px dashed color-mix(in srgb, var(--accent) 70%, transparent); }
-  .look { display: flex; justify-content: flex-start; padding: 6px; border-radius: 10px; background: rgba(var(--tint), 0.55); border: 1px solid var(--line-soft); overflow: hidden; min-width: 0;
+  .look { display: flex; justify-content: flex-start; padding: 6px; border-radius: calc(10px * var(--rs)); background: rgba(var(--tint), 0.55); border: 1px solid var(--line-soft); overflow: hidden; min-width: 0;
           -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent); mask-image: linear-gradient(90deg, #000 85%, transparent); }
   .look:focus-visible, .chip:focus-visible, .card button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; }

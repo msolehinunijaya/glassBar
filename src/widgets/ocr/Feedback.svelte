@@ -38,15 +38,15 @@
 <style>
   .fb { display: flex; flex-direction: column; gap: 8px; animation: pop 0.32s var(--spring); }
   @keyframes pop { from { transform: translateY(8px) scale(0.96); opacity: 0; } }
-  .pic { width: 100%; max-height: 140px; object-fit: cover; object-position: top; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.25); }
+  .pic { width: 100%; max-height: 140px; object-fit: cover; object-position: top; border-radius: calc(10px * var(--rs)); box-shadow: 0 2px 10px rgba(0,0,0,0.25); }
   .row { display: flex; align-items: center; gap: 9px; }
-  .ok { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 12px; background: #30d158; color: #fff; flex: none; }
+  .ok { display: grid; place-items: center; width: 24px; height: 24px; border-radius: calc(12px * var(--rs)); background: #30d158; color: #fff; flex: none; }
   .ok.bad { background: #ff9f0a; }
   .what { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
   .what b { font-size: 13px; }
   .what .dim { font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .ib { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; }
+  .ib { display: grid; place-items: center; width: 28px; height: 28px; border-radius: calc(8px * var(--rs)); }
   .ib:hover { background: var(--pill-hover); }
   .txt { margin: 0; max-height: 64px; overflow: hidden; white-space: pre-wrap; word-break: break-word; font: 12px/1.4 'Cascadia Code', Consolas, monospace;
-         padding: 8px 10px; border-radius: 10px; background: var(--pill); mask-image: linear-gradient(#000 70%, transparent); }
+         padding: 8px 10px; border-radius: calc(10px * var(--rs)); background: var(--pill); mask-image: linear-gradient(#000 70%, transparent); }
 </style>

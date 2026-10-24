@@ -93,9 +93,9 @@
   .head { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
   h3 { flex: 1; margin: 0; font-size: 15px; font-weight: 600; }
   .list { display: flex; flex-direction: column; gap: 4px; }
-  .net { border-radius: 12px; background: var(--pill); padding: 2px 6px 2px 2px; display: flex; flex-wrap: wrap; align-items: center; }
+  .net { border-radius: calc(12px * var(--rs)); background: var(--pill); padding: 2px 6px 2px 2px; display: flex; flex-wrap: wrap; align-items: center; }
   .net.on { background: color-mix(in srgb, var(--accent) 22%, var(--pill)); }
-  .row { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 8px; text-align: left; border-radius: 10px; }
+  .row { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 8px; text-align: left; border-radius: calc(10px * var(--rs)); }
   .name { flex: 1; min-width: 0; display: flex; flex-direction: column; font-size: 13px; }
   .pw { width: 100%; padding: 0 6px 8px; display: flex; flex-direction: column; gap: 6px; }
   .pwbox { display: flex; align-items: center; gap: 4px; }

@@ -15,7 +15,17 @@ export interface BarCfg {
 export type SideWidth = 'slim' | 'regular' | 'wide';
 export const SIDE_PX: Record<SideWidth, number> = { slim: 56, regular: 72, wide: 96 };
 export interface Profile { bar: BarCfg; widgets: WidgetInst[] }
-export interface Theme { mode: 'auto' | 'light' | 'dark'; accent: string; blur: number; opacity: number; nativeBlur: boolean }
+/** Appearance (see lib/appearance.ts). Opacities 0..1; shadow/border/iconScale/spacing are multipliers. */
+export interface Theme {
+  mode: 'auto' | 'light' | 'dark'; preset: 'light' | 'dark' | 'glass' | 'liquid' | 'system' | 'custom';
+  style: 'glassbar' | 'mac' | 'windows' | 'gnome' | 'kde' | 'cinnamon'; accent: string;
+  blur: number; opacity: number; panelOpacity: number; cardOpacity: number;
+  nativeBlur: boolean; material: 'acrylic' | 'mica' | 'blur'; bg: string | null; contrast: 'normal' | 'high';
+  radius: number; shadow: number; border: number; iconScale: number; spacing: number; motion: 'full' | 'reduced' | 'off';
+  saved: Record<string, Record<string, unknown>>;
+}
+/** What this Windows can draw; `applied` = the material really behind the dock now. */
+export interface AppearanceSupport { build: number; acrylic: boolean; mica: boolean; blur: boolean; transparency: boolean; applied: 'acrylic' | 'mica' | 'blur' | 'none' }
 export type LocationMode = 'auto' | 'windows' | 'ip' | 'manual';
 export interface LocationCfg { mode: LocationMode; lat: number | null; lon: number | null; name: string; tz: string | null }
 export interface Config {
@@ -32,8 +42,11 @@ export interface Banners { show: boolean; seconds: 3 | 5 | 8 | 10; position: 'au
 export interface Todo { id: number; text: string; done: boolean; dueAt: number | null; createdAt: number }
 export interface Note { id: number; text: string; color: string; pinned: boolean; images: string[]; updatedAt: number; deletedAt: number | null }
 export type Phase = 'work' | 'short' | 'long';
-export interface PomoCfg { workMin: number; shortMin: number; longMin: number; every: number }
-export interface PomoState { pomo: { phase: Phase; done: number; endsAt: number | null; pausedMs: number | null; completed: Phase | null }; cfg: PomoCfg; label: string; today: { day: string; sessions: number; minutes: number } }
+/** volume 0–100; goal = focus sessions a day; dimOthers dims the other dock widgets while focusing. */
+export interface PomoCfg { workMin: number; shortMin: number; longMin: number; every: number; autoStart: boolean; sound: boolean; volume: number; goal: number; dimOthers: boolean }
+export interface FocusDay { day: string; sessions: number; minutes: number; longest: number }
+/** week = the last 7 days, oldest first (today last); streak in days; longest session in minutes. */
+export interface PomoState { pomo: { phase: Phase; done: number; endsAt: number | null; pausedMs: number | null; completed: Phase | null }; cfg: PomoCfg; label: string; today: FocusDay; week: FocusDay[]; streak: number; longest: number }
 export interface Timer { id: number; label: string; durationMs: number; endsAt: number | null; remainingMs: number | null }
 /** Downloads widget: finished files, newest first; total size of the folder. */
 export interface DlItem { path: string; name: string; size: number; at: number }
@@ -97,7 +110,7 @@ export interface TrayIcon { id: string; tip: string; icon: string | null; exe: s
 export interface KeyboardLayout { id: number; code: string; name: string; locale: string; active: boolean }
 export interface DiskInfo { mount: string; label: string; total: number; available: number; removable: boolean; fs: string }
 export interface ScreenToday { total: number; apps: { exe: string; name: string; seconds: number }[] }
-export type Sound = { kind: 'chime' } | { kind: 'azan'; src: string; short?: boolean; pauseMusic?: boolean } | { kind: 'adhan'; short: boolean; pauseMusic?: boolean } | { kind: 'connect' | 'disconnect' | 'plug' | 'unplug'; volume: number };
+export type Sound = { kind: 'chime'; volume?: number } | { kind: 'azan'; src: string; short?: boolean; pauseMusic?: boolean } | { kind: 'adhan'; short: boolean; pauseMusic?: boolean } | { kind: 'connect' | 'disconnect' | 'plug' | 'unplug'; volume: number };
 
 export interface AppWindow { id: number; title: string; exe: string; active: boolean; minimized: boolean; aumid?: string | null }
 export interface AudioDevice { id: string; name: string; isDefault: boolean }
@@ -165,6 +178,7 @@ export const ipc = {
   pomoPause: () => invoke<PomoState>('pomo_pause'),
   pomoSkip: () => invoke<PomoState>('pomo_skip'),
   pomoReset: () => invoke<PomoState>('pomo_reset'),
+  pomoSetPhase: (phase: Phase) => invoke<PomoState>('pomo_set_phase', { phase }),
   timersList: () => invoke<Timer[]>('timers_list'),
   timerAdd: (label: string, durationMs: number) => invoke<void>('timer_add', { label, durationMs }),
   timerPause: (id: number) => invoke<void>('timer_pause', { id }),
@@ -261,10 +275,10 @@ export const ipc = {
   aiKeySet: (key: string) => invoke<void>('ai_key_set', { key }),
   aiKeyClear: () => invoke<void>('ai_key_clear'),
   aiUsage: () => invoke<AiUsage>('ai_usage'),
-  aiuState: () => invoke<AiuReading[]>('aiu_state'),
-  aiuRefresh: () => invoke<void>('aiu_refresh'),
-  aiuConnect: (source: AiuSource, key?: string) => invoke<void>('aiu_connect', { source, key: key ?? null }),
-  aiuDisconnect: (source: AiuSource) => invoke<void>('aiu_disconnect', { source }),
+  aiuState: () => invoke<AiuReading[]>('aiu_state'),
+  aiuRefresh: () => invoke<void>('aiu_refresh'),
+  aiuConnect: (source: AiuSource, key?: string) => invoke<void>('aiu_connect', { source, key: key ?? null }),
+  aiuDisconnect: (source: AiuSource) => invoke<void>('aiu_disconnect', { source }),
   aiAsk: (question: string) => invoke<string>('ai_ask', { question }),
   appPinTarget: (path: string) => invoke<PinTarget>('app_pin_target', { path }),
   appBrowse: () => invoke<PinTarget | null>('app_browse'),
@@ -284,6 +298,8 @@ export const ipc = {
   trayClick: (id: string, button: 'left' | 'right' | 'double') => invoke<boolean>('tray_click', { id, button }),
   clockSystem12h: () => invoke<boolean | null>('clock_system_12h'),
   transparencyEffects: () => invoke<boolean>('transparency_effects'),
+  appearanceSupport: () => invoke<AppearanceSupport>('appearance_support'),
+  wallpaperBehind: () => invoke<{ min: number; max: number } | null>('wallpaper_behind'),
   langList: () => invoke<KeyboardLayout[]>('lang_list'),
   langSet: (id: number) => invoke<void>('lang_set', { id }),
   windowsNotifications: () => invoke<void>('windows_notifications'),
@@ -295,6 +311,8 @@ export const ipc = {
 
 export const events = {
   configChanged: (cb: (c: Config) => void) => listen<Config>('config:changed', (e) => cb(e.payload)),
+  behindChanged: (cb: (b: { min: number; max: number } | null) => void) => listen<{ min: number; max: number } | null>('appearance:behind', (e) => cb(e.payload)),
+  materialChanged: (cb: (m: AppearanceSupport['applied']) => void) => listen<AppearanceSupport['applied']>('appearance:material', (e) => cb(e.payload)),
   captureDone: (cb: (d: CaptureDone) => void) => listen<CaptureDone>('capture:done', (e) => cb(e.payload)),
   editMode: (cb: (on: boolean) => void) => listen<boolean>('editmode', (e) => cb(e.payload)),
   popupShow: (cb: (instance: string) => void) => listen<string>('popup:show', (e) => cb(e.payload)),

@@ -83,7 +83,7 @@
   .x { width: 20px; height: 20px; display: grid; place-items: center; border-radius: 50%; opacity: 0.6; flex: none; }
   .x:hover { background: #ff453a; color: #fff; opacity: 1; }
   /* DWM draws the live window picture over this box */
-  .thumb { height: 116px; border-radius: 8px; }
+  .thumb { height: 116px; border-radius: calc(8px * var(--rs)); }
   .fallback { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
-              border-radius: 8px; background: var(--pill); font-size: 11px; }
+              border-radius: calc(8px * var(--rs)); background: var(--pill); font-size: 11px; }
 </style>

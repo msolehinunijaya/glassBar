@@ -26,11 +26,11 @@
 {/if}
 
 <style>
-  .b { display: grid; place-items: center; width: 34px; height: 100%; max-height: 38px; border-radius: 10px; flex: none;
+  .b { display: grid; place-items: center; width: 34px; height: 100%; max-height: 38px; border-radius: calc(10px * var(--rs)); flex: none;
        transition: background 0.2s var(--ease), transform 0.25s var(--spring); }
   .b:hover, .b:focus-visible { background: var(--pill-hover); outline: none; }
   .b:active { transform: scale(0.88); }
-  .sbar { display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 12px; border-radius: 14px; flex: none;
+  .sbar { display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 12px; border-radius: calc(14px * var(--rs)); flex: none;
           background: var(--pill); border: 1px solid var(--line-soft); font-size: 12px; color: var(--fg-dim);
           transition: background 0.2s var(--ease); }
   .sbar:hover, .sbar:focus-visible { background: var(--pill-hover); outline: none; }

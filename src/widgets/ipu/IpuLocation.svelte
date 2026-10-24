@@ -102,19 +102,19 @@
 
 <style>
   .loc { display: flex; flex-direction: column; gap: 8px; }
-  .seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; padding: 2px; border-radius: 10px; background: var(--pill); }
-  .seg button { padding: 6px 2px; border-radius: 8px; font-size: 11px; }
+  .seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; padding: 2px; border-radius: calc(10px * var(--rs)); background: var(--pill); }
+  .seg button { padding: 6px 2px; border-radius: calc(8px * var(--rs)); font-size: 11px; }
   .seg .sel { background: var(--accent); color: #fff; }
   .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; }
-  .row select { flex: 1; max-width: 200px; padding: 5px 8px; border-radius: 8px; border: 1px solid var(--line-soft); background: var(--pill); }
-  .search { padding: 6px 10px; border-radius: 9px; border: 1px solid var(--line-soft); background: var(--pill); outline: none; }
-  .res { text-align: left; padding: 5px 8px; border-radius: 8px; font-size: 12px; }
+  .row select { flex: 1; max-width: 200px; padding: 5px 8px; border-radius: calc(8px * var(--rs)); border: 1px solid var(--line-soft); background: var(--pill); }
+  .search { padding: 6px 10px; border-radius: calc(9px * var(--rs)); border: 1px solid var(--line-soft); background: var(--pill); outline: none; }
+  .res { text-align: left; padding: 5px 8px; border-radius: calc(8px * var(--rs)); font-size: 12px; }
   .res:hover { background: var(--pill-hover); }
   .small { font-size: 11px; margin: 0; }
   .favs { display: flex; flex-wrap: wrap; gap: 5px; }
-  .fav-btn { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; padding: 3px 9px; border-radius: 10px; background: var(--pill); }
+  .fav-btn { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; padding: 3px 9px; border-radius: calc(10px * var(--rs)); background: var(--pill); }
   .fav-btn.on { color: #ffb340; }
-  .chip { display: inline-flex; align-items: center; border-radius: 10px; background: var(--pill); font-size: 11px; }
+  .chip { display: inline-flex; align-items: center; border-radius: calc(10px * var(--rs)); background: var(--pill); font-size: 11px; }
   .chip button { padding: 3px 4px 3px 9px; }
   .chip .x { padding: 3px 6px 3px 2px; opacity: 0.6; display: grid; place-items: center; }
 </style>

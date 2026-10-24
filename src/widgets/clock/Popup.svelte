@@ -149,7 +149,7 @@
   .wxsw { display: flex; align-items: center; justify-content: space-between; font-size: 12px; margin: 0 4px 10px; }
   .icon-btn.on { color: var(--accent); }
   .fmt { margin: 0; }
-  .dn { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 13px; flex: none; }
+  .dn { display: grid; place-items: center; width: 26px; height: 26px; border-radius: calc(13px * var(--rs)); flex: none; }
   .dayrow .dn { color: #ffb340; }
   .night .dn { color: #9fb4ff; }
   .twi .dn { color: #ff8a65; }
@@ -158,9 +158,9 @@
   .world { margin-bottom: 10px; }
   .wtitle { display: flex; align-items: center; justify-content: space-between; font-size: 12px; padding: 0 4px; }
   .add { width: 26px; height: 26px; }
-  .search { width: 100%; padding: 7px 10px; border-radius: 10px; border: 1px solid var(--line-soft); background: var(--pill); margin: 4px 0; outline: none; }
+  .search { width: 100%; padding: 7px 10px; border-radius: calc(10px * var(--rs)); border: 1px solid var(--line-soft); background: var(--pill); margin: 4px 0; outline: none; }
   .results { display: flex; flex-direction: column; }
-  .results button { text-align: left; padding: 5px 8px; border-radius: 8px; font-size: 12px; }
+  .results button { text-align: left; padding: 5px 8px; border-radius: calc(8px * var(--rs)); font-size: 12px; }
   .results button:hover { background: var(--pill-hover); }
   .zrow { display: flex; align-items: center; gap: var(--s-2); min-height: 40px; padding: var(--s-1) var(--s-3); border-radius: var(--r-inner); background: var(--bg-2); border: 1px solid var(--border); }
   .zrow + .zrow { margin-top: var(--s-1); }
@@ -177,7 +177,7 @@
   .empty { padding: 4px 6px; margin: 0; }
   .cal { padding: 10px; }
   .nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
-  .title { font-weight: 600; padding: 4px 10px; border-radius: 10px; }
+  .title { font-weight: 600; padding: 4px 10px; border-radius: calc(10px * var(--rs)); }
   .title:hover { background: var(--pill-hover); }
   .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center; }
   .wd { font-size: 11px; padding: 3px 0; }

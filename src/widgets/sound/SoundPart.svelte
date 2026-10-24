@@ -118,6 +118,6 @@
             transition: width 0.28s var(--ease), opacity 0.2s, margin 0.28s var(--ease); }
   .reveal.open { width: calc(var(--w) + 24px); opacity: 1; margin: 0 2px 0 4px; }
   .h { height: 14px; flex: none; }
-  .h::-webkit-slider-runnable-track { height: 6px !important; border-radius: 3px !important; }
+  .h::-webkit-slider-runnable-track { height: 6px !important; border-radius: calc(3px * var(--rs)) !important; }
   .h::-webkit-slider-thumb { width: 14px !important; height: 14px !important; margin-top: -4px; }
 </style>

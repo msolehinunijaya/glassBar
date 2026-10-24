@@ -33,16 +33,16 @@
 <style>
   .head { display: flex; align-items: center; justify-content: space-between; margin: 14px 2px 6px; }
   h4 { margin: 0; font-size: 12px; font-weight: 500; display: flex; align-items: center; gap: 5px; }
-  .refresh { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 6px; opacity: 0.7; }
+  .refresh { display: grid; place-items: center; width: 20px; height: 20px; border-radius: calc(6px * var(--rs)); opacity: 0.7; }
   .refresh:hover { opacity: 1; background: var(--pill-hover); }
   .n { opacity: 0.7; }
   .sw { display: flex; align-items: center; gap: 6px; font-size: 11px; }
   .grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2px; }
-  .item { min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 7px 2px 5px; border-radius: 10px; transition: background 0.15s, transform 0.2s var(--spring); }
+  .item { min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 7px 2px 5px; border-radius: calc(10px * var(--rs)); transition: background 0.15s, transform 0.2s var(--spring); }
   .item:hover { background: var(--pill-hover); }
   .item:active { transform: scale(0.94); }
   .nm { font-size: 10px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .blank { width: 20px; height: 20px; border-radius: 5px; background: var(--track); }
+  .blank { width: 20px; height: 20px; border-radius: calc(5px * var(--rs)); background: var(--track); }
   .small { font-size: 11px; }
   .empty { grid-column: 1 / -1; text-align: center; padding: 14px 0; }
 </style>

@@ -111,13 +111,13 @@
   h3 { margin: 0; font-size: 15px; font-weight: 600; }
   .icon-btn.on { color: var(--accent); }
   .opts { margin-bottom: 10px; }
-  .search { display: flex; align-items: center; gap: 6px; padding: 0 10px; border-radius: 10px; background: var(--pill); }
+  .search { display: flex; align-items: center; gap: 6px; padding: 0 10px; border-radius: calc(10px * var(--rs)); background: var(--pill); }
   .search input { flex: 1; border: none; background: transparent; color: inherit; padding: 8px 0; font: inherit; font-size: 12px; outline: none; }
   .filters { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0; }
   .filters button { padding: 4px 9px; border-radius: 999px; background: var(--pill); font-size: 11px; }
   .filters .sel { background: var(--accent); color: #fff; }
   .list { display: flex; flex-direction: column; gap: 3px; }
-  .row { display: flex; align-items: center; gap: 4px; padding: 3px; border-radius: 10px; transition: background 0.15s; }
+  .row { display: flex; align-items: center; gap: 4px; padding: 3px; border-radius: calc(10px * var(--rs)); transition: background 0.15s; }
   .row:hover { background: var(--pill-hover); }
   .main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 3px 4px; text-align: left; }
   .col { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
@@ -125,12 +125,12 @@
   .sub { font-size: 10.5px; }
   .acts { display: flex; gap: 1px; opacity: 0; transition: opacity 0.15s; }
   .row:hover .acts { opacity: 1; }
-  .acts button { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 7px; font-size: 12px; }
+  .acts button { display: grid; place-items: center; width: 26px; height: 26px; border-radius: calc(7px * var(--rs)); font-size: 12px; }
   .acts button:hover { background: var(--pill); }
-  .rn { flex: 1; font-size: 12.5px; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--accent); background: var(--pill); color: inherit; outline: none; }
+  .rn { flex: 1; font-size: 12.5px; padding: 6px 8px; border-radius: calc(8px * var(--rs)); border: 1px solid var(--accent); background: var(--pill); color: inherit; outline: none; }
   .empty { text-align: center; padding: 26px 0; font-size: 12px; }
   .err { color: #ff9f0a; font-size: 11.5px; margin: 0 2px 6px; }
   .foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 10px; font-size: 11px; }
-  .open { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 10px; background: var(--pill); font-size: 12px; }
+  .open { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: calc(10px * var(--rs)); background: var(--pill); font-size: 12px; }
   .open:hover { background: var(--pill-hover); }
 </style>

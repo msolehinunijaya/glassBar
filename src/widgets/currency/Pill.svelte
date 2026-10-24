@@ -21,5 +21,5 @@
 <style>
   b { font-variant-numeric: tabular-nums; font-size: 12px; }
   .dim { font-size: 11px; }
-  .dot { width: 6px; height: 6px; border-radius: 3px; background: #ff9f0a; }
+  .dot { width: 6px; height: 6px; border-radius: calc(3px * var(--rs)); background: #ff9f0a; }
 </style>

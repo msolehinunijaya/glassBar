@@ -63,7 +63,7 @@
 <style>
   /* Weather (optional) sits inside the same pill shape, on the left. */
   .clockwrap { display: flex; align-items: stretch; gap: 2px; height: 100%; }
-  .withwx:not(.vertical) > .clock { border-top-left-radius: 4px; border-bottom-left-radius: 4px; }
+  .withwx:not(.vertical) > .clock { border-top-left-radius: calc(4px * var(--rs)); border-bottom-left-radius: calc(4px * var(--rs)); }
   .time { font-weight: 600; }
   .date { white-space: nowrap; font-variant-numeric: tabular-nums; }
   .dot { margin: 0 -2px; }

@@ -11,8 +11,8 @@
 </button>
 
 <style>
-  .ti { display: grid; place-items: center; padding: 4px; border-radius: 8px; }
+  .ti { display: grid; place-items: center; padding: 4px; border-radius: calc(8px * var(--rs)); }
   .ti:hover { background: var(--pill-hover); }
   .ti:active { transform: scale(0.9); }
-  .blank { display: block; border-radius: 4px; background: var(--track); }
+  .blank { display: block; border-radius: calc(4px * var(--rs)); background: var(--track); }
 </style>

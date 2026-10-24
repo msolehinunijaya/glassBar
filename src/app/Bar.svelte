@@ -15,6 +15,7 @@
   import { visibleOnDock } from '../widgets/layout';
   import { jumpTarget } from '../lib/notify';
   import { PARTS, partPanel } from '../widgets/productivity/parts';
+  import { livePomo } from '../widgets/pomodoro/pomo.svelte';
 
   const win = getCurrentWindow();
   let edit = $state(false);
@@ -28,6 +29,9 @@
   // While dragging a widget in edit mode we show a local order, committed on drop.
   let order = $state<string[] | null>(null);
   const shown = $derived(order ? order.map((id) => placed.find((w) => w.instance === id)!).filter(Boolean) : placed);
+  // Pomodoro "Dim other dock widgets while focusing": every widget but Productivity fades.
+  const pomo = livePomo();
+  const focusDim = $derived(!!pomo.state?.cfg.dimOthers && pomo.running && pomo.state?.pomo.phase === 'work');
 
   // ---- Auto-hide ----
   // Showing and hiding are decided in Rust from the real mouse position (bar.rs
@@ -73,7 +77,7 @@
           }
         }, 450); // after the scroll settles
       }),
-      events.soundPlay((s) => (s.kind === 'azan' || s.kind === 'adhan' ? playAdzan(s.kind === 'azan' ? s.src : adhanUrl, !!s.short, !!s.pauseMusic, { pause: ipc.mediaPausePlaying, resume: ipc.mediaResume }) : s.kind === 'connect' || s.kind === 'disconnect' ? deviceTone(s.kind === 'connect', s.volume) : s.kind === 'plug' || s.kind === 'unplug' ? chargerTone(s.kind === 'plug', s.volume) : chime())),
+      events.soundPlay((s) => (s.kind === 'azan' || s.kind === 'adhan' ? playAdzan(s.kind === 'azan' ? s.src : adhanUrl, !!s.short, !!s.pauseMusic, { pause: ipc.mediaPausePlaying, resume: ipc.mediaResume }) : s.kind === 'connect' || s.kind === 'disconnect' ? deviceTone(s.kind === 'connect', s.volume) : s.kind === 'plug' || s.kind === 'unplug' ? chargerTone(s.kind === 'plug', s.volume) : chime(s.volume))),
     ];
     return () => offs.forEach((p) => p.then((off) => off()));
   });
@@ -334,6 +338,7 @@
       <div
         class="slot"
         class:placeholder={dragId === w.instance}
+        class:dimmed={focusDim && !edit && w.id !== 'productivity'}
         role="button"
         tabindex="-1"
         animate:flip={{ duration: 280 }}
@@ -391,11 +396,11 @@
     display: flex;
     align-items: stretch;
     gap: var(--gap);
-    padding: 5px;
+    padding: calc(5px * var(--sp));
     position: relative;
   }
   .bar.vertical { flex-direction: column; }
-  .bar[data-size='compact'] { padding: 4px; }
+  .bar[data-size='compact'] { padding: calc(4px * var(--sp)); }
 
   .scroller {
     flex: 1;
@@ -457,6 +462,8 @@
   .slot:global(.jump) > :global(*) { animation: jumpglow 0.7s ease-in-out 3; border-radius: var(--radius-pill); }
   @keyframes jumpglow { 50% { box-shadow: 0 0 0 2px var(--accent), 0 0 16px color-mix(in srgb, var(--accent) 65%, transparent); } }
   /* where the dragged widget will land */
+  .slot.dimmed:not(:hover) { opacity: 0.35; }
+  .slot { transition: opacity 0.4s var(--ease); }
   .slot.placeholder { animation: none !important; border-radius: var(--radius-pill); outline: 2px dashed color-mix(in srgb, var(--accent) 70%, transparent); outline-offset: -2px; }
   .slot.placeholder > :global(*) { opacity: 0; }
   .ghost {
@@ -484,7 +491,7 @@
   .vertical .edit-tools { flex-direction: column; }
   .done { background: var(--accent); color: #fff; }
 
-  .handle { flex: none; width: 6px; cursor: ew-resize; border-radius: 3px; }
+  .handle { flex: none; width: 6px; cursor: ew-resize; border-radius: calc(3px * var(--rs)); }
   .vertical .handle { width: auto; height: 6px; cursor: ns-resize; }
   .handle:hover { background: var(--pill-hover); }
 

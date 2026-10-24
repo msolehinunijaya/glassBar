@@ -6,7 +6,7 @@ use std::sync::{Mutex, OnceLock};
 use windows::core::BOOL;
 use windows::Win32::Foundation::{HWND, LPARAM, RECT};
 use windows::Win32::Graphics::Dwm::{
-    DwmSetWindowAttribute, DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_DONOTROUND, DWMWCP_ROUND,
+    DwmSetWindowAttribute, DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_DONOTROUND, DWMWCP_ROUND, DWMWCP_ROUNDSMALL,
 };
 use windows::Win32::UI::Shell::*;
 use windows::Win32::UI::WindowsAndMessaging::*;
@@ -180,25 +180,71 @@ pub fn set_taskbar(mode: TaskbarMode) {
     }
 }
 
-pub fn style_window(win: &tauri::WebviewWindow, g: &Glass) {
-    let a = (g.opacity.clamp(0.0, 1.0) * 255.0) as u8;
-    let tint = if g.dark { (28, 28, 32, a) } else { (246, 246, 250, a) };
-    if g.native {
-        let _ = window_vibrancy::apply_acrylic(win, Some(tint));
-    } else {
-        let _ = window_vibrancy::clear_acrylic(win);
+/// Draw the requested material, falling back to the next one this Windows has
+/// (mica → acrylic → blur). Returns what is really drawn.
+///
+/// Acrylic and blur use the older composition API: Windows 11's system backdrops
+/// (DWMSBT_*) turn flat whenever the window isn't active, and the dock never is.
+/// Mica only exists as a system backdrop, so it is flat while the dock is inactive.
+pub fn style_window(win: &tauri::WebviewWindow, g: &Glass) -> &'static str {
+    let Ok(h) = win.hwnd() else { return "none" };
+    let hwnd = HWND(h.0);
+    let order: &[&'static str] = match (g.native, g.material.as_str()) {
+        (false, _) => &[],
+        (true, "mica") => &["mica", "acrylic", "blur"],
+        (true, "blur") => &["blur", "acrylic"],
+        _ => &["acrylic", "blur"],
+    };
+    // Acrylic's own tint, ABGR. Light: Windows needs some colour or acrylic turns black.
+    let tint: u32 = if g.dark { 0x40_20_1C_1C } else { 0x40_FA_F6_F6 };
+    let applied = order.iter().copied().find(|m| match *m {
+        "mica" => { accent(hwnd, 0, 0, 0); window_vibrancy::apply_mica(win, Some(g.dark)).is_ok() }
+        "acrylic" => { let _ = window_vibrancy::clear_mica(win); accent(hwnd, 4, 2, tint) }
+        // Blur with a colour (flag 2) paints black on Windows 11: plain blur, the page tints it.
+        _ => { let _ = window_vibrancy::clear_mica(win); accent(hwnd, 3, 0, 0) }
+    }).unwrap_or("none");
+    if applied == "none" { accent(hwnd, 0, 0, 0); let _ = window_vibrancy::clear_mica(win); }
+    let _ = win.set_shadow(applied != "none");
+    // Transparency effects off: see-through pixels show black, so the page draws a solid
+    // bar and Windows rounds its corners (CSS-rounded corners would leave black wedges).
+    // With a material Windows rounds the window too: 8 px, 4 px or square, nearest to the style.
+    let solid = !crate::platform::shell().transparency_effects();
+    let pref = if applied != "none" || solid {
+        match g.radius { 0 => DWMWCP_DONOTROUND, 1..=5 => DWMWCP_ROUNDSMALL, _ => DWMWCP_ROUND }
+    } else { DWMWCP_DONOTROUND };
+    unsafe {
+        let _ = DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE,
+            &pref as *const _ as *const _, std::mem::size_of_val(&pref) as u32);
     }
-    let _ = win.set_shadow(g.native);
-    if let Ok(h) = win.hwnd() {
-        // Transparency effects off: see-through pixels show black, so the page draws a solid
-        // bar and Windows rounds its corners (CSS-rounded corners would leave black wedges).
-        let solid = !crate::platform::shell().transparency_effects();
-        let pref = if g.native || solid { DWMWCP_ROUND } else { DWMWCP_DONOTROUND };
-        unsafe {
-            let _ = DwmSetWindowAttribute(HWND(h.0), DWMWA_WINDOW_CORNER_PREFERENCE,
-                &pref as *const _ as *const _, std::mem::size_of_val(&pref) as u32);
-        }
+    applied
+}
+
+/// SetWindowCompositionAttribute(WCA_ACCENT_POLICY): state 0 off, 3 blur, 4 acrylic.
+/// Undocumented but stable since Windows 10 1803; returns false where it's missing.
+fn accent(hwnd: HWND, state: u32, flags: u32, color: u32) -> bool {
+    #[repr(C)] struct Policy { state: u32, flags: u32, color: u32, anim: u32 }
+    #[repr(C)] struct Data { attr: u32, data: *mut Policy, size: usize }
+    type Swca = unsafe extern "system" fn(HWND, *mut Data) -> BOOL;
+    use windows::Win32::System::LibraryLoader::{GetModuleHandleW, GetProcAddress};
+    unsafe {
+        let Ok(user32) = GetModuleHandleW(windows::core::w!("user32.dll")) else { return false };
+        let Some(f) = GetProcAddress(user32, windows::core::s!("SetWindowCompositionAttribute")) else { return false };
+        let f: Swca = std::mem::transmute(f);
+        let mut p = Policy { state, flags, color, anim: 0 };
+        let mut d = Data { attr: 19, data: &mut p, size: std::mem::size_of::<Policy>() };
+        f(hwnd, &mut d).as_bool()
     }
+}
+
+/// Windows build number from the registry (e.g. 22631), 0 if unreadable.
+pub fn os_build() -> u32 {
+    use windows::Win32::System::Registry::{RegGetValueW, HKEY_LOCAL_MACHINE, RRF_RT_REG_SZ};
+    let mut buf = [0u16; 16];
+    let mut size = std::mem::size_of_val(&buf) as u32;
+    let r = unsafe { RegGetValueW(HKEY_LOCAL_MACHINE, windows::core::w!(r"SOFTWARE\Microsoft\Windows NT\CurrentVersion"),
+        windows::core::w!("CurrentBuildNumber"), RRF_RT_REG_SZ, None, Some(buf.as_mut_ptr() as *mut _), Some(&mut size)) };
+    if r.is_err() { return 0; }
+    String::from_utf16_lossy(&buf).trim_end_matches(char::from(0)).parse().unwrap_or(0)
 }
 
 #[cfg(test)]

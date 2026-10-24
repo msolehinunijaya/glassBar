@@ -79,14 +79,14 @@
 
 <style>
   .player { position: relative; gap: 8px; padding: 0 8px 0 5px; overflow: hidden; }
-  .art { position: relative; width: 28px; height: 28px; border-radius: 8px; overflow: hidden; flex: none; display: grid; place-items: center;
+  .art { position: relative; width: 28px; height: 28px; border-radius: calc(8px * var(--rs)); overflow: hidden; flex: none; display: grid; place-items: center;
          background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 55%, #fff), var(--accent)); color: #fff;
          box-shadow: 0 2px 6px rgba(0,0,0,0.25); transition: transform 0.3s var(--spring); }
   .art img { width: 100%; height: 100%; object-fit: cover; }
   .player:hover .art { transform: scale(1.06); }
   /* small "now playing" badge on the art */
-  .eq { position: absolute; right: 2px; bottom: 2px; display: flex; align-items: flex-end; gap: 1px; height: 8px; padding: 1px 2px; border-radius: 3px; background: rgba(0,0,0,0.55); }
-  .eq i { width: 2px; background: #fff; border-radius: 1px; animation: eq 0.9s ease-in-out infinite; }
+  .eq { position: absolute; right: 2px; bottom: 2px; display: flex; align-items: flex-end; gap: 1px; height: 8px; padding: 1px 2px; border-radius: calc(3px * var(--rs)); background: rgba(0,0,0,0.55); }
+  .eq i { width: 2px; background: #fff; border-radius: calc(1px * var(--rs)); animation: eq 0.9s ease-in-out infinite; }
   .eq i:nth-child(2) { animation-delay: -0.3s; } .eq i:nth-child(3) { animation-delay: -0.6s; }
   @keyframes eq { 0%, 100% { height: 2px; } 50% { height: 7px; } }
   .meta { display: flex; flex-direction: column; min-width: 0; width: 120px; line-height: 1.2; }
@@ -100,6 +100,6 @@
   .ctl:disabled { opacity: 0.35; }
   .ctl.main { width: 28px; height: 28px; background: var(--accent); color: #fff; box-shadow: 0 2px 6px color-mix(in srgb, var(--accent) 45%, transparent); }
   .ctl.main:hover:not(:disabled) { background: var(--accent); transform: scale(1.08); }
-  .line { position: absolute; left: 10px; right: 10px; bottom: 3px; height: 2px; border-radius: 1px; background: var(--track); overflow: hidden; }
+  .line { position: absolute; left: 10px; right: 10px; bottom: 3px; height: 2px; border-radius: calc(1px * var(--rs)); background: var(--track); overflow: hidden; }
   .line span { display: block; height: 100%; background: var(--accent); transform-origin: left; transition: transform 1s linear; }
 </style>

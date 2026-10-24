@@ -98,21 +98,77 @@ impl Default for Profile {
     }
 }
 
+/// Appearance. The frontend owns the presets (src/lib/appearance.ts) and turns these into
+/// CSS tokens; Rust stores them, keeps them in range and draws the Windows material.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Theme {
+    /// Light/dark colour scheme (Auto follows Windows).
     pub mode: ThemeMode,
+    /// Theme preset last chosen: light | dark | glass | liquid | system | custom.
+    pub preset: String,
+    /// Design style: glassbar | mac | windows | gnome | kde | cinnamon.
+    pub style: String,
     pub accent: String,
-    /// CSS blur px, used when native blur is off.
+    /// Blur of overlays drawn inside GlassBar's own windows, CSS px.
     pub blur: u32,
-    /// Tint opacity 0..1.
+    /// How solid the dock background is, 0..1 (0 = only the Windows material).
     pub opacity: f64,
-    /// Windows acrylic behind the bar (true) or CSS-only glass (false).
+    /// Same for expanded panels (flyouts, Quick Settings) and for the dock's widget cards.
+    pub panel_opacity: f64,
+    pub card_opacity: f64,
+    /// Background blur on: a Windows material behind the windows. Off: tint only.
     pub native_blur: bool,
+    /// Windows material: blur (clear, the default) | acrylic | mica.
+    pub material: String,
+    /// Custom background colour (#rrggbb) instead of the theme's.
+    pub bg: Option<String>,
+    /// normal | high
+    pub contrast: String,
+    /// Outer corner radius, px.
+    pub radius: u32,
+    /// Strength multipliers, 1 = the style's normal.
+    pub shadow: f64,
+    pub border: f64,
+    pub icon_scale: f64,
+    pub spacing: f64,
+    /// full | reduced | off
+    pub motion: String,
+    /// Saved appearance presets by name (the frontend's snapshot of the fields above).
+    pub saved: BTreeMap<String, serde_json::Value>,
 }
 impl Default for Theme {
     fn default() -> Self {
-        Self { mode: ThemeMode::Auto, accent: "#0A84FF".into(), blur: 24, opacity: 0.45, native_blur: true }
+        Self { mode: ThemeMode::Auto, preset: "system".into(), style: "glassbar".into(), accent: "#0A84FF".into(),
+               blur: 24, opacity: 0.0, panel_opacity: 0.0, card_opacity: 1.0, native_blur: true, material: "blur".into(),
+               bg: None, contrast: "normal".into(), radius: 16, shadow: 1.0, border: 1.0, icon_scale: 1.0, spacing: 1.0,
+               motion: "full".into(), saved: BTreeMap::new() }
+    }
+}
+impl Theme {
+    /// Keep every value in a usable range (an import or a hand edit can hold anything).
+    fn normalize(&mut self) {
+        let d = Theme::default();
+        let pick = |v: &mut String, ok: &[&str], def: &str| if !ok.contains(&v.as_str()) { *v = def.into() };
+        pick(&mut self.preset, &["light", "dark", "glass", "liquid", "system", "custom"], &d.preset);
+        pick(&mut self.style, &["glassbar", "mac", "windows", "gnome", "kde", "cinnamon"], &d.style);
+        pick(&mut self.material, &["acrylic", "mica", "blur"], &d.material);
+        pick(&mut self.contrast, &["normal", "high"], &d.contrast);
+        pick(&mut self.motion, &["full", "reduced", "off"], &d.motion);
+        let hex = |s: &str| s.len() == 7 && s.starts_with('#') && s[1..].chars().all(|c| c.is_ascii_hexdigit());
+        if !hex(&self.accent) { self.accent = d.accent; }
+        if self.bg.as_deref().is_some_and(|b| !hex(b)) { self.bg = None; }
+        let f = |v: &mut f64, lo: f64, hi: f64, def: f64| *v = if v.is_finite() { v.clamp(lo, hi) } else { def };
+        f(&mut self.opacity, 0.0, 1.0, 0.0);
+        f(&mut self.panel_opacity, 0.0, 1.0, 0.0);
+        f(&mut self.card_opacity, 0.0, 1.0, 1.0);
+        f(&mut self.shadow, 0.0, 2.0, 1.0);
+        f(&mut self.border, 0.0, 2.0, 1.0);
+        f(&mut self.icon_scale, 0.8, 1.4, 1.0);
+        f(&mut self.spacing, 0.5, 2.0, 1.0);
+        self.blur = self.blur.min(60);
+        self.radius = self.radius.min(24);
+        self.saved.retain(|k, v| !k.trim().is_empty() && v.is_object());
     }
 }
 
@@ -192,7 +248,9 @@ impl Default for Config {
 
 /// v2 added the Start/Search button widget.
 /// v3 folded the Disk widget into the System Monitor; v4 the Tray widget into Quick Settings.
-pub const CURRENT_VERSION: u32 = 9;
+/// v10: opacity became "how solid the dock is" on top of the Windows material (it was the
+/// acrylic tint, which Windows 11 ignores): 0 keeps the old native look.
+pub const CURRENT_VERSION: u32 = 10;
 
 /// Migration helper: widget `from` became part of widget `into`. Its settings (mapped by
 /// `map`) are merged into the existing `into` widget, or it turns into one in place.
@@ -343,6 +401,7 @@ impl Config {
         if !matches!((self.location.lat, self.location.lon), (Some(a), Some(o)) if crate::widgets::location::valid_lat_lon(a, o)) {
             (self.location.lat, self.location.lon) = (None, None);
         }
+        if self.version < 10 && self.theme.native_blur { self.theme.opacity = 0.0; }
         self.version = CURRENT_VERSION;
         if self.profiles.is_empty() {
             self.profiles.insert("Default".into(), Profile::default());
@@ -363,7 +422,7 @@ impl Config {
                 if !matches!(w.size.as_str(), "small" | "medium" | "large") { w.size = medium(); }
             }
         }
-        self.theme.opacity = self.theme.opacity.clamp(0.0, 1.0);
+        self.theme.normalize();
         self
     }
     pub fn profile(&self) -> &Profile { &self.profiles[&self.active_profile] }
@@ -469,6 +528,20 @@ mod tests {
         assert_eq!(b.thickness(), 96.0);
         let c: Config = serde_json::from_value(serde_json::json!({ "profiles": { "D": { "bar": { "sideWidth": "huge" } } }, "activeProfile": "D" })).unwrap();
         assert_eq!(c.normalized().profiles["D"].bar.side_width, "regular");
+    }
+
+    #[test]
+    fn theme_values_are_kept_usable() {
+        let c: Config = serde_json::from_value(serde_json::json!({ "version": 9, "theme": {
+            "opacity": 0.45, "nativeBlur": true, "style": "aqua", "material": "x", "accent": "red",
+            "bg": "#12", "radius": 99, "iconScale": 9.0, "shadow": -1.0, "saved": { "": {}, "Mine": { "radius": 4 }, "bad": 3 } } })).unwrap();
+        let t = c.normalized().theme;
+        assert_eq!(t.opacity, 0.0, "v9 native glass keeps its look");
+        assert_eq!((t.style.as_str(), t.material.as_str(), t.accent.as_str(), t.bg), ("glassbar", "blur", "#0A84FF", None));
+        assert_eq!((t.radius, t.icon_scale, t.shadow), (24, 1.4, 0.0));
+        assert_eq!(t.saved.keys().collect::<Vec<_>>(), ["Mine"]);
+        let css: Config = serde_json::from_value(serde_json::json!({ "version": 9, "theme": { "opacity": 0.45, "nativeBlur": false } })).unwrap();
+        assert_eq!(css.normalized().theme.opacity, 0.45, "CSS glass keeps its tint");
     }
 
     #[test]

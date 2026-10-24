@@ -2,7 +2,7 @@
 let ctx: AudioContext | null = null;
 let idle: ReturnType<typeof setTimeout>;
 
-export const chime = () => tones([[880, 0], [1318.5, 0.18]], 0.25);
+export const chime = (volume = 1) => tones([[880, 0], [1318.5, 0.18]], 0.25 * Math.max(0, Math.min(1, volume)));
 
 /** Device plugged in: soft rising pair. Removed: falling pair. */
 export const deviceTone = (connected: boolean, volume = 0.4) =>

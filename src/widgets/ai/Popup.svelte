@@ -55,8 +55,8 @@
   h3 { margin: 0 0 10px; font-size: 15px; font-weight: 600; display: flex; align-items: baseline; gap: 8px; }
   .model { font-size: 11px; font-weight: 400; }
   .ask { position: relative; }
-  textarea { width: 100%; box-sizing: border-box; resize: none; padding: 10px 40px 10px 12px; border-radius: 12px; border: none; background: var(--pill); color: inherit; font: inherit; font-size: 13px; }
-  .send { position: absolute; right: 8px; bottom: 10px; width: 28px; height: 28px; border-radius: 14px; display: grid; place-items: center; background: var(--accent); color: #fff; }
+  textarea { width: 100%; box-sizing: border-box; resize: none; padding: 10px 40px 10px 12px; border-radius: calc(12px * var(--rs)); border: none; background: var(--pill); color: inherit; font: inherit; font-size: 13px; }
+  .send { position: absolute; right: 8px; bottom: 10px; width: 28px; height: 28px; border-radius: calc(14px * var(--rs)); display: grid; place-items: center; background: var(--accent); color: #fff; }
   .send:disabled { opacity: 0.4; }
   .ans { position: relative; margin-top: 8px; padding: 10px 12px; }
   .ans pre { margin: 0; white-space: pre-wrap; word-break: break-word; font: 13px/1.5 inherit; font-family: inherit; }

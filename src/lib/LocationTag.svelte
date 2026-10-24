@@ -23,12 +23,12 @@
 {/if}
 
 <style>
-  .tag { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--fg-dim); padding: 2px 6px; border-radius: 8px; }
+  .tag { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--fg-dim); padding: 2px 6px; border-radius: calc(8px * var(--rs)); }
   .tag:hover { background: var(--pill-hover); color: var(--fg); }
   .tag.approx :global(svg) { color: #e0a800; }
   .tag.precise :global(svg) { color: #30d158; }
   .tag.manual :global(svg) { color: #0a84ff; }
-  .none { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; color: #ff9f0a; padding: 6px 8px; border-radius: 10px; background: var(--pill); }
-  .set { padding: 3px 9px; border-radius: 8px; background: var(--accent); color: #fff; flex: none; }
+  .none { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; color: #ff9f0a; padding: 6px 8px; border-radius: calc(10px * var(--rs)); background: var(--pill); }
+  .set { padding: 3px 9px; border-radius: calc(8px * var(--rs)); background: var(--accent); color: #fff; flex: none; }
   .none span { display: inline-flex; align-items: center; gap: 4px; }
 </style>

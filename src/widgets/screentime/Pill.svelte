@@ -40,6 +40,6 @@
   .t { font-weight: 600; font-size: 11.5px; font-variant-numeric: tabular-nums; white-space: nowrap; }
   /* Mini 7-day graph: today in the accent colour. */
   .mini { display: flex; align-items: flex-end; gap: 2px; height: 22px; }
-  .mini i { width: 4px; border-radius: 2px; background: color-mix(in srgb, var(--fg) 30%, transparent); transition: height 0.4s var(--ease); }
+  .mini i { width: 4px; border-radius: calc(2px * var(--rs)); background: color-mix(in srgb, var(--fg) 30%, transparent); transition: height 0.4s var(--ease); }
   .mini i.today { background: var(--accent); }
 </style>

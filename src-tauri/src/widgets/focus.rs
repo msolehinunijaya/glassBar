@@ -2,6 +2,7 @@
 //! never in a webview, so alerts fire once even with every popup closed.
 use crate::db::{kv_get, kv_set, now_ms, Db};
 use crate::scheduler::{self, Due};
+use chrono::{Duration, NaiveDate};
 use rusqlite::params;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -28,11 +29,18 @@ pub struct Pomo {
     pub completed: Option<Phase>,
 }
 
+/// Durations; `auto_start` starts the next phase when one ends; `sound`/`volume` (0–100) the
+/// phase-end chime; `goal` = focus sessions a day; `dim_others` dims the dock while focusing.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase", default)]
-pub struct PomoCfg { pub work_min: u32, pub short_min: u32, pub long_min: u32, pub every: u32 }
+pub struct PomoCfg {
+    pub work_min: u32, pub short_min: u32, pub long_min: u32, pub every: u32,
+    pub auto_start: bool, pub sound: bool, pub volume: u32, pub goal: u32, pub dim_others: bool,
+}
 impl Default for PomoCfg {
-    fn default() -> Self { Self { work_min: 25, short_min: 5, long_min: 15, every: 4 } }
+    fn default() -> Self {
+        Self { work_min: 25, short_min: 5, long_min: 15, every: 4, auto_start: false, sound: true, volume: 60, goal: 4, dim_others: false }
+    }
 }
 
 impl Pomo {
@@ -68,6 +76,14 @@ impl Pomo {
     pub fn skip(&self, _now: i64, c: &PomoCfg) -> Pomo {
         self.next(c, false)
     }
+    /// Switch to `phase` (the Focus/Short/Long control): the timer stops, the round count stays.
+    pub fn set_phase(&self, phase: Phase) -> Pomo {
+        Pomo { phase, done: self.done, ..Default::default() }
+    }
+    /// Reset: a started timer goes back to the start of its phase; an idle one resets the round.
+    pub fn reset(&self) -> Pomo {
+        if self.ends_at.is_some() || self.paused_ms.is_some() { self.set_phase(self.phase) } else { Pomo::default() }
+    }
     /// "3/4" = third work session of four (breaks show the sessions done).
     pub fn label(&self, c: &PomoCfg) -> String {
         let n = if self.phase == Phase::Work { self.done + 1 } else { self.done };
@@ -75,24 +91,63 @@ impl Pomo {
     }
 }
 
-/// Focus done today: finished work sessions and their minutes. A new day starts at zero.
+/// Focus done on one day: finished work sessions, their minutes and the longest one.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
 #[serde(rename_all = "camelCase", default)]
-pub struct FocusDay { pub day: String, pub sessions: u32, pub minutes: u32 }
+pub struct FocusDay { pub day: String, pub sessions: u32, pub minutes: u32, pub longest: u32 }
 impl FocusDay {
     /// This record as of `day` (zero if it is from another day).
     pub fn on(self, day: &str) -> Self { if self.day == day { self } else { FocusDay { day: day.into(), ..Default::default() } } }
     /// After a finished work session of `minutes`.
     pub fn add(self, day: &str, minutes: u32) -> Self {
         let d = self.on(day);
-        FocusDay { sessions: d.sessions + 1, minutes: d.minutes + minutes, ..d }
+        FocusDay { sessions: d.sessions + 1, minutes: d.minutes + minutes, longest: d.longest.max(minutes), ..d }
     }
 }
+
+/// Days kept in the focus history (a streak longer than this stops counting up).
+const HISTORY_DAYS: usize = 400;
+
+/// History (oldest first, one entry per day with focus) after a finished session.
+pub fn history_add(mut h: Vec<FocusDay>, day: &str, minutes: u32) -> Vec<FocusDay> {
+    match h.last_mut() {
+        Some(last) if last.day == day => *last = std::mem::take(last).add(day, minutes),
+        _ => h.push(FocusDay::default().add(day, minutes)),
+    }
+    let cut = h.len().saturating_sub(HISTORY_DAYS);
+    h.split_off(cut)
+}
+
+fn date(s: &str) -> Option<NaiveDate> { NaiveDate::parse_from_str(s, "%Y-%m-%d").ok() }
+
+/// The 7 days ending `today`, oldest first, zero where nothing was done.
+pub fn history_week(h: &[FocusDay], today: NaiveDate) -> Vec<FocusDay> {
+    (0..7).rev().map(|back| {
+        let d = (today - Duration::days(back)).format("%Y-%m-%d").to_string();
+        h.iter().find(|x| x.day == d).cloned().unwrap_or(FocusDay { day: d, ..Default::default() })
+    }).collect()
+}
+
+/// Days in a row with at least one finished session, up to today. No focus yet today
+/// does not break it: the streak then ends yesterday.
+pub fn streak(h: &[FocusDay], today: NaiveDate) -> u32 {
+    let mut days: Vec<NaiveDate> = h.iter().filter(|x| x.sessions > 0).filter_map(|x| date(&x.day)).collect();
+    days.sort_unstable();
+    days.dedup();
+    let mut want = if days.last() == Some(&today) { today } else { today - Duration::days(1) };
+    let mut n = 0;
+    for d in days.iter().rev() {
+        if *d == want { n += 1; want -= Duration::days(1); } else if *d < want { break; }
+    }
+    n
+}
+
 fn today_key() -> String { chrono::Local::now().format("%Y-%m-%d").to_string() }
-fn focus_today(app: &AppHandle) -> FocusDay {
-    let db = app.state::<Db>();
-    let c = db.0.lock().unwrap();
-    kv_get(&c, "pomo:today").and_then(|s| serde_json::from_str::<FocusDay>(&s).ok()).unwrap_or_default().on(&today_key())
+/// The stored history; the old single-day record ("pomo:today") seeds it once.
+fn load_history(c: &rusqlite::Connection) -> Vec<FocusDay> {
+    kv_get(c, "pomo:history").and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_else(|| {
+        kv_get(c, "pomo:today").and_then(|s| serde_json::from_str::<FocusDay>(&s).ok()).filter(|d| d.sessions > 0).into_iter().collect()
+    })
 }
 
 fn pomo_cfg(app: &AppHandle) -> PomoCfg {
@@ -106,16 +161,28 @@ fn load_pomo(app: &AppHandle) -> Pomo {
     kv_get(&c, "pomodoro").and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default()
 }
 
+/// Everything the Pomodoro UI shows, from one read. `week` = the last 7 days (oldest
+/// first, today last), `streak` = days in a row, `longest` = longest session in minutes.
 #[derive(Serialize, Clone)]
-pub struct PomoState { pub pomo: Pomo, pub cfg: PomoCfg, pub label: String, pub today: FocusDay }
+pub struct PomoState { pub pomo: Pomo, pub cfg: PomoCfg, pub label: String, pub today: FocusDay, pub week: Vec<FocusDay>, pub streak: u32, pub longest: u32 }
+
+fn pomo_state(app: &AppHandle, p: Pomo) -> PomoState {
+    let cfg = pomo_cfg(app);
+    let h = { let db = app.state::<Db>(); let c = db.0.lock().unwrap(); load_history(&c) };
+    let today = chrono::Local::now().date_naive();
+    let week = history_week(&h, today);
+    PomoState {
+        label: p.label(&cfg), pomo: p, cfg, today: week[6].clone(), streak: streak(&h, today),
+        longest: h.iter().map(|d| d.longest).max().unwrap_or(0), week,
+    }
+}
 
 fn save_pomo(app: &AppHandle, p: &Pomo) -> PomoState {
     {
         let db = app.state::<Db>();
         kv_set(&db.0.lock().unwrap(), "pomodoro", &serde_json::to_string(p).unwrap());
     }
-    let cfg = pomo_cfg(app);
-    let s = PomoState { label: p.label(&cfg), pomo: p.clone(), cfg, today: focus_today(app) };
+    let s = pomo_state(app, p.clone());
     let _ = app.emit("pomodoro:changed", ());
     scheduler::poke();
     s
@@ -128,11 +195,7 @@ fn pomo_do(app: &AppHandle, f: impl FnOnce(Pomo, i64, &PomoCfg) -> Pomo) -> Pomo
 }
 
 #[tauri::command]
-pub fn pomo_get(app: AppHandle) -> PomoState {
-    let cfg = pomo_cfg(&app);
-    let p = load_pomo(&app);
-    PomoState { label: p.label(&cfg), pomo: p, cfg, today: focus_today(&app) }
-}
+pub fn pomo_get(app: AppHandle) -> PomoState { let p = load_pomo(&app); pomo_state(&app, p) }
 #[tauri::command]
 pub fn pomo_start(app: AppHandle) -> PomoState { pomo_do(&app, |mut p, now, c| { p.start(now, c); p }) }
 #[tauri::command]
@@ -140,17 +203,25 @@ pub fn pomo_pause(app: AppHandle) -> PomoState { pomo_do(&app, |mut p, now, _| {
 #[tauri::command]
 pub fn pomo_skip(app: AppHandle) -> PomoState { pomo_do(&app, |p, now, c| p.skip(now, c)) }
 #[tauri::command]
-pub fn pomo_reset(app: AppHandle) -> PomoState { pomo_do(&app, |_, _, _| Pomo::default()) }
+pub fn pomo_reset(app: AppHandle) -> PomoState { pomo_do(&app, |p, _, _| p.reset()) }
+#[tauri::command]
+pub fn pomo_set_phase(app: AppHandle, phase: Phase) -> PomoState { pomo_do(&app, |p, _, _| p.set_phase(phase)) }
 
-/// Scheduler hook: the running phase ended.
-pub fn on_pomo_due(app: &AppHandle) {
+/// Scheduler hook: the running phase ended. Records a finished focus session, moves on
+/// (starting the next phase with Auto-start), and returns the alert's sound (Null = silent)
+/// and banner data.
+pub fn on_pomo_due(app: &AppHandle) -> (serde_json::Value, serde_json::Value) {
     let p = load_pomo(app);
+    let cfg = pomo_cfg(app);
     if p.phase == Phase::Work && p.ends_at.is_some() {
-        let t = focus_today(app).add(&today_key(), pomo_cfg(app).work_min);
         let db = app.state::<Db>();
-        kv_set(&db.0.lock().unwrap(), "pomo:today", &serde_json::to_string(&t).unwrap());
+        let c = db.0.lock().unwrap();
+        let h = history_add(load_history(&c), &today_key(), cfg.work_min);
+        kv_set(&c, "pomo:history", &serde_json::to_string(&h).unwrap());
     }
-    pomo_do(app, |p, now, c| p.finish(now, c));
+    pomo_do(app, |p, now, c| { let mut n = p.finish(now, c); if c.auto_start { n.start(now, c); } n });
+    let sound = if cfg.sound { serde_json::json!({ "kind": "chime", "volume": cfg.volume.min(100) as f64 / 100.0 }) } else { serde_json::Value::Null };
+    (sound, serde_json::json!({ "auto": cfg.auto_start }))
 }
 
 // ---- Timers ----
@@ -269,9 +340,11 @@ pub fn due_items(app: &AppHandle) -> Vec<Due> {
     let mut v = Vec::new();
     let p = load_pomo(app);
     if let Some(at) = p.ends_at {
-        let (title, body) = match p.phase {
-            Phase::Work => ("Work session complete", "Click Start Break when you're ready."),
-            _ => ("Break complete", "Click Start Work Session when you're ready."),
+        let (title, body) = match (p.phase, pomo_cfg(app).auto_start) {
+            (Phase::Work, false) => ("Focus session complete", "Start your break when you're ready."),
+            (Phase::Work, true) => ("Focus session complete", "Your break has started."),
+            (_, false) => ("Break complete", "Start focus when you're ready."),
+            (_, true) => ("Break complete", "Focus has started."),
         };
         v.push(Due { key: format!("pomo:{at}"), at, source: "pomodoro", title: title.into(), body: body.into(), sound: None });
     }
@@ -290,12 +363,56 @@ mod tests {
 
     fn cfg() -> PomoCfg { PomoCfg::default() }
 
+    fn day(d: &str, sessions: u32) -> FocusDay { FocusDay { day: d.into(), sessions, minutes: sessions * 25, longest: 25 } }
+    fn ymd(s: &str) -> NaiveDate { date(s).unwrap() }
+
     #[test]
     fn focus_today_adds_and_resets_each_day() {
-        let d = FocusDay::default().add("2026-10-24", 25).add("2026-10-24", 25);
-        assert_eq!((d.sessions, d.minutes), (2, 50));
-        assert_eq!(d.clone().on("2026-10-25"), FocusDay { day: "2026-10-25".into(), sessions: 0, minutes: 0 });
-        assert_eq!(d.add("2026-10-25", 30), FocusDay { day: "2026-10-25".into(), sessions: 1, minutes: 30 });
+        let d = FocusDay::default().add("2026-10-24", 25).add("2026-10-24", 50);
+        assert_eq!((d.sessions, d.minutes, d.longest), (2, 75, 50));
+        assert_eq!(d.clone().on("2026-10-25"), FocusDay { day: "2026-10-25".into(), ..Default::default() });
+        assert_eq!(d.add("2026-10-25", 30), FocusDay { day: "2026-10-25".into(), sessions: 1, minutes: 30, longest: 30 });
+    }
+
+    #[test]
+    fn history_adds_per_day_and_week_fills_gaps() {
+        let h = history_add(history_add(history_add(vec![], "2026-10-20", 25), "2026-10-22", 25), "2026-10-22", 50);
+        assert_eq!(h.len(), 2);
+        assert_eq!((h[1].sessions, h[1].minutes, h[1].longest), (2, 75, 50));
+        let w = history_week(&h, ymd("2026-10-24"));
+        assert_eq!(w.iter().map(|d| d.day.as_str()).collect::<Vec<_>>(),
+            ["2026-10-18", "2026-10-19", "2026-10-20", "2026-10-21", "2026-10-22", "2026-10-23", "2026-10-24"]);
+        assert_eq!(w.iter().map(|d| d.minutes).collect::<Vec<_>>(), [0, 0, 25, 0, 75, 0, 0]);
+        let long = (0..500).fold(vec![], |h, i| history_add(h, &format!("d{i:03}"), 1));
+        assert_eq!(long.len(), HISTORY_DAYS);
+    }
+
+    #[test]
+    fn streak_counts_days_in_a_row_up_to_today() {
+        let t = ymd("2026-10-24");
+        let h = [day("2026-10-20", 1), day("2026-10-22", 2), day("2026-10-23", 1), day("2026-10-24", 1)];
+        assert_eq!(streak(&h, t), 3);
+        assert_eq!(streak(&h[..3], t), 2, "nothing yet today: the streak ends yesterday");
+        assert_eq!(streak(&h[..2], t), 0, "a missed day breaks it");
+        assert_eq!(streak(&[day("2026-10-24", 0)], t), 0, "a day with no session does not count");
+        assert_eq!(streak(&[], t), 0);
+    }
+
+    #[test]
+    fn reset_restarts_a_started_phase_or_the_round() {
+        let c = cfg();
+        let mut p = Pomo { phase: Phase::Work, done: 2, ..Default::default() };
+        p.start(0, &c);
+        assert_eq!(p.reset(), Pomo { phase: Phase::Work, done: 2, ..Default::default() });
+        assert_eq!(p.reset().reset(), Pomo::default());
+        let s = p.set_phase(Phase::Long);
+        assert_eq!((s.phase, s.done, s.ends_at), (Phase::Long, 2, None));
+    }
+
+    #[test]
+    fn old_settings_get_new_defaults() {
+        let c: PomoCfg = serde_json::from_value(serde_json::json!({ "workMin": 50 })).unwrap();
+        assert_eq!((c.work_min, c.goal, c.auto_start, c.sound), (50, 4, false, true));
     }
 
     #[test]

@@ -1,91 +1,80 @@
 <script lang="ts">
-  // The pill is the progress bar. Every phase change needs a click: when a phase ends the
-  // timer stops, the pill says so ("Work done ✓") and the play button starts the next phase.
-  import { Check, Pause, Play, SkipForward } from '@lucide/svelte';
-  import { ipc } from '../../lib/ipc';
+  // Pomodoro on the dock. Small = a mini ring in the phase colour; Medium adds the time;
+  // Large adds "Focus · 3/4". Paused = dashed ring. Never started today = a plain tomato.
+  // Hovering turns the ring into ⏯ (pause/resume without opening the flyout).
+  import { Pause, Play } from '@lucide/svelte';
   import { clock } from '../../lib/time';
   import type { PillProps } from '../types';
-  import { PHASE, stateOf } from './index';
-  import { livePomo } from './pomo.svelte';
+  import { PHASE } from './index';
+  import PhaseRing from './PhaseRing.svelte';
+  import { livePomo, toggle } from './pomo.svelte';
+  import Tomato from './Tomato.svelte';
 
   let { size, vertical }: PillProps = $props();
   const p = livePomo();
-  const phase = $derived(p.state ? PHASE[p.state.pomo.phase] : PHASE.work);
-  const st = $derived(p.state ? stateOf(p.state.pomo) : null);
-  const act = (f: () => Promise<unknown>) => (e: Event) => { e.stopPropagation(); f(); };
+  const v = $derived(p.view);
+  const color = $derived(PHASE[v?.phase ?? 'work'].color);
+  const paused = $derived(v?.status === 'paused');
+  const tip = $derived(v ? (v.idle ? 'Pomodoro · click to start focusing' : `${PHASE[v.phase].name} · ${v.label} · ${clock(p.remaining)} left · session ${v.count}`) : 'Pomodoro');
+  const act = $derived(v?.status === 'running' ? 'Pause' : v?.status === 'paused' ? 'Resume' : (v?.primary ?? 'Start focus'));
+  // Side tile: whole minutes inside the ring ("0:42" in the last minute).
+  const mins = $derived(p.remaining >= 60_000 ? String(Math.ceil(p.remaining / 60_000)) : clock(p.remaining));
+  const quick = (e: Event) => { e.stopPropagation(); toggle(p.running); };
   const down = (e: PointerEvent) => e.stopPropagation();
-  // Left/right dock: whole minutes left inside a ring ("0:42" in the last minute).
-  const R = 15.5, LEN = 2 * Math.PI * R;
-  const left = $derived(p.remaining >= 60_000 ? String(Math.ceil(p.remaining / 60_000)) : clock(p.remaining));
 </script>
 
-{#if vertical}
-<div class="side pomo-side" class:done={st?.key === 'completed'} class:paused={!p.running && st?.key !== 'completed'} style:--c={phase.color}
-     title="{st?.title ?? ''} · session {p.state?.label ?? ''}">
-  <span class="ringwrap">
-    <svg viewBox="0 0 36 36" aria-hidden="true">
-      <circle class="track" cx="18" cy="18" r={R} />
-      <circle class="arc" cx="18" cy="18" r={R} stroke-dasharray="{(st?.key === 'completed' ? 1 : p.progress) * LEN} {LEN}" />
-    </svg>
-    <span class="mid">{#if st?.key === 'completed'}<Check size={15} strokeWidth={3} />{:else}{left}{/if}</span>
-  </span>
-  <span class="side-c">{st?.key === 'completed' ? 'Done' : phase.name.split(' ')[0]}</span>
-  <button class="ctl" onclick={act(() => (p.running ? ipc.pomoPause() : ipc.pomoStart()))} onpointerdown={down}
-          aria-label={st?.action ?? 'Start'} title={st?.action}>
-    {#if p.running}<Pause size={13} />{:else}<Play size={13} />{/if}
+{#snippet qt(sz: number)}
+  <button class="qt" onclick={quick} onpointerdown={down} aria-label={act} title={act}>
+    {#if p.running}<Pause size={sz} fill="currentColor" />{:else}<Play size={sz} fill="currentColor" />{/if}
   </button>
+{/snippet}
+
+{#if vertical}
+<div class="side pomo-side" style:--c={color} title={tip}>
+  <span class="slot">
+    {#if !v || v.idle}<Tomato size={30} />
+    {:else}
+      <PhaseRing size={40} stroke={3} left={p.left} {paused} ticking={p.running} glow={3}>
+        <span class="mid" class:urgent={v.status === 'running' && p.remaining <= 60_000}>{mins}</span>
+      </PhaseRing>
+    {/if}
+    {@render qt(14)}
+  </span>
+  <span class="side-c">{!v || v.idle ? 'Focus' : v.phase === 'work' ? 'Focus' : 'Break'}</span>
 </div>
 {:else}
-<div class="pill pomo" class:done={st?.key === 'completed'} style:--c={phase.color} title="{st?.title ?? ''} · session {p.state?.label ?? ''}">
-  <span class="fill" style:width="{st?.key === 'completed' ? 100 : Math.round(p.progress * 1000) / 10}%"></span>
-  {#if st?.key === 'completed'}
-    <Check size={14} strokeWidth={3} />
+<div class="pill pomo" style:--c={color} title={tip}>
+  <span class="slot">
+    {#if !v || v.idle}<Tomato size={18} />
+    {:else}<PhaseRing size={20} stroke={3} left={p.left} {paused} ticking={p.running} glow={3} />{/if}
+    {@render qt(10)}
+  </span>
+  {#if v && !v.idle && size !== 'small'}
     <span class="stack">
-      <span class="t">{p.state?.pomo.completed === 'work' ? 'Work done' : 'Break done'}</span>
-      {#if size !== 'small'}<span class="dim lbl">{st.action}</span>{/if}
+      <span class="t" class:urgent={v.status === 'running' && p.remaining <= 60_000}>{clock(p.remaining)}</span>
+      {#if size === 'large'}<span class="lbl">{PHASE[v.phase].name} · {v.count}</span>{/if}
     </span>
-  {:else}
-    <span class="dot"></span>
-    <span class="stack">
-      <span class="t">{clock(p.remaining)}</span>
-      {#if size !== 'small' && p.state}<span class="dim lbl">{phase.name} {p.state.label}</span>{/if}
-    </span>
-  {/if}
-  <button class="ctl" onclick={act(() => (p.running ? ipc.pomoPause() : ipc.pomoStart()))} onpointerdown={down}
-          aria-label={st?.action ?? 'Start'} title={st?.action}>
-    {#if p.running}<Pause size={13} />{:else}<Play size={13} />{/if}
-  </button>
-  {#if st?.key !== 'completed'}
-    <button class="ctl" onclick={act(ipc.pomoSkip)} onpointerdown={down} aria-label="Skip to next phase" title="Skip to next phase"><SkipForward size={13} /></button>
   {/if}
 </div>
-
 {/if}
+
 <style>
-  .pomo { position: relative; overflow: hidden; gap: 6px; padding-right: 4px; }
-  .fill {
-    position: absolute; left: 0; top: 0; bottom: 0; z-index: 0;
-    background: color-mix(in srgb, var(--c) 38%, transparent);
-    border-right: 2px solid var(--c);
-    transition: width 1s linear;
+  .pomo { gap: 8px; }
+  .slot { position: relative; display: grid; place-items: center; }
+  .slot > :global(*) { grid-area: 1 / 1; }
+  .qt {
+    display: grid; place-items: center; width: 100%; height: 100%; border-radius: 50%;
+    background: var(--c); color: var(--phase-ink); opacity: 0; transform: scale(0.8);
+    transition: opacity 0.15s, transform 0.2s var(--spring);
   }
-  .done .fill { border-right: 0; background: color-mix(in srgb, var(--c) 55%, transparent); }
-  .pomo > :not(.fill) { position: relative; z-index: 1; }
-  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
-  .t { font-variant-numeric: tabular-nums; font-weight: 600; }
+  .pill:hover .qt, .side:hover .qt, .qt:focus-visible { opacity: 1; transform: none; }
+  .qt:active { transform: scale(0.88); }
+  .t { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .urgent { color: var(--c); }
   .stack { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
-  .lbl { font-size: 10.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 96px; }
-  .ctl { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; transition: background 0.2s, transform 0.3s var(--spring); }
-  .ctl:hover { background: var(--pill-hover); }
-  .ctl:active { transform: scale(0.85); }
-  /* Left/right dock tile */
-  .pomo-side { gap: 1px; padding-bottom: 4px; }
-  .ringwrap { position: relative; width: 40px; height: 40px; display: grid; place-items: center; }
-  .ringwrap svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
-  .track { fill: none; stroke: var(--track); stroke-width: 3; }
-  .arc { fill: none; stroke: var(--c); stroke-width: 3; stroke-linecap: round; transition: stroke-dasharray 1s linear; }
-  .paused .arc { opacity: 0.45; }
-  .mid { position: relative; font-weight: 600; font-size: 13px; font-variant-numeric: tabular-nums; color: var(--c); }
-  .done .mid { color: var(--c); }
-  @media (prefers-reduced-motion: reduce) { .arc { transition: none; } }
+  .lbl { font-size: 10.5px; color: var(--fg-dim); white-space: nowrap; }
+  .pomo-side { gap: 2px; padding-bottom: 4px; }
+  .pomo-side .qt { width: 30px; height: 30px; }
+  .mid { font-weight: 600; font-size: 12px; font-variant-numeric: tabular-nums; }
+  @media (prefers-reduced-motion: reduce) { .qt { transition: none; } }
 </style>

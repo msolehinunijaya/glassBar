@@ -31,7 +31,7 @@
 <style>
   .viz { display: flex; align-items: center; justify-content: space-between; flex: none; overflow: hidden; }
   i {
-    width: 3px; border-radius: 2px; flex: none;
+    width: 3px; border-radius: calc(2px * var(--rs)); flex: none;
     background: linear-gradient(to top, var(--accent), color-mix(in srgb, var(--accent) 45%, #fff));
     transition: height 90ms linear;
   }

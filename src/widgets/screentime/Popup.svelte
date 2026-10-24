@@ -61,15 +61,15 @@
   .total .dim { font-size: 13px; font-weight: 400; }
   .week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; height: 90px; margin: 12px 0; align-items: end; }
   .col { display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; font-size: 10px; }
-  .bar { width: 100%; min-height: 2px; border-radius: 4px; background: var(--track); }
+  .bar { width: 100%; min-height: 2px; border-radius: calc(4px * var(--rs)); background: var(--track); }
   .bar.today { background: var(--accent); }
   .apps { display: flex; flex-direction: column; gap: 8px; }
   .app { display: flex; align-items: center; gap: 10px; }
-  .ph { width: 20px; height: 20px; border-radius: 5px; background: var(--track); }
+  .ph { width: 20px; height: 20px; border-radius: calc(5px * var(--rs)); background: var(--track); }
   .info { flex: 1; min-width: 0; }
   .row { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; }
-  .track { height: 5px; border-radius: 3px; background: var(--track); margin-top: 3px; }
-  .track div { height: 100%; border-radius: 3px; background: var(--accent); }
+  .track { height: 5px; border-radius: calc(3px * var(--rs)); background: var(--track); margin-top: 3px; }
+  .track div { height: 100%; border-radius: calc(3px * var(--rs)); background: var(--accent); }
   .empty { text-align: center; padding: 20px 0; }
   .note { font-size: 11px; margin-top: 12px; }
 </style>

@@ -12,7 +12,7 @@ export type PartKey = 'pomodoro' | 'todo' | 'notes';
 export interface Part { key: PartKey; label: string; show: 'showPomo' | 'showTodo' | 'showNotes'; Pill: Component<any>; Popup: Component<any>; width: number; height: number }
 
 export const PARTS: Part[] = [
-  { key: 'pomodoro', label: 'Pomodoro', show: 'showPomo', Pill: PomoPill, Popup: PomoPopup, width: 320, height: 360 },
+  { key: 'pomodoro', label: 'Pomodoro', show: 'showPomo', Pill: PomoPill, Popup: PomoPopup, width: 340, height: 560 },
   { key: 'todo', label: 'To-Do', show: 'showTodo', Pill: TodoPill, Popup: TodoPopup, width: 340, height: 460 },
   { key: 'notes', label: 'Notes', show: 'showNotes', Pill: NotesPill, Popup: NotesPopup, width: 360, height: 480 },
 ];

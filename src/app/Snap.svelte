@@ -81,17 +81,19 @@
 </div>
 
 <style>
-  :global(html), :global(body) { margin: 0; background: #000; overflow: hidden; }
+  /* Scoped to the snap window: every window shares one stylesheet, and an unscoped rule
+     painted the dock and panels black behind their glass. */
+  :global(html[data-window='snap']), :global(html[data-window='snap'] body) { margin: 0; background: #000; overflow: hidden; }
   .snap { position: fixed; inset: 0; cursor: crosshair; background-size: 100% 100%; user-select: none; }
   .snap.picking { cursor: pointer; }
   .snap::before { content: ''; position: absolute; inset: 0; background: rgba(0, 0, 0, 0.35); pointer-events: none; }
   .probe { display: none; }
   .sel { position: absolute; background-size: 100vw 100vh; outline: 2px solid #0a84ff; box-shadow: 0 0 0 1px rgba(255,255,255,0.6); pointer-events: none; }
-  .tag { position: absolute; left: 6px; top: 6px; max-width: 60%; padding: 3px 8px; border-radius: 8px; background: #0a84ff; color: #fff;
+  .tag { position: absolute; left: 6px; top: 6px; max-width: 60%; padding: 3px 8px; border-radius: calc(8px * var(--rs)); background: #0a84ff; color: #fff;
          font: 500 12px Poppins, 'Segoe UI Variable', sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .hint {
-    position: absolute; top: 18px; left: 50%; transform: translateX(-50%); padding: 8px 16px; border-radius: 12px;
+    position: absolute; top: 18px; left: 50%; transform: translateX(-50%); padding: 8px 16px; border-radius: calc(12px * var(--rs));
     background: rgba(20, 20, 24, 0.75); color: #fff; font: 500 13px Poppins, 'Segoe UI Variable', sans-serif;
-    backdrop-filter: blur(12px); pointer-events: none;
+    backdrop-filter: blur(var(--blur)); pointer-events: none;
   }
 </style>

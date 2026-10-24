@@ -52,7 +52,8 @@ pub fn notify_full(app: &AppHandle, source: &str, title: &str, body: &str, misse
     if d.banner {
         crate::bar::banner_push(app, Note { id, source: source.into(), title: title.into(), body: body.into(), at, data });
     }
-    if d.sound { let _ = app.emit_to("bar", "sound:play", sound); }
+    // A Null sound = the widget's own sound setting is off.
+    if d.sound && !sound.is_null() { let _ = app.emit_to("bar", "sound:play", sound); }
 }
 
 /// Record an alert; banner (or toast) and play `sound` ("chime" or "azan") unless silenced.

@@ -22,7 +22,7 @@
 {/each}
 
 <style>
-  .pcard { display: flex; flex-direction: column; gap: 9px; width: 100%; padding: 11px 13px 9px; margin-bottom: 7px; border-radius: 18px; text-align: left; transition: box-shadow 0.2s, transform 0.25s var(--spring); }
+  .pcard { display: flex; flex-direction: column; gap: 9px; width: 100%; padding: 11px 13px 9px; margin-bottom: 7px; border-radius: calc(18px * var(--rs)); text-align: left; transition: box-shadow 0.2s, transform 0.25s var(--spring); }
   .pcard:hover { transform: translateY(-1px); }
   .pcard.sel { box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--accent) 70%, transparent); }
   .foot { display: flex; justify-content: space-between; align-items: baseline; }

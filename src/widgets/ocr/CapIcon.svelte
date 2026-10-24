@@ -18,7 +18,7 @@
 
 <style>
   /* (not ".tile": that name is taken by the shared Quick Settings tile style) */
-  .ctile { display: grid; place-items: center; border-radius: 7px; color: #fff; flex: none;
+  .ctile { display: grid; place-items: center; border-radius: calc(7px * var(--rs)); color: #fff; flex: none;
           box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 1px 3px rgba(0, 0, 0, 0.25); }
   .glyph { display: grid; place-items: center; flex: none; }
   /* Outline: the deeper shade on light themes, the brighter one on dark (readable on both). */

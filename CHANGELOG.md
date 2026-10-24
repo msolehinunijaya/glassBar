@@ -3,6 +3,8 @@
 ## 0.2.0 — 2026-10-24
 
 ### New
+- **Settings › Appearance:** themes (Light, Dark, Glass, System, Custom) and design styles inspired by macOS, Windows, GNOME, KDE Plasma and Cinnamon, with a live preview in all four dock positions. Choose the Windows material (Acrylic, Mica or classic blur) or turn blur off; set separate opacity for the dock, panels and widget cards; pick accent and background colours, contrast, corner radius, shadows, borders, icon size, spacing and animations. Save your own presets, revert single settings, or reset. Effects this Windows can't draw say so and fall back.
+- **Liquid Glass theme:** Apple-style glass for the dock, flyouts and widgets: a soft sheen that follows the pointer, bright rims, white toggles when on, thin sliders, and a faint colour rim on open panels. The tint rises automatically where your wallpaper would make text hard to read.
 - **Settings › Location:** one shared location for Weather, sunrise/sunset, Waktu Solat, IPU and the world clock. Choose Automatic, Windows Location, IP or Manual; see the source, accuracy, time zone and when it was last checked. Widgets show where their location comes from and link here.
 - **Settings › Widgets:** a visual widget manager with a live preview of your dock, categories, search, on/off switches that keep a widget's settings, sizes, drag-to-reorder and layout presets.
 - **Settings › About:** version and this changelog.
@@ -11,6 +13,7 @@
 - Downloads widget; Recycle Bin in the System Monitor.
 - Capture widget: screenshots (full screen, area, window, scrolling page), recording, OCR Snap and clipboard history, with icon styles.
 - Pomodoro, To-Do and Notes in one Productivity widget.
+- **Pomodoro redesign:** one colour per phase (focus, short break, long break) across the whole card; a ring that drains as time runs out; Focus/Short/Long switch; session dots that say what comes next; keyboard shortcuts (Space, R, S, 1–3); today's focus with a daily goal, a 7-day chart, your streak and longest session; optional auto-start, sound volume and dimming the rest of the dock while you focus. On the dock: a mini ring (S), with the time (M) and the session (L); hover for quick pause/resume.
 - Quick Settings gathers volume, battery, keyboard language, Wi-Fi, Bluetooth, mobile hotspot and real tray icons.
 - Weather joins the clock: forecast, feels-like, humidity, wind, rain chance and a sunrise/sunset arc.
 - Clock formats (12/24 h, date presets, custom pattern, layouts) and world clocks with day/night.
@@ -26,6 +29,7 @@
 - Automatic updates from GitHub releases.
 
 ### Fixed
+- The dock, panels and notification banners no longer show a black background behind their glass; Acrylic and Blur keep blurring while the dock isn't the active window.
 - The bar keeps its size and position after restarts, DPI changes and auto-hide changes.
 - Panels fit their content and follow the light theme when Windows transparency effects are off.
 - Store apps launch with their real icons and survive app updates.

@@ -100,15 +100,19 @@ pub enum SystemEvent {
 #[derive(Serialize, Clone, Debug)]
 pub struct RecentItem { pub name: String, pub path: String }
 
-/// How a window's glass is drawn.
-pub struct Glass { pub native: bool, pub dark: bool, pub opacity: f64 }
+/// How a window's glass is drawn. `material`: acrylic | mica | blur. `radius`: the
+/// appearance's outer corner radius (Windows can only round a window by 0, 4 or 8 px).
+pub struct Glass { pub native: bool, pub dark: bool, pub material: String, pub radius: u32 }
 
 pub trait Shell: Send + Sync {
     /// Hide a window at the OS level as well as through Tauri (belt and braces: a preview
     /// must never stay on screen as an empty box).
     fn hide_window(&self, win: &tauri::WebviewWindow);
     /// Native blur + rounded corners (or plain transparent window for CSS glass).
-    fn style_window(&self, win: &tauri::WebviewWindow, glass: &Glass);
+    /// Returns the material Windows really draws ("none" if none could be applied).
+    fn style_window(&self, win: &tauri::WebviewWindow, glass: &Glass) -> &'static str;
+    /// Windows build number (0 if unknown): decides which materials exist.
+    fn os_build(&self) -> u32 { 0 }
     /// Reserve `strip` on `edge` so maximized windows stop short of the bar.
     /// Start the system event source and set where to keep state that must survive a crash.
     /// Call once at startup, before any other Shell method.

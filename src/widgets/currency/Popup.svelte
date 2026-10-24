@@ -67,12 +67,12 @@
   .line { display: flex; gap: 8px; align-items: center; }
   .amt { flex: 1; min-width: 0; font-size: 20px; font-weight: 600; background: transparent; border: none; color: inherit; font-variant-numeric: tabular-nums; }
   .res { flex: 1; font-size: 22px; font-variant-numeric: tabular-nums; }
-  select { padding: 6px 8px; border-radius: 8px; background: var(--pill); color: inherit; border: none; font-size: 13px; }
-  .swap { align-self: center; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 14px; background: var(--pill); }
+  select { padding: 6px 8px; border-radius: calc(8px * var(--rs)); background: var(--pill); color: inherit; border: none; font-size: 13px; }
+  .swap { align-self: center; display: grid; place-items: center; width: 28px; height: 28px; border-radius: calc(14px * var(--rs)); background: var(--pill); }
   .swap:hover { background: var(--pill-hover); }
   .names { margin-top: 2px; }
   .favs { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
-  .fav, .chip { display: inline-flex; align-items: center; gap: 4px; padding: 5px 10px; border-radius: 12px; background: var(--pill); font-size: 11px; }
+  .fav, .chip { display: inline-flex; align-items: center; gap: 4px; padding: 5px 10px; border-radius: calc(12px * var(--rs)); background: var(--pill); font-size: 11px; }
   .fav.on { color: #ffcc00; }
   .chip.sel { background: var(--accent); color: #fff; }
   .small { font-size: 11px; }

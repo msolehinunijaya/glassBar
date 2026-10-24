@@ -226,7 +226,7 @@
   .apps.vertical { flex-direction: column; height: auto; padding: 4px 0; }
   .app {
     position: relative; display: flex; align-items: center; gap: 6px;
-    height: 100%; padding: 0 6px; border-radius: 10px;
+    height: 100%; padding: 0 6px; border-radius: calc(10px * var(--rs));
     transition: background 0.2s var(--ease), transform 0.3s var(--spring);
   }
   .vertical .app { height: auto; padding: 5px; }
@@ -234,10 +234,10 @@
   .app:active { transform: scale(0.88); }
   .app.active { background: var(--pill-hover); }
   img { display: block; }
-  .fallback { display: grid; place-items: center; border-radius: 8px; background: var(--accent); color: #fff; font-weight: 600; }
+  .fallback { display: grid; place-items: center; border-radius: calc(8px * var(--rs)); background: var(--accent); color: #fff; font-weight: 600; }
   .title { max-width: 140px; font-size: 12px; }
   .dots { position: absolute; bottom: 1px; left: 50%; transform: translateX(-50%); display: flex; gap: 2px; }
-  .dots i { width: 4px; height: 4px; border-radius: 2px; background: var(--fg-dim); }
+  .dots i { width: 4px; height: 4px; border-radius: calc(2px * var(--rs)); background: var(--fg-dim); }
   .active .dots i:first-child { width: 12px; background: var(--accent); }
   .app.dragging { z-index: 2; transform: scale(1.18); background: var(--pill-hover); box-shadow: 0 6px 18px rgba(0,0,0,0.25); cursor: grabbing; }
   .app.gone img, .app.gone .fallback { opacity: 0.35; filter: grayscale(1); }

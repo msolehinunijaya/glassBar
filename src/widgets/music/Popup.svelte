@@ -86,13 +86,13 @@
   .gear { position: absolute; top: 10px; right: 10px; z-index: 2; }
   .gear.on { color: var(--accent); }
   .optwrap { margin: 28px 0 8px; }
-  .art { width: 180px; height: 180px; margin: 4px auto 14px; border-radius: 18px; overflow: hidden; display: grid; place-items: center; background: var(--pill); box-shadow: var(--shadow); }
+  .art { width: 180px; height: 180px; margin: 4px auto 14px; border-radius: calc(18px * var(--rs)); overflow: hidden; display: grid; place-items: center; background: var(--pill); box-shadow: var(--shadow); }
   .art img { width: 100%; height: 100%; object-fit: cover; }
   .meta { display: flex; flex-direction: column; text-align: center; gap: 2px; }
   .meta b { font-size: 15px; font-weight: 600; }
   .app { font-size: 11px; }
-  .bar { height: 6px; border-radius: 3px; background: var(--track); margin: 14px 0 4px; cursor: pointer; overflow: hidden; }
-  .fill { height: 100%; background: var(--fg); border-radius: 3px; transition: width 0.5s linear; }
+  .bar { height: 6px; border-radius: calc(3px * var(--rs)); background: var(--track); margin: 14px 0 4px; cursor: pointer; overflow: hidden; }
+  .fill { height: 100%; background: var(--fg); border-radius: calc(3px * var(--rs)); transition: width 0.5s linear; }
   .times { display: flex; justify-content: space-between; font-size: 11px; font-variant-numeric: tabular-nums; }
   .controls { display: flex; justify-content: center; align-items: center; gap: 18px; margin-top: 8px; }
   .play { width: 52px; height: 52px; }

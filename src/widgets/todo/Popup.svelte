@@ -66,9 +66,9 @@
   .add { display: flex; align-items: center; gap: 4px; padding: 4px 4px 4px 12px; }
   .add input { flex: 1; border: 0; background: none; outline: none; padding: 6px 0; }
   .icon-btn.on { color: var(--accent); }
-  .due-in { margin-top: 6px; width: 100%; padding: 6px 10px; border-radius: 10px; border: 1px solid var(--line-soft); background: var(--pill); }
+  .due-in { margin-top: 6px; width: 100%; padding: 6px 10px; border-radius: calc(10px * var(--rs)); border: 1px solid var(--line-soft); background: var(--pill); }
   .list { display: flex; flex-direction: column; gap: 2px; margin-top: 10px; }
-  .row { display: flex; align-items: flex-start; gap: 8px; padding: 6px 4px; border-radius: 10px; }
+  .row { display: flex; align-items: flex-start; gap: 8px; padding: 6px 4px; border-radius: calc(10px * var(--rs)); }
   .row:hover { background: var(--pill); }
   .row input[type='checkbox'] { margin-top: 4px; accent-color: var(--accent); width: 16px; height: 16px; }
   .col { flex: 1; min-width: 0; display: flex; flex-direction: column; }

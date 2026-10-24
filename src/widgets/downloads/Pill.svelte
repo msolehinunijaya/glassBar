@@ -56,7 +56,7 @@
 <style>
   .dl { gap: 2px; padding: 0 6px; }
   .dl.vertical { flex-direction: column; padding: 4px 0; }
-  .file { display: flex; align-items: center; gap: 7px; min-width: 0; padding: 3px 6px 3px 3px; border-radius: 9px; transition: background 0.15s; }
+  .file { display: flex; align-items: center; gap: 7px; min-width: 0; padding: 3px 6px 3px 3px; border-radius: calc(9px * var(--rs)); transition: background 0.15s; }
   .file:hover { background: var(--pill-hover); }
   .ic { position: relative; display: grid; }
   .dot { position: absolute; top: -2px; right: -3px; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 2px var(--pill); }

@@ -96,7 +96,7 @@
   .desc { margin: 2px 0 4px; color: var(--fg-dim); }
   h3 { font-size: 13px; font-weight: 600; margin: 10px 0 2px; }
   .sizes { display: flex; flex-direction: column; gap: 6px; }
-  .size { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 10px 6px 6px; border-radius: 12px; background: var(--settings-bg); border: 1px solid transparent; min-width: 0; }
+  .size { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 10px 6px 6px; border-radius: calc(12px * var(--rs)); background: var(--settings-bg); border: 1px solid transparent; min-width: 0; }
   .size > span { flex: none; font-size: 12px; color: var(--fg-dim); }
   .size.sel { border-color: var(--accent); }
   .size.sel > span { color: var(--accent); font-weight: 600; }

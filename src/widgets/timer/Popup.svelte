@@ -83,8 +83,8 @@
 {/if}
 
 <style>
-  .seg { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 3px; border-radius: 12px; background: var(--pill); margin-bottom: 12px; }
-  .seg button { padding: 7px; border-radius: 9px; }
+  .seg { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 3px; border-radius: calc(12px * var(--rs)); background: var(--pill); margin-bottom: 12px; }
+  .seg button { padding: 7px; border-radius: calc(9px * var(--rs)); }
   .seg .sel { background: var(--accent); color: #fff; }
   .presets { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
   .presets .tile { align-items: center; padding: 10px 0; font-size: 12px; }

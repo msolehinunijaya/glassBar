@@ -72,8 +72,8 @@ fn handle(app: &AppHandle, d: &Due, missed: bool) {
             crate::alerts::notify_full(app, d.source, &d.title, &d.body, missed, serde_json::json!({ "kind": "chime" }), serde_json::json!({ "timerId": id }));
         }
         "pomodoro" => {
-            crate::widgets::focus::on_pomo_due(app);
-            crate::alerts::notify(app, d.source, &d.title, &d.body, missed);
+            let (sound, data) = crate::widgets::focus::on_pomo_due(app);
+            crate::alerts::notify_full(app, d.source, &d.title, &d.body, missed, sound, data);
         }
         _ => {
             let sound = d.sound.as_ref().map(crate::widgets::solat::sound_payload).unwrap_or(serde_json::json!({ "kind": "chime" }));

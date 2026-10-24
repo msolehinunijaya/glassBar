@@ -72,7 +72,8 @@ pub(crate) fn wide(s: &str) -> Vec<u16> { s.encode_utf16().chain(Some(0)).collec
 pub(crate) fn err(e: impl std::fmt::Display) -> String { e.to_string() }
 
 impl Shell for WinShell {
-    fn style_window(&self, win: &tauri::WebviewWindow, g: &Glass) { appbar::style_window(win, g) }
+    fn style_window(&self, win: &tauri::WebviewWindow, g: &Glass) -> &'static str { appbar::style_window(win, g) }
+    fn os_build(&self) -> u32 { appbar::os_build() }
     fn hide_window(&self, win: &tauri::WebviewWindow) {
         use windows::Win32::UI::WindowsAndMessaging::{ShowWindow, SW_HIDE};
         if let Ok(h) = win.hwnd() { unsafe { let _ = ShowWindow(windows::Win32::Foundation::HWND(h.0), SW_HIDE); } }

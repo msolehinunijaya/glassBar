@@ -36,7 +36,7 @@
     position: relative; width: var(--w); height: var(--h); border-radius: calc(var(--h) * 0.28);
     border: 1.5px solid currentColor; padding: 1.5px; overflow: hidden;
   }
-  .fill { display: block; height: 100%; border-radius: 2px; opacity: 0.85; transition: width 0.8s var(--ease), background 0.4s; position: relative; overflow: hidden; }
+  .fill { display: block; height: 100%; border-radius: calc(2px * var(--rs)); opacity: 0.85; transition: width 0.8s var(--ease), background 0.4s; position: relative; overflow: hidden; }
   .pct {
     position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 1px;
     font-size: var(--fs); font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums;

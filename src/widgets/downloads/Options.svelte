@@ -20,6 +20,6 @@
 
 <style>
   .folder { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12px; margin-top: 8px; }
-  .folder input { flex: 1; min-width: 140px; font-size: 12px; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line-soft); background: var(--pill); color: inherit; }
-  .folder button { font-size: 11.5px; padding: 5px 9px; border-radius: 8px; background: var(--pill); }
+  .folder input { flex: 1; min-width: 140px; font-size: 12px; padding: 6px 8px; border-radius: calc(8px * var(--rs)); border: 1px solid var(--line-soft); background: var(--pill); color: inherit; }
+  .folder button { font-size: 11.5px; padding: 5px 9px; border-radius: calc(8px * var(--rs)); background: var(--pill); }
 </style>

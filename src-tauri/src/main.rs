@@ -3,6 +3,7 @@ mod scheduler;
 mod updates;
 mod alerts;
 mod autohide;
+mod backdrop;
 mod bar;
 mod config;
 mod db;
@@ -133,6 +134,7 @@ fn main() {
             bar::start_apply_worker(h);
             widgets::ocr::register_hotkey(h);
             bar::watch_autohide(h);
+            backdrop::watch(h);
             widgets::sound::charger_init();
             widgets::screenshots::prune(h);
             widgets::clipboard::prune(h);
@@ -175,7 +177,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             get_config, save_config, export_config, import_config, apply_bar, restore_taskbar,
             bar::popup_open, bar::popup_hide, bar::banner_fit, bar::banner_hide, bar::jump_to, bar::open_settings_cmd, bar::set_edit_mode,
-            bar::bar_preview, bar::bar_drag, bar::mouse_down, bar::transparency_effects, bar::bar_reveal, bar::popup_leave,
+            bar::bar_preview, bar::bar_drag, bar::mouse_down, bar::transparency_effects, bar::appearance_support, backdrop::wallpaper_behind, bar::bar_reveal, bar::popup_leave,
             bar::thumbs_show, bar::thumbs_clear,
             widgets::todo::todo_list, widgets::todo::todo_add, widgets::todo::todo_update,
             widgets::todo::todo_delete, widgets::todo::todo_clear_done,
@@ -183,7 +185,7 @@ fn main() {
             widgets::notes::note_delete, widgets::notes::note_restore, widgets::notes::note_add_image,
             widgets::notes::note_remove_image, widgets::notes::note_image, widgets::notes::note_drag_image,
             widgets::focus::pomo_get, widgets::focus::pomo_start, widgets::focus::pomo_pause,
-            widgets::focus::pomo_skip, widgets::focus::pomo_reset,
+            widgets::focus::pomo_skip, widgets::focus::pomo_reset, widgets::focus::pomo_set_phase,
             widgets::focus::timers_list, widgets::focus::timer_add, widgets::focus::timer_pause,
             widgets::focus::timer_resume, widgets::focus::timer_delete, widgets::focus::timer_snooze,
             widgets::downloads::downloads_state, widgets::downloads::downloads_open, widgets::downloads::downloads_reveal,

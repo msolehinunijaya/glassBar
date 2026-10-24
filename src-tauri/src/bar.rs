@@ -163,10 +163,21 @@ fn apply_now(app: &AppHandle) {
     let theme = match cfg.theme.mode { ThemeMode::Auto => None, ThemeMode::Light => Some(tauri::Theme::Light), ThemeMode::Dark => Some(tauri::Theme::Dark) };
     let windows: Vec<_> = ["bar", "popup", "banner"].into_iter().filter_map(|l| app.get_webview_window(l)).collect();
     for w in &windows { let _ = w.set_theme(theme); }
-    let glass = Glass { native: glass_native(cfg.theme.native_blur), dark: is_dark(app, &cfg), opacity: cfg.theme.opacity };
+    let glass = Glass { native: glass_native(cfg.theme.native_blur), dark: is_dark(app, &cfg),
+                        material: cfg.theme.material.clone(), radius: cfg.theme.radius };
     // Blur/tint calls only work on the thread that owns the window (the main thread); from
     // the apply worker, hand them over and wait so the size below is measured after styling.
-    let style = move || for w in &windows { shell().style_window(w, &glass); };
+    let a = app.clone();
+    // The banner window draws its own cards with gaps and corners between them: no material
+    // there, or Windows fills the whole window behind them (a dark box around the banners).
+    let plain = Glass { native: false, dark: glass.dark, material: String::new(), radius: glass.radius };
+    let style = move || for w in &windows {
+        let got = shell().style_window(w, if w.label() == "banner" { &plain } else { &glass });
+        if w.label() == "bar" && *MATERIAL.lock().unwrap() != got {
+            *MATERIAL.lock().unwrap() = got;
+            let _ = a.emit("appearance:material", got);
+        }
+    };
     if std::thread::current().name() == Some("bar-apply") {
         let (tx, rx) = std::sync::mpsc::channel();
         if app.run_on_main_thread(move || { style(); let _ = tx.send(()); }).is_ok() { let _ = rx.recv_timeout(Duration::from_secs(2)); }
@@ -294,6 +305,23 @@ fn glass_native(wanted: bool) -> bool { wanted && shell().transparency_effects()
 
 #[tauri::command]
 pub fn transparency_effects() -> bool { shell().transparency_effects() }
+
+/// The material Windows really draws behind the dock (after fallbacks), "none" if none.
+static MATERIAL: std::sync::Mutex<&'static str> = std::sync::Mutex::new("none");
+
+/// What this Windows can draw, for the Appearance page: no promise of an effect that can't show.
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Support { build: u32, acrylic: bool, mica: bool, blur: bool, transparency: bool, applied: &'static str }
+
+#[tauri::command]
+pub fn appearance_support() -> Support {
+    let build = shell().os_build();
+    // 0 = unknown build: let Windows decide (the fallback reports what it really drew).
+    let at = |b: u32| build == 0 || build >= b;
+    Support { build, acrylic: at(17763), mica: at(22000), blur: at(17763),
+              transparency: shell().transparency_effects(), applied: *MATERIAL.lock().unwrap() }
+}
 
 /// The panel measured its content: make the popup exactly that tall (CSS px), on the same
 /// side of the same widget, at most 85 % of the screen (beyond that it scrolls).

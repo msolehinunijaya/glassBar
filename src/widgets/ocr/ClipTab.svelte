@@ -59,22 +59,22 @@
 
 <style>
   .top { display: flex; align-items: center; gap: 8px; }
-  .search { flex: 1; display: flex; align-items: center; gap: 6px; padding: 0 10px; border-radius: 10px; background: var(--pill); }
+  .search { flex: 1; display: flex; align-items: center; gap: 6px; padding: 0 10px; border-radius: calc(10px * var(--rs)); background: var(--pill); }
   .search input { flex: 1; border: none; background: transparent; color: inherit; padding: 8px 0; font: inherit; font-size: 12px; outline: none; }
   .sw { display: flex; align-items: center; gap: 6px; font-size: 11px; }
   .head { display: flex; justify-content: space-between; align-items: center; margin: 10px 2px 6px; }
   h4 { margin: 0; font-size: 12px; font-weight: 500; }
   .link { color: var(--accent); font-size: 12px; }
   .list { display: flex; flex-direction: column; gap: 6px; }
-  .item { border-radius: 12px; background: var(--pill); overflow: hidden; opacity: var(--fade, 1); transition: opacity 0.15s; }
+  .item { border-radius: calc(12px * var(--rs)); background: var(--pill); overflow: hidden; opacity: var(--fade, 1); transition: opacity 0.15s; }
   .item:hover { opacity: 1; }
   .body { display: block; width: 100%; text-align: left; padding: 8px 10px 4px; }
   .body:hover { background: var(--pill-hover); }
-  .body img { max-width: 100%; max-height: 90px; border-radius: 6px; display: block; }
+  .body img { max-width: 100%; max-height: 90px; border-radius: calc(6px * var(--rs)); display: block; }
   .txt { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; font-size: 12px; line-height: 1.4; white-space: pre-wrap; word-break: break-word; }
   .meta { display: flex; justify-content: space-between; align-items: center; padding: 2px 8px 5px 10px; font-size: 10px; }
   .acts { display: flex; gap: 2px; }
-  .acts button { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 6px; color: var(--fg); opacity: 0.75; }
+  .acts button { display: grid; place-items: center; width: 20px; height: 20px; border-radius: calc(6px * var(--rs)); color: var(--fg); opacity: 0.75; }
   .acts button:hover { opacity: 1; background: var(--pill-hover); }
   .small { font-size: 11px; margin: 8px 2px 0; }
   .empty { text-align: center; padding: 24px 0; }
