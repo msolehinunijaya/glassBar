@@ -303,6 +303,7 @@ export const ipc = {
   langList: () => invoke<KeyboardLayout[]>('lang_list'),
   langSet: (id: number) => invoke<void>('lang_set', { id }),
   windowsNotifications: () => invoke<void>('windows_notifications'),
+  showDesktop: () => invoke<void>('show_desktop'),
   displayMode: () => invoke<DisplayMode | null>('display_mode'),
   setDisplayMode: (mode: DisplayMode) => invoke<void>('display_set_mode', { mode }),
   brightness: () => invoke<number | null>('brightness_get'),

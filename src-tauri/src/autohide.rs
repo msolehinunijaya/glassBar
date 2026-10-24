@@ -28,7 +28,9 @@ pub struct Inputs {
 pub fn step(i: &Inputs, t: &mut Timers) -> Act {
     if i.revealed {
         t.dwell = 0;
-        if i.over_bar || i.busy { t.away = 0; return Act::Stay; }
+        // The edge counts as "on the bar": it is what revealed it, so resting there (below a
+        // bottom dock, in the gap) must not hide it only for the edge to show it again.
+        if i.over_bar || i.at_edge || i.busy { t.away = 0; return Act::Stay; }
         t.away += TICK_MS;
         if t.away >= HIDE_AFTER_MS { t.away = 0; return Act::Hide; }
     } else {
@@ -89,6 +91,13 @@ mod tests {
         assert!(run(&elsewhere, &mut t, 20).iter().all(|a| *a == Act::Stay));
         let dragging_past = Inputs { busy: true, ..edge }; // e.g. a window being dragged across the edge
         assert_eq!(step(&dragging_past, &mut t), Act::Stay);
+    }
+
+    #[test]
+    fn resting_on_the_edge_keeps_it_shown_instead_of_looping() {
+        let mut t = Timers::default();
+        let on_edge = Inputs { revealed: true, over_bar: false, at_edge: true, busy: false };
+        assert!(run(&on_edge, &mut t, 50).iter().all(|a| *a == Act::Stay));
     }
 
     #[test]

@@ -187,8 +187,10 @@ fn apply_now(app: &AppHandle) {
     if let Some((mut r, strip)) = bar_rect(app, bar, bar.length) {
         *RESERVED_AT.lock().unwrap() = None;
         if bar.auto_hide && bar.floating.is_none() {
-            // Auto-hide never reserves space: windows use the whole screen.
+            // Auto-hide never reserves space: windows use the whole screen. Without the
+            // AppBar no "fullscreen ended" notice can arrive, so make sure it stays on top.
             shell().appbar_remove();
+            let _ = win.set_always_on_top(true);
             if !app.state::<AppState>().revealed.load(Ordering::Relaxed) {
                 if let Some(mon) = bar_monitor(app, bar.monitor) { r = hidden_rect(r, bar.edge, monitor_rect(&mon), PEEK); }
             }
@@ -246,6 +248,8 @@ pub fn reveal(app: &AppHandle, show: bool) {
     let (Some(win), Some((r, _)), Some(mon)) = (app.get_webview_window("bar"), bar_rect(app, &cfg, cfg.length), bar_monitor(app, cfg.monitor)) else { return };
     let to = if show { r } else { hidden_rect(r, cfg.edge, monitor_rect(&mon), PEEK) };
     let from = win.outer_position().map(|p| (p.x, p.y)).unwrap_or((to.x, to.y));
+    // Sliding in is always on purpose: come out above whatever window covers the edge.
+    if show { let _ = win.set_always_on_top(true); shell().raise_top(&win); }
     let gen = SLIDE.fetch_add(1, Ordering::SeqCst) + 1;
     std::thread::spawn(move || {
         const STEPS: i32 = 8;

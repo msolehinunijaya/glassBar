@@ -219,6 +219,7 @@
       { text: 'Settings…', action: () => ipc.openSettings() },
       '-',
       { text: 'Task Manager', action: () => ipc.appLaunch('taskmgr.exe') },
+      { text: 'Show the desktop', action: () => ipc.showDesktop() },
     ]);
   }
 

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.1 — 2026-10-24
+
+### New
+- Right-click the dock › **Show the desktop** (after Task Manager).
+- New installs start with Windows, hide the Windows taskbar, and show tray icons on the dock. Change them in Settings › Startup, Settings › Bar and Quick Settings.
+
+### Fixed
+- Auto-hide: resting the pointer on the screen edge below the dock no longer makes it hide and reappear over and over.
+- The dock stays above other apps: it comes to the front every time it slides in, and clicking the desktop no longer drops it behind windows.
+
 ## 0.2.0 — 2026-10-24
 
 ### New

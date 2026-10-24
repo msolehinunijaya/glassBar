@@ -45,13 +45,19 @@ pub fn commit(app: &AppHandle, cfg: Config) -> Result<(), String> {
     bar::refresh_tray(app);
     widgets::ocr::register_hotkey(app);
     widgets::quick::sync_tray(app);
+    sync_autostart(app, &cfg);
+    let _ = app.emit("config:changed", &cfg);
+    if moved { widgets::location::poke(); }
+    Ok(())
+}
+
+/// Make Windows' "run at sign-in" entry match the setting (also on start, so a fresh
+/// install that never saved its config still starts with Windows).
+fn sync_autostart(app: &AppHandle, cfg: &Config) {
     let al = app.autolaunch();
     if al.is_enabled().unwrap_or(false) != cfg.startup.launch_at_login {
         let _ = if cfg.startup.launch_at_login { al.enable() } else { al.disable() };
     }
-    let _ = app.emit("config:changed", &cfg);
-    if moved { widgets::location::poke(); }
-    Ok(())
 }
 
 #[tauri::command]
@@ -127,10 +133,15 @@ fn main() {
                 SystemEvent::Clipboard => widgets::clipboard::on_change(&a),
                 SystemEvent::WorkArea => bar::replace(&a),
                 // Step back from always-on-top while a game or video is fullscreen.
+                // Windows also sends this when the desktop itself is clicked (Explorer): not a
+                // real fullscreen app, so the dock must not drop behind other windows then.
                 SystemEvent::Fullscreen(on) => {
-                    if let Some(w) = a.get_webview_window("bar") { let _ = w.set_always_on_top(!on); }
+                    let desktop = on && platform::shell().foreground_exe()
+                        .is_some_and(|e| e.to_lowercase().ends_with("\\explorer.exe"));
+                    if let Some(w) = a.get_webview_window("bar") { let _ = w.set_always_on_top(!on || desktop); }
                 }
             }));
+            sync_autostart(h, &h.state::<AppState>().config.lock().unwrap().clone());
             bar::start_apply_worker(h);
             widgets::ocr::register_hotkey(h);
             bar::watch_autohide(h);
@@ -222,7 +233,7 @@ fn main() {
             widgets::quick::wifi_list, widgets::quick::wifi_connect, widgets::quick::wifi_disconnect,
             widgets::quick::bt_list, widgets::quick::bt_pair, widgets::quick::bt_unpair, widgets::quick::open_settings_uri,
             bar::popup_fit, widgets::quick::tray_icons, widgets::quick::tray_click, widgets::quick::tray_refresh, widgets::sound::audio_meter,
-            widgets::quick::clock_system_12h, widgets::quick::lang_list, widgets::quick::lang_set, widgets::quick::windows_notifications,
+            widgets::quick::clock_system_12h, widgets::quick::lang_list, widgets::quick::lang_set, widgets::quick::windows_notifications, widgets::quick::show_desktop,
         ])
         .build(tauri::generate_context!())
         .expect("error while building GlassBar")
