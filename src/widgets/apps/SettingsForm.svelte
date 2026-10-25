@@ -37,9 +37,14 @@
 </script>
 
 <OptionsPopover title="Start & Search" values={settings} save={(p) => save(p as Partial<AppsSettings>)} options={[
-  { type: 'choice', key: 'startPlacement', label: 'Placement', choices: [{ value: 'inline', label: 'Before app icons' }, { value: 'separate', label: 'Own widget' }] },
+  { type: 'choice', key: 'startPlacement', label: 'Placement', choices: [{ value: 'inline', label: 'Left of apps' }, { value: 'after', label: 'Right of apps' }, { value: 'separate', label: 'Own widget' }] },
   { type: 'choice', key: 'searchStyle', label: 'Search', choices: [{ value: 'icon', label: 'Icon' }, { value: 'bar', label: 'Search bar' }] },
 ]} />
+<label>Icons shown {settings.maxIcons ? settings.maxIcons : 'all'}
+  <input type="range" class="slider" min="0" max="20" step="1" value={settings.maxIcons ?? 0} style:--fill="{((settings.maxIcons ?? 0) / 20) * 100}%"
+         onchange={(e) => save({ maxIcons: +e.currentTarget.value })} />
+</label>
+<p class="dim small">The rest show as "+N"; hover the launcher to see them all. 0 = show all.</p>
 <label><input type="checkbox" checked={settings.showTitles} onchange={(e) => save({ showTitles: e.currentTarget.checked })} /> Show active window title (large size)</label>
 
 <p class="dim">Pinned apps stay on the bar even when closed. Drag icons on the bar to reorder them, or right-click an icon to pin/unpin.</p>

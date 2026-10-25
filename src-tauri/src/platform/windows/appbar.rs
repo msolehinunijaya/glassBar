@@ -18,6 +18,17 @@ static LAST_MODE: Mutex<Option<TaskbarMode>> = Mutex::new(None);
 /// True while the user wants the Windows taskbar hidden. Explorer re-shows its taskbar on
 /// some events (layout changes, edge hover, restarts); the window watcher hides it again.
 pub static KEEP_HIDDEN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// GlassBar starts with Windows: on restart/sign-out, leave the taskbar on auto-hide so it
+/// stays out of sight after the restart until GlassBar is back.
+pub static KEEP_ON_RESTART: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Windows is shutting down or signing out: remove our reserved space; put the taskbar back
+/// unless GlassBar hides it and will start again with Windows.
+pub fn end_session() {
+    remove();
+    let keep = KEEP_HIDDEN.load(std::sync::atomic::Ordering::Relaxed) && KEEP_ON_RESTART.load(std::sync::atomic::Ordering::Relaxed);
+    if !keep { set_taskbar(TaskbarMode::Show); }
+}
 
 /// Is `h` one of the Windows taskbars (main or secondary monitor)?
 pub fn is_taskbar(h: HWND) -> bool {

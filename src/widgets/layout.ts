@@ -7,7 +7,7 @@ export const isOn = (w: Pick<WidgetInst, 'enabled'>) => w.enabled !== false;
 /** What the dock actually shows, in order: widgets that are on, minus the standalone
  *  Start & Search while the App Launcher shows it inline. */
 export function visibleOnDock<T extends WidgetInst>(list: T[], known: Record<string, unknown>): T[] {
-  const inlineStart = list.some((w) => w.id === 'apps' && isOn(w) && (w.settings?.startPlacement ?? 'inline') === 'inline');
+  const inlineStart = list.some((w) => w.id === 'apps' && isOn(w) && (w.settings?.startPlacement ?? 'inline') !== 'separate');
   return list.filter((w) => known[w.id] && isOn(w) && !(w.id === 'start' && inlineStart));
 }
 

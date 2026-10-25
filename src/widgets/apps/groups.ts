@@ -60,3 +60,14 @@ export function pinsInOrder(pins: Pin[], order: string[]): Pin[] {
   const at = (p: Pin) => { const i = order.indexOf(keyFor(p.path, p.aumid)); return i < 0 ? Infinity : i; };
   return [...pins].sort((a, b) => at(a) - at(b));
 }
+
+/** Which icons fit when the launcher shows at most `max` (0 = all): the first ones in order,
+ *  but the active app always stays visible (it takes the last slot). `hidden` = how many
+ *  more there are (the "+N" chip). */
+export function limitIcons<T>(items: T[], max: number, isActive: (t: T) => boolean): { shown: T[]; hidden: number } {
+  if (!max || items.length <= max) return { shown: items, hidden: 0 };
+  const shown = items.slice(0, max);
+  const active = items.findIndex(isActive);
+  if (active >= max) shown[max - 1] = items[active];
+  return { shown, hidden: items.length - max };
+}

@@ -8,8 +8,10 @@ export interface Pin { path: string; args?: string; aumid?: string; /** shown na
 export interface AppsSettings {
   pinned: Pin[];
   showTitles: boolean;
-  /** Start & Search: 'inline' = right before the app icons, 'separate' = their own widget. */
-  startPlacement: 'inline' | 'separate';
+  /** Start & Search: 'inline' = left of the app icons, 'after' = right of them, 'separate' = their own widget. */
+  startPlacement: 'inline' | 'after' | 'separate';
+  /** Icons shown before a "+N" chip (0 = all); hovering the launcher shows them all. */
+  maxIcons: number;
   searchStyle: 'icon' | 'bar';
   /** Icon order chosen by dragging (program keys = lower-case paths). */
   order: string[];
@@ -23,7 +25,7 @@ export default defineWidget<AppsSettings>({
   icon: LayoutGrid,
   sizes: ['small', 'medium', 'large'],
   defaultSize: 'large',
-  defaults: { pinned: [], showTitles: false, startPlacement: 'inline', searchStyle: 'icon', order: [] },
+  defaults: { pinned: [], showTitles: false, startPlacement: 'inline', searchStyle: 'icon', order: [], maxIcons: 0 },
   Pill,
   SettingsForm,
 });

@@ -11,6 +11,8 @@ export interface BarCfg {
   nativeTaskbar: 'show' | 'autohide' | 'hidden'; autoHide: boolean;
   /** Width of a left/right dock. */
   sideWidth: SideWidth;
+  /** Space between the dock and its screen edge (px). */
+  gap: number;
 }
 export type SideWidth = 'slim' | 'regular' | 'wide';
 export const SIDE_PX: Record<SideWidth, number> = { slim: 56, regular: 72, wide: 96 };
@@ -110,7 +112,7 @@ export interface TrayIcon { id: string; tip: string; icon: string | null; exe: s
 export interface KeyboardLayout { id: number; code: string; name: string; locale: string; active: boolean }
 export interface DiskInfo { mount: string; label: string; total: number; available: number; removable: boolean; fs: string }
 export interface ScreenToday { total: number; apps: { exe: string; name: string; seconds: number }[] }
-export type Sound = { kind: 'chime'; volume?: number } | { kind: 'azan'; src: string; short?: boolean; pauseMusic?: boolean } | { kind: 'adhan'; short: boolean; pauseMusic?: boolean } | { kind: 'connect' | 'disconnect' | 'plug' | 'unplug'; volume: number };
+export type Sound = { kind: 'chime'; volume?: number } | { kind: 'azan'; src: string; short?: boolean; pauseMusic?: boolean; volume?: number } | { kind: 'adhan'; short: boolean; pauseMusic?: boolean; volume?: number } | { kind: 'connect' | 'disconnect' | 'plug' | 'unplug'; volume: number };
 
 export interface AppWindow { id: number; title: string; exe: string; active: boolean; minimized: boolean; aumid?: string | null }
 export interface AudioDevice { id: string; name: string; isDefault: boolean }
@@ -267,6 +269,7 @@ export const ipc = {
   clipCopy: (id: number) => invoke<void>('clip_copy', { id }),
   clipDelete: (id: number | null) => invoke<void>('clip_delete', { id }),
   ocrSnapCancel: () => invoke<void>('ocr_snap_cancel'),
+  ocrSnapShow: () => invoke<void>('ocr_snap_show'),
   ocrHistory: () => invoke<OcrItem[]>('ocr_history'),
   ocrHistoryDelete: (id: number | null) => invoke<void>('ocr_history_delete', { id }),
   ocrCopy: (text: string) => invoke<void>('ocr_copy', { text }),

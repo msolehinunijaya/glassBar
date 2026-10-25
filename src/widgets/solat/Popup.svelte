@@ -34,6 +34,13 @@
       { value: 'chime', label: 'Normal alert sound', hint: 'The usual short alert sound' }] },
     ...(settings.azanSound !== 'chime' ? [{ type: 'toggle' as const, key: 'pauseMusic', label: 'Pause music during adzan' }] : []),
   ]} />
+  {#if settings.azanSound !== 'chime'}
+    <label class="vol"><span class="dim">Adzan volume</span>
+      <input type="range" class="slider" min="5" max="100" step="5" value={settings.azanVolume ?? 100} disabled={!settings.alerts}
+             style:--fill="{settings.azanVolume ?? 100}%" onchange={(e) => updateWidgetSettings(instance, { azanVolume: +e.currentTarget.value })} />
+      <span class="pct">{settings.azanVolume ?? 100}%</span>
+    </label>
+  {/if}
   <button class="btn test" disabled={!settings.alerts} onclick={() => ipc.solatTestSound(settings)}><Play size={12} /> Test sound</button>
   <p class="dim small hint">Press ✓ on the prayer pill to stop the adzan. Your own recording can be set in Settings › Widgets.</p>
 {/if}
@@ -71,6 +78,9 @@
 {/if}
 
 <style>
+  .vol { display: flex; align-items: center; gap: 10px; margin: 2px 0 8px; font-size: 13px; }
+  .vol .slider { flex: 1; }
+  .vol .pct { min-width: 36px; text-align: right; font-variant-numeric: tabular-nums; font-size: 12px; }
   .icon-btn.on { color: var(--accent); }
   .test { display: inline-flex; align-items: center; gap: 6px; margin: 8px 0 4px; padding: 6px 12px; border-radius: calc(10px * var(--rs)); background: var(--pill); font-size: 12px; }
   .test:hover:not(:disabled) { background: var(--pill-hover); }

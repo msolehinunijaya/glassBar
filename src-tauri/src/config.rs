@@ -46,6 +46,8 @@ pub struct BarCfg {
     pub auto_hide: bool,
     /// Width of a left/right dock: "slim" | "regular" | "wide".
     pub side_width: String,
+    /// Space between the dock and its screen edge, in logical px (0-48).
+    pub gap: f64,
 }
 
 impl BarCfg {
@@ -63,7 +65,7 @@ impl Default for BarCfg {
         // Fresh install: GlassBar replaces the Windows taskbar. Quit, a crash or the tray's
         // "Restore Windows taskbar" bring it back.
         Self { edge: Edge::Top, monitor: None, length: 0.7, size: BarSize::Normal, floating: None,
-               reserve_space: true, native_taskbar: TaskbarMode::Hidden, auto_hide: false, side_width: "regular".into() }
+               reserve_space: true, native_taskbar: TaskbarMode::Hidden, auto_hide: false, side_width: "regular".into(), gap: 6.0 }
     }
 }
 

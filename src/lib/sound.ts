@@ -85,16 +85,17 @@ const FADE_S = 1.5;
 
 /** Play a sound file (the adzan): whole, or with `short` only its opening, faded out.
  *  `done` runs once when it ends, is stopped or is replaced. */
-export function playFile(src: string, short = false, done?: () => void) {
+export function playFile(src: string, short = false, done?: () => void, volume = 1) {
   stopSound();
   const a = (current = new Audio(src));
+  a.volume = Math.max(0, Math.min(1, volume));
   onDone = done;
   a.addEventListener('ended', () => finish(a));
   if (short) {
     a.addEventListener('timeupdate', () => {
       const left = SHORT_ADHAN_S - a.currentTime;
       if (left <= 0) { a.pause(); finish(a); }
-      else if (left < FADE_S) a.volume = Math.max(0, left / FADE_S);
+      else if (left < FADE_S) a.volume = Math.max(0, Math.min(1, volume) * left / FADE_S);
     });
   }
   a.play().catch(() => { finish(a); chime(); });
@@ -106,8 +107,8 @@ export function stopSound() {
 }
 
 /** Play the adzan; with `pauseMusic`, pause other playing media first and resume it afterwards. */
-export function playAdzan(src: string, short: boolean, pauseMusic: boolean, media: { pause: () => Promise<string[]>; resume: (ids: string[]) => Promise<void> }) {
-  if (!pauseMusic) return playFile(src, short);
+export function playAdzan(src: string, short: boolean, pauseMusic: boolean, media: { pause: () => Promise<string[]>; resume: (ids: string[]) => Promise<void> }, volume = 1) {
+  if (!pauseMusic) return playFile(src, short, undefined, volume);
   // Pause first, then play: our own adzan is a media session too and must not be caught by the pause.
-  void media.pause().catch(() => []).then((ids) => playFile(src, short, () => void (ids.length && media.resume(ids).catch(() => {}))));
+  void media.pause().catch(() => []).then((ids) => playFile(src, short, () => void (ids.length && media.resume(ids).catch(() => {})), volume));
 }

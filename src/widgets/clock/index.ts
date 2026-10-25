@@ -54,7 +54,7 @@ export default defineWidget<ClockSettings>({
   defaults: {
     hour12: false, ampm: 'PM', ampmSize: 'small', leadingZero: 'auto', showSeconds: false, worldSeconds: false,
     dateStyle: 'weekday', dateSep: '/', weekday: 'none', datePattern: 'ddd, D MMM', show: 'both', layout: 'inline', timeSide: 'left', stackAlign: 'center',
-    dayNight: true, appearance: 'standard', zones: [], secondTz: '', showWeather: false, weatherUnit: 'c', weatherColorful: true,
+    dayNight: true, appearance: 'standard', zones: [], secondTz: '', showWeather: true, weatherUnit: 'c', weatherColorful: true,
   },
   Pill,
   Popup: { component: Popup, width: 340, height: 560 },

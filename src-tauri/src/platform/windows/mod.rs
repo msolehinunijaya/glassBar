@@ -140,6 +140,7 @@ impl Shell for WinShell {
         unsafe { FindWindowW(windows::core::w!("#32768"), windows::core::PCWSTR::null()).map(|h| IsWindowVisible(h).as_bool()).unwrap_or(false) }
     }
     fn set_taskbar(&self, mode: TaskbarMode) { appbar::set_taskbar(mode) }
+    fn set_starts_with_windows(&self, on: bool) { appbar::KEEP_ON_RESTART.store(on, std::sync::atomic::Ordering::Relaxed) }
     fn list_windows(&self) -> Vec<AppWindow> { windows_list::list() }
     fn watch_windows(&self, f: Box<dyn Fn() + Send>) { windows_list::watch(f) }
     fn activate(&self, id: isize) { windows_list::activate(id) }

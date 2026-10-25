@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { group, keyFor, nextWindow, nameOf } from './groups';
+import { group, keyFor, limitIcons, nextWindow, nameOf } from './groups';
 
 const win = (id: number, exe: string, active = false) => ({ id, title: `w${id}`, exe, active, minimized: false });
 
@@ -85,5 +85,17 @@ describe('installed web apps', () => {
     expect(g).toHaveLength(1);
     expect(g[0].windows.map((y) => y.id)).toEqual([5]);
     expect(keyFor(chrome, app)).not.toBe(keyFor(chrome));
+  });
+});
+
+describe('limitIcons', () => {
+  const on = (a: string) => (x: string) => x === a;
+  it('shows the first N and counts the rest; 0 means all', () => {
+    expect(limitIcons(['a', 'b', 'c', 'd', 'e'], 3, on(''))).toEqual({ shown: ['a', 'b', 'c'], hidden: 2 });
+    expect(limitIcons(['a', 'b'], 3, on(''))).toEqual({ shown: ['a', 'b'], hidden: 0 });
+    expect(limitIcons(['a', 'b', 'c'], 0, on(''))).toEqual({ shown: ['a', 'b', 'c'], hidden: 0 });
+  });
+  it('keeps the active app visible in the last slot', () => {
+    expect(limitIcons(['a', 'b', 'c', 'd', 'e'], 3, on('e'))).toEqual({ shown: ['a', 'b', 'e'], hidden: 2 });
   });
 });

@@ -96,10 +96,15 @@ async fn start(app: &AppHandle, purpose: &str) -> Result<(), String> {
     };
     win.set_position(PhysicalPosition::new(x, y)).map_err(|e| e.to_string())?;
     win.set_size(PhysicalSize::new(w as u32, h as u32)).map_err(|e| e.to_string())?;
+    // The overlay shows itself (ocr_snap_show) once the screenshot is drawn: shown now, it
+    // would be a black window until the image has loaded.
     let _ = app.emit_to("snap", "snap:ready", ());
-    win.show().map_err(|e| e.to_string())?;
-    let _ = win.set_focus();
     Ok(())
+}
+
+#[tauri::command]
+pub fn ocr_snap_show(app: AppHandle) {
+    if let Some(w) = app.get_webview_window("snap") { let _ = w.show(); let _ = w.set_focus(); }
 }
 
 /// purpose: "ocr" (default) | "region" | "window" | "scroll".
@@ -129,10 +134,12 @@ pub async fn ocr_shot() -> Option<SnapView> {
 fn png(bgra: &[u8], w: u32, h: u32) -> Option<Vec<u8>> {
     let mut rgba = bgra.to_vec();
     for p in rgba.chunks_mut(4) { p.swap(0, 2); }
-    let img = image::RgbaImage::from_raw(w, h, rgba)?;
-    let mut out = std::io::Cursor::new(Vec::new());
-    img.write_to(&mut out, image::ImageFormat::Png).ok()?;
-    Some(out.into_inner())
+    // Fast compression: this PNG only feeds the overlay, and the wait shows as a delay.
+    use image::ImageEncoder;
+    let mut out = Vec::new();
+    image::codecs::png::PngEncoder::new_with_quality(&mut out, image::codecs::png::CompressionType::Fast, image::codecs::png::FilterType::Sub)
+        .write_image(&rgba, w, h, image::ExtendedColorType::Rgba8).ok()?;
+    Some(out)
 }
 
 /// Crop (x, y, w, h) out of the shot, clamped to its bounds.
