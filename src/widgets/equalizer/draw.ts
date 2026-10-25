@@ -10,7 +10,12 @@ type Paint = string | CanvasGradient;
 /** Looks that already fill the whole height, so they skip the reflection. */
 const NO_REFLECTION = new Set(['mirror', 'radial', 'particles']);
 
-export function paint(ctx: CanvasRenderingContext2D, s: EqSettings, f: Frame, L: number, T: number, accent: string, album: [string, string] | null) {
+/** Small scratch canvas for glows, shared by every Equalizer (drawing is synchronous). */
+let aux: HTMLCanvasElement | null = null;
+
+export function paint(main: CanvasRenderingContext2D, s: EqSettings, f: Frame, L: number, T: number, accent: string, album: [string, string] | null) {
+  // The looks draw on `ctx`; a glow points it at the small scratch canvas for a moment.
+  let ctx = main;
   const { cur, peak, now } = f;
   const n = cur.length;
   // Any CSS colour -> '#rrggbb' (the canvas normalises it) so colours can be blended.
@@ -209,15 +214,32 @@ export function paint(ctx: CanvasRenderingContext2D, s: EqSettings, f: Frame, L:
     }
   };
 
+  // A soft glow without ctx.filter (a live blur costs ~half a core of GPU at 60 fps): draw the
+  // shapes k times smaller, then scale them back up with smoothing.
+  const soft = (alpha: number, blur: number, draw: () => void) => {
+    const k = Math.max(2, blur / 1.5), pad = blur;
+    const gw = Math.ceil((L + 2 * pad) / k), gh = Math.ceil((T + 2 * pad) / k);
+    aux ??= document.createElement('canvas');
+    const ax = aux.getContext('2d')!;
+    if (aux.width !== gw || aux.height !== gh) { aux.width = gw; aux.height = gh; }
+    ax.setTransform(1, 0, 0, 1, 0, 0); ax.clearRect(0, 0, gw, gh);
+    ax.setTransform(1 / k, 0, 0, 1 / k, pad / k, pad / k);
+    ax.globalAlpha = 1;
+    ctx = ax; draw(); ctx = main;
+    main.save();
+    main.globalAlpha = Math.min(1, alpha);
+    main.imageSmoothingEnabled = true; main.imageSmoothingQuality = 'high';
+    main.drawImage(aux, 0, 0, gw, gh, -pad, -pad, gw * k, gh * k);
+    main.restore();
+  };
+
   const scene = (a: number) => {
     const alpha = (s.barOpacity / 100) * a;
-    if (s.style === 'glow') {
-      // The tall soft haze above each spike.
-      ctx.save(); ctx.filter = 'blur(4px)'; ctx.globalAlpha = 0.18 * alpha; bars(null, false, 3); ctx.restore();
-    }
+    if (s.style === 'glow') soft(0.3 * alpha, 4, () => bars(null, false, 3)); // the tall haze above each spike
     if (s.glow) {
       const gc = s.glowColor === 'custom' ? hex(s.glowCustom) : null;
-      ctx.save(); ctx.filter = `blur(${s.glowSize}px)`; ctx.globalAlpha = (s.glowStrength / 100) * alpha; look(gc, true); ctx.restore();
+      // Shrinking thin shapes dims them, so the glow is drawn a bit stronger to match the old look.
+      soft((s.glowStrength / 100) * 1.4 * alpha, s.glowSize, () => look(gc, true));
     }
     ctx.globalAlpha = alpha;
     look(null, false);

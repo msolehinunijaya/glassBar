@@ -1,5 +1,5 @@
 <script lang="ts">
-  // Live spectrum on a canvas. The backend sends 96 bands (~45/s) while this is mounted, the
+  // Live spectrum on a canvas. The backend sends 96 bands 0..255 (~30/s) while this is mounted, the
   // window is visible and (with battery saver) the PC is plugged in. Each frame resamples them
   // to the user's bar count, smooths and draws (draw.ts). Nothing playing for 0.4 s: bars fall
   // to zero, then the idle look.
@@ -26,7 +26,7 @@
     const lease = () => { if (document.visibilityState === 'visible' && !paused()) ipc.audioSpectrum(); };
     lease();
     const t = setInterval(lease, 2000);
-    const off = listen<number[]>('audio:spectrum', (e) => { src = e.payload; lastData = performance.now(); });
+    const off = listen<number[]>('audio:spectrum', (e) => { src = e.payload.map((v) => v / 255); lastData = performance.now(); });
     return () => { clearInterval(t); off.then((f) => f()); };
   });
 
@@ -49,6 +49,11 @@
     const ctx = canvas.getContext('2d')!;
     const st = { cur: [] as number[], peak: [] as number[], hold: [] as number[] };
     let raf = 0, last = 0, quiet = true;
+    // Size and accent are read when they change / once a second, not every frame: reading them
+    // forces the page to recalculate styles and layout.
+    let w = canvas.clientWidth, h = canvas.clientHeight, accent = '', accentAt = -1e9;
+    const ro = new ResizeObserver(() => { w = canvas.clientWidth; h = canvas.clientHeight; });
+    ro.observe(canvas);
 
     const frame = (now: number) => {
       raf = requestAnimationFrame(frame);
@@ -56,7 +61,7 @@
       const dt = last ? Math.min(100, now - last) : 16;
       last = now;
 
-      const dpr = devicePixelRatio || 1, w = canvas.clientWidth, h = canvas.clientHeight;
+      const dpr = devicePixelRatio || 1;
       if (!w || !h) return;
       if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
         canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
@@ -73,11 +78,11 @@
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, w, h);
       if (vertical) { ctx.translate(w, 0); ctx.rotate(Math.PI / 2); } // draw along the length, bars grow right
-      const accent = getComputedStyle(canvas).getPropertyValue('--accent').trim();
+      if (now - accentAt > 1000) { accent = getComputedStyle(canvas).getPropertyValue('--accent').trim(); accentAt = now; }
       paint(ctx, s, { cur: st.cur, peak: st.peak, quiet, now }, vertical ? h : w, vertical ? w : h, accent, album);
     };
     raf = requestAnimationFrame(frame);
-    return () => cancelAnimationFrame(raf);
+    return () => { cancelAnimationFrame(raf); ro.disconnect(); };
   });
 </script>
 

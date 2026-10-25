@@ -1,10 +1,12 @@
 // Live frequency spectrum for the Equalizer widget.
 // The page calls `audio_spectrum` every ~2 s while an Equalizer is on screen. A thread captures
 // what the speakers play (WASAPI loopback), runs a 2048-point FFT and emits "audio:spectrum":
-// BANDS log-spaced levels 0..1 from 20 Hz to 20 kHz, ~45 times a second (the page smooths between frames). It stops
-// capturing 3 s after the last call. The page picks its own band count and range from these.
+// BANDS log-spaced levels 0..255 from 20 Hz to 20 kHz, ~30 times a second (the page smooths between
+// frames; every event costs the page a script run, so fewer and smaller is cheaper). It stops
+// capturing 3 s after the last call. Only the windows that asked get the events (a broadcast
+// would wake every hidden panel ~45 times a second). The page picks its own band count and range.
 
-use std::sync::atomic::{AtomicI64, Ordering};
+use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 pub const N: usize = 2048;
@@ -15,23 +17,45 @@ const F_HI: f32 = 20_000.0;
 const DB_FLOOR: f32 = -75.0;
 const DB_TOP: f32 = -5.0;
 
-static LEASE: AtomicI64 = AtomicI64::new(0);
+/// Webview label -> time of its last `audio_spectrum` call.
+static WATCHERS: Mutex<Vec<(String, i64)>> = Mutex::new(Vec::new());
 static STARTED: std::sync::Once = std::sync::Once::new();
 
-fn live() -> bool { crate::db::now_ms() - LEASE.load(Ordering::Relaxed) < 3000 }
+/// Labels that called in the last 3 s (and forget the rest).
+fn watchers() -> Vec<String> {
+    let now = crate::db::now_ms();
+    let mut w = WATCHERS.lock().unwrap();
+    w.retain(|(_, t)| now - t < 3000);
+    w.iter().map(|(l, _)| l.clone()).collect()
+}
 
 #[tauri::command]
-pub fn audio_spectrum(app: tauri::AppHandle) {
-    LEASE.store(crate::db::now_ms(), Ordering::Relaxed);
+pub fn audio_spectrum(app: tauri::AppHandle, webview: tauri::Webview) {
+    {
+        let mut w = WATCHERS.lock().unwrap();
+        let now = crate::db::now_ms();
+        match w.iter_mut().find(|(l, _)| l == webview.label()) {
+            Some(e) => e.1 = now,
+            None => w.push((webview.label().to_string(), now)),
+        }
+    }
     STARTED.call_once(|| {
         std::thread::spawn(move || {
-            use tauri::Emitter;
+            use tauri::{Emitter, EventTarget};
             loop {
-                if !live() { std::thread::sleep(Duration::from_millis(300)); continue; }
+                if watchers().is_empty() { std::thread::sleep(Duration::from_millis(300)); continue; }
                 let mut an = Analyzer::default();
+                let mut to = watchers();
+                let mut checked = Instant::now();
                 let r = crate::platform::audio().loopback(&mut |s, rate| {
-                    if let Some(b) = an.push(s, rate) { let _ = app.emit("audio:spectrum", b); }
-                    live()
+                    if checked.elapsed() > Duration::from_millis(500) { to = watchers(); checked = Instant::now(); }
+                    if let Some(b) = an.push(s, rate) {
+                        let _ = app.emit_filter("audio:spectrum", b, |t| match t {
+                            EventTarget::Webview { label } | EventTarget::WebviewWindow { label } | EventTarget::Window { label } => to.contains(label),
+                            _ => false,
+                        });
+                    }
+                    !to.is_empty()
                 });
                 // No output device or capture refused: try again shortly.
                 if r.is_err() { std::thread::sleep(Duration::from_secs(1)); }
@@ -40,18 +64,18 @@ pub fn audio_spectrum(app: tauri::AppHandle) {
     });
 }
 
-/// Keeps the last N samples and turns them into bands at most every 15 ms.
+/// Keeps the last N samples and turns them into bands at most every 30 ms.
 #[derive(Default)]
 pub struct Analyzer { buf: Vec<f32>, last: Option<Instant> }
 
 impl Analyzer {
-    pub fn push(&mut self, s: &[f32], rate: u32) -> Option<Vec<f32>> {
+    pub fn push(&mut self, s: &[f32], rate: u32) -> Option<Vec<u8>> {
         if s.is_empty() { self.buf.clear(); return None; } // nothing playing: the page fades to idle
         self.buf.extend_from_slice(s);
         if self.buf.len() > N { self.buf.drain(..self.buf.len() - N); }
-        if self.buf.len() < N || self.last.is_some_and(|t| t.elapsed() < Duration::from_millis(15)) { return None; }
+        if self.buf.len() < N || self.last.is_some_and(|t| t.elapsed() < Duration::from_millis(30)) { return None; }
         self.last = Some(Instant::now());
-        Some(bands(&spectrum(&self.buf), rate))
+        Some(bands(&spectrum(&self.buf), rate).iter().map(|v| (v * 255.0).round() as u8).collect())
     }
 }
 
