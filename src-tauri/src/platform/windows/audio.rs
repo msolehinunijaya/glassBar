@@ -168,3 +168,57 @@ pub fn peak() -> Option<f32> {
         m.GetPeakValue().ok()
     }
 }
+
+/// What the speakers are playing (WASAPI loopback), as mono f32 chunks: `on_chunk(samples, rate)`
+/// runs every ~10 ms (empty slice = nothing playing). Returns when `on_chunk` says false, the
+/// default output device changes (the caller just starts again), or on error.
+pub fn loopback(on_chunk: &mut dyn FnMut(&[f32], u32) -> bool) -> Res<()> {
+    com_init();
+    unsafe {
+        let dev = default_device().map_err(err)?;
+        let dev_id = id_of(&dev);
+        let client: IAudioClient = dev.Activate(CLSCTX_ALL, None).map_err(err)?;
+        let fmt = client.GetMixFormat().map_err(err)?;
+        let (ch, rate, bits) = ((*fmt).nChannels as usize, (*fmt).nSamplesPerSec, (*fmt).wBitsPerSample);
+        // 200 ms buffer; shared-mode mix format is float32 on every modern Windows, 16-bit kept as a fallback.
+        let init = client.Initialize(AUDCLNT_SHAREMODE_SHARED, AUDCLNT_STREAMFLAGS_LOOPBACK, 2_000_000, 0, fmt, None);
+        CoTaskMemFree(Some(fmt as *const c_void));
+        init.map_err(err)?;
+        if ch == 0 || !(bits == 32 || bits == 16) { return Err(format!("unsupported mix format ({bits}-bit)")); }
+        let cap: IAudioCaptureClient = client.GetService().map_err(err)?;
+        client.Start().map_err(err)?;
+
+        let mut mono: Vec<f32> = Vec::new();
+        let mut checked = std::time::Instant::now();
+        let drain = |mono: &mut Vec<f32>| -> windows::core::Result<()> {
+            while cap.GetNextPacketSize()? > 0 {
+                let (mut data, mut frames, mut flags) = (std::ptr::null_mut(), 0u32, 0u32);
+                cap.GetBuffer(&mut data, &mut frames, &mut flags, None, None)?;
+                let n = frames as usize;
+                if data.is_null() || flags & AUDCLNT_BUFFERFLAGS_SILENT.0 as u32 != 0 {
+                    mono.extend(std::iter::repeat_n(0.0, n));
+                } else if bits == 32 {
+                    let s = std::slice::from_raw_parts(data as *const f32, n * ch);
+                    mono.extend(s.chunks_exact(ch).map(|f| f.iter().sum::<f32>() / ch as f32));
+                } else {
+                    let s = std::slice::from_raw_parts(data as *const i16, n * ch);
+                    mono.extend(s.chunks_exact(ch).map(|f| f.iter().map(|&v| v as f32).sum::<f32>() / (ch as f32 * 32768.0)));
+                }
+                cap.ReleaseBuffer(frames)?;
+            }
+            Ok(())
+        };
+        let res = loop {
+            std::thread::sleep(Duration::from_millis(10));
+            mono.clear();
+            if let Err(e) = drain(&mut mono) { break Err(err(e)); }
+            if !on_chunk(&mono, rate) { break Ok(()); }
+            if checked.elapsed() > Duration::from_secs(1) {
+                checked = std::time::Instant::now();
+                if default_device().map(|d| id_of(&d)).ok().as_deref() != Some(dev_id.as_str()) { break Ok(()); }
+            }
+        };
+        let _ = client.Stop();
+        res
+    }
+}

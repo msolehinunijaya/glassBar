@@ -18,6 +18,7 @@ pub mod screenshots;
 pub mod screentime;
 pub mod solat;
 pub mod sound;
+pub mod spectrum;
 pub mod stitch;
 pub mod sysmon;
 pub mod todo;

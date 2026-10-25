@@ -10,8 +10,12 @@
   import { songProgress } from './progress';
   import Rhythm from './Rhythm.svelte';
   import PlayerPill from './PlayerPill.svelte';
+  import { hoverPanel } from '../../lib/hoverPanel';
 
-  let { size, settings, vertical }: PillProps<MusicSettings> = $props();
+  let { instance, size, settings, vertical }: PillProps<MusicSettings> = $props();
+  // Hovering the player opens its panel (art, controls, volume) without a click.
+  const hp = hoverPanel();
+  const enter = (e: PointerEvent) => hp.enter(e, `__hover:${instance}`, 320, 560);
   const media = liveMedia();
   const t = tickingNow(() => !!media.m?.playing && settings.showProgress);
   const prog = $derived(settings.showProgress ? songProgress(media.m, t.now) : null);
@@ -21,9 +25,10 @@
 </script>
 
 {#if settings.style === 'player'}
-  <PlayerPill {size} {settings} {vertical} />
+  <PlayerPill {size} {settings} {vertical} onenter={enter} onleave={hp.leave} />
 {:else}
-<div class="pill music" class:mini={settings.style === 'mini'} class:vertical title={media.m ? `${media.m.title} — ${media.m.artist}` : 'Nothing playing'}>
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div class="pill music" class:mini={settings.style === 'mini'} class:vertical onpointerenter={enter} onpointerleave={hp.leave} onpointerdown={hp.cancel} aria-label={media.m ? `${media.m.title} — ${media.m.artist}` : 'Nothing playing'}>
   {#if prog}
     {#key track}
       <span class="progress" class:ending={prog.ending} class:paused={!media.m?.playing} style:transform="scaleX({prog.frac})"></span>

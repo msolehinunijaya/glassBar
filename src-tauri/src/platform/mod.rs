@@ -108,6 +108,8 @@ pub trait Shell: Send + Sync {
     /// Hide a window at the OS level as well as through Tauri (belt and braces: a preview
     /// must never stay on screen as an empty box).
     fn hide_window(&self, win: &tauri::WebviewWindow);
+    /// Show and hide a window instantly, without Windows' fade.
+    fn no_animation(&self, _win: &tauri::WebviewWindow) {}
     /// Put a window back at the top of the always-on-top layer without activating it.
     fn raise_top(&self, _win: &tauri::WebviewWindow) {}
     /// Native blur + rounded corners (or plain transparent window for CSS glass).
@@ -188,6 +190,8 @@ pub trait Audio: Send + Sync {
     fn watch(&self, on_change: Box<dyn Fn(AudioState) + Send>);
     /// Current output peak level 0..1 (None if no output device).
     fn peak(&self) -> Option<f32>;
+    /// Capture what the speakers play, as mono chunks (see windows/audio.rs `loopback`).
+    fn loopback(&self, on_chunk: &mut dyn FnMut(&[f32], u32) -> bool) -> Res<()>;
 }
 
 pub trait Media: Send + Sync {

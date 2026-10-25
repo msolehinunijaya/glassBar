@@ -148,6 +148,8 @@ export const ipc = {
   thumbsClear: () => invoke<void>('thumbs_clear'),
   barReveal: (show: boolean) => invoke<void>('bar_reveal', { show }),
   popupHide: () => invoke<void>('popup_hide'),
+  popupReveal: () => invoke<void>('popup_reveal'),
+  popupLeaveClose: () => invoke<void>('popup_leave_close'),
   bannerFit: (width: number, height: number) => invoke<void>('banner_fit', { width, height }),
   bannerHide: () => invoke<void>('banner_hide'),
   jumpTo: (source: string, data: unknown) => invoke<void>('jump_to', { source, data }),
@@ -296,6 +298,7 @@ export const ipc = {
   openSettingsUri: (uri: string) => invoke<void>('open_settings_uri', { uri }),
   /** Keep the live output-level meter running ~3 s more (the music visualizer calls this every 2 s). */
   audioMeter: () => invoke<void>('audio_meter'),
+  audioSpectrum: () => invoke<void>('audio_spectrum'),
   trayRefresh: () => invoke<void>('tray_refresh'),
   trayIcons: () => invoke<TrayIcon[]>('tray_icons'),
   trayClick: (id: string, button: 'left' | 'right' | 'double') => invoke<boolean>('tray_click', { id, button }),

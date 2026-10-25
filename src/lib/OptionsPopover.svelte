@@ -3,7 +3,9 @@
   export type Option =
     | { type: 'choice'; key: string; label: string; choices: { value: string; label: string; hint?: string }[]; menu?: boolean }
     | { type: 'toggle'; key: string; label: string; hint?: string }
-    | { type: 'checks'; label: string; items: { key: string; label: string }[]; min?: number };
+    | { type: 'checks'; label: string; items: { key: string; label: string }[]; min?: number }
+    | { type: 'range'; key: string; label: string; min: number; max: number; step?: number; unit?: string }
+    | { type: 'color'; key: string; label: string };
 </script>
 
 <script lang="ts">
@@ -47,6 +49,20 @@
         <span class="lbl">{o.label}{#if o.hint}<span class="dim hint">{o.hint}</span>{/if}</span>
         <input type="checkbox" class="switch" checked={!!values[o.key]} onchange={(e) => save({ [o.key]: e.currentTarget.checked })} />
       </label>
+    {:else if o.type === 'range'}
+      <label class="row">
+        <span class="lbl dim">{o.label}</span>
+        <span class="range">
+          <input type="range" min={o.min} max={o.max} step={o.step ?? 1} value={values[o.key]}
+                 oninput={(e) => save({ [o.key]: +e.currentTarget.value })} />
+          <span class="val">{values[o.key]}{o.unit ?? ''}</span>
+        </span>
+      </label>
+    {:else if o.type === 'color'}
+      <label class="row">
+        <span class="lbl dim">{o.label}</span>
+        <input type="color" value={values[o.key]} oninput={(e) => save({ [o.key]: e.currentTarget.value })} />
+      </label>
     {:else}
       {@const group = Object.fromEntries(o.items.map((i) => [i.key, !!values[i.key]]))}
       {@const checked = Object.values(group).filter(Boolean).length}
@@ -88,5 +104,9 @@
   .checks { display: flex; gap: 10px; font-size: 12px; }
   .checks label { display: flex; align-items: center; gap: 4px; }
   .checks .locked { opacity: 0.6; }
-  input[type='checkbox'] { accent-color: var(--accent); }
+  input[type='checkbox'], input[type='range'] { accent-color: var(--accent); }
+  .range { display: flex; align-items: center; gap: var(--s-2); min-width: 0; flex: 1; justify-content: flex-end; }
+  .range input { width: 100%; max-width: 150px; min-width: 60px; }
+  .val { font-size: 12px; color: var(--fg-dim); min-width: 44px; text-align: right; font-variant-numeric: tabular-nums; }
+  input[type='color'] { width: 40px; height: 28px; padding: 2px; border-radius: var(--r-inner); border: 1px solid var(--border); background: var(--bg-2); cursor: pointer; }
 </style>

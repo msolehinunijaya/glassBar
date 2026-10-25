@@ -11,7 +11,7 @@
   import { fmt, liveMedia, positionAt, toggle } from './media.svelte';
   import Visualizer from './Visualizer.svelte';
 
-  let { size, settings, vertical }: { size: WidgetSize; settings: MusicSettings; vertical: boolean } = $props();
+  let { size, settings, vertical, onenter, onleave }: { size: WidgetSize; settings: MusicSettings; vertical: boolean; onenter?: (e: PointerEvent) => void; onleave?: () => void } = $props();
   const media = liveMedia();
   const t = tickingNow(() => !!media.m?.playing);
   const pos = $derived(media.m ? positionAt(media.m, t.now) : 0);
@@ -37,8 +37,9 @@
   const down = (e: PointerEvent) => e.stopPropagation();
 </script>
 
-<div class="pill player" class:wide class:vertical class:playing={media.m?.playing}
-     title={media.m ? `${media.m.title} — ${media.m.artist}${media.m.app ? ` (${media.m.app})` : ''}` : 'Nothing playing'}>
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div class="pill player" class:wide class:vertical class:playing={media.m?.playing} onpointerenter={onenter} onpointerleave={onleave}
+     aria-label={media.m ? `${media.m.title} — ${media.m.artist}${media.m.app ? ` (${media.m.app})` : ''}` : 'Nothing playing'}>
   <span class="art">
     {#if media.m?.art}<img src={media.m.art} alt="" draggable="false" />{:else}<Music size={14} />{/if}
     {#if media.m?.playing}<span class="eq"><i></i><i></i><i></i></span>{/if}

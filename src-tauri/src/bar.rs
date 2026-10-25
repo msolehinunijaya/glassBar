@@ -339,11 +339,23 @@ pub fn popup_fit(app: AppHandle, height: f64) {
 // ---- Popup ----
 
 #[derive(Default)]
-pub struct PopupState { pub instance: Option<String>, pub hidden_at: Option<Instant>, pub place: Option<Placement> }
+pub struct PopupState {
+    pub instance: Option<String>, pub hidden_at: Option<Instant>, pub place: Option<Placement>,
+    /// Opened by hovering (never focused): closes when the pointer leaves, not on blur.
+    pub hover: bool,
+}
 
 /// Where the open popup was put, so it can be re-sized to its content without moving sides.
 #[derive(Clone, Copy)]
 pub struct Placement { bar: Rect, anchor: Rect, width: i32, edge: Edge, mon: Rect, gap: i32, scale: f64 }
+
+/// The popup lost focus: close it, unless it's a hover panel. Those can't take focus, and
+/// Windows reports the focus a clicked panel had before as lost just as one opens, which
+/// used to close it at once (now and then). Hover panels close when the pointer leaves.
+pub fn popup_blurred(app: &AppHandle) {
+    if app.state::<AppState>().popup.lock().unwrap().hover { return; }
+    popup_hidden(app);
+}
 
 pub fn popup_hidden(app: &AppHandle) {
     shell().thumbs_clear(); // never leave live thumbnails behind
@@ -369,6 +381,7 @@ pub fn popup_open(app: AppHandle, instance: String, x: f64, y: f64, w: f64, h: f
             return Ok(());
         }
         p.instance = Some(instance.clone());
+        p.hover = !focus;
     }
     let e = |e: tauri::Error| e.to_string();
     let (Some(bar), Some(popup)) = (app.get_webview_window("bar"), app.get_webview_window("popup")) else {
@@ -394,13 +407,48 @@ pub fn popup_open(app: AppHandle, instance: String, x: f64, y: f64, w: f64, h: f
     // Hover previews must not steal focus from the user's app: make the window
     // non-activating for them, then show it through Tauri so its visible state stays right.
     popup.set_focusable(focus).map_err(e)?;
+    // The card after a screenshot carries a big thumbnail: it shows itself (popup_reveal) once
+    // that is drawn, or here after 300 ms at the latest. Shown at once, it was an empty box.
+    if instance == FEEDBACK {
+        let a = app.clone();
+        std::thread::spawn(move || { std::thread::sleep(Duration::from_millis(300)); popup_reveal(a); });
+        return Ok(());
+    }
     popup.show().map_err(e)?;
     if focus { popup.set_focus().map_err(e)?; }
     Ok(())
 }
 
+const FEEDBACK: &str = "__feedback";
+
+/// The feedback card has drawn: show it (if it's still the one to show).
+#[tauri::command]
+pub fn popup_reveal(app: AppHandle) {
+    let current = app.state::<AppState>().popup.lock().unwrap().instance.clone();
+    if current.as_deref() != Some(FEEDBACK) { return; }
+    if let Some(p) = app.get_webview_window("popup") { if !p.is_visible().unwrap_or(true) { let _ = p.show(); } }
+}
+
 #[tauri::command]
 pub fn popup_hide(app: AppHandle) { popup_hidden(&app) }
+
+/// The pointer left a hover panel or its button: close it, unless the pointer is in fact
+/// still over one of them. Stray "left" events (a tooltip or a window appearing under the
+/// pointer) used to close a hover panel just as it opened.
+#[tauri::command]
+pub fn popup_leave_close(app: AppHandle) {
+    let st = app.state::<AppState>();
+    let anchor = { let p = st.popup.lock().unwrap(); if !p.hover { return; } p.place.as_ref().map(|pl| pl.anchor) };
+    if let (Some((x, y)), Some(win)) = (shell().cursor_pos(), app.get_webview_window("popup")) {
+        let over_panel = match (win.outer_position(), win.outer_size()) {
+            (Ok(p), Ok(s)) => crate::autohide::contains(Rect { x: p.x, y: p.y, w: s.width as i32, h: s.height as i32 }, x, y, 2),
+            _ => false,
+        };
+        let over_button = anchor.is_some_and(|a| crate::autohide::contains(a, x, y, 2));
+        if over_panel || over_button { return; }
+    }
+    popup_hidden(&app);
+}
 
 // ---- Notification banners ----
 
