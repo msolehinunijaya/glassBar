@@ -62,3 +62,29 @@ export const mix = (a: string, b: string, t: number) => {
   const [x, y] = [rgb(a), rgb(b)];
   return `rgb(${x.map((v, i) => Math.round(v + (y[i] - v) * t)).join(',')})`;
 };
+
+const toHex = (r: number, g: number, b: number) => '#' + [r, g, b].map((v) => Math.round(v).toString(16).padStart(2, '0')).join('');
+
+/** Two vivid colours from album-art pixels (RGBA): the strongest hue, then the strongest hue
+ *  at least 60° away (or a lighter shade of the first). null if the cover is grey/dark. */
+export function palette(px: Uint8ClampedArray | number[]): [string, string] | null {
+  const B = 12; // 30° hue buckets
+  const sum = Array.from({ length: B }, () => ({ w: 0, r: 0, g: 0, b: 0 }));
+  for (let i = 0; i + 3 < px.length; i += 4) {
+    const [r, g, b] = [px[i], px[i + 1], px[i + 2]];
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    const sat = max ? (max - min) / max : 0, val = max / 255;
+    if (sat < 0.25 || val < 0.2) continue;
+    const d = max - min;
+    const h = max === r ? ((g - b) / d + 6) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4; // 0..6
+    const k = Math.floor((h / 6) * B) % B, w = sat * val;
+    sum[k].w += w; sum[k].r += r * w; sum[k].g += g * w; sum[k].b += b * w;
+  }
+  const order = sum.map((s, k) => ({ ...s, k })).filter((s) => s.w > 0).sort((a, b) => b.w - a.w);
+  if (!order.length) return null;
+  const col = (s: (typeof order)[number]) => toHex(s.r / s.w, s.g / s.w, s.b / s.w);
+  const first = order[0];
+  const far = order.find((s) => Math.min(Math.abs(s.k - first.k), B - Math.abs(s.k - first.k)) >= 2 && s.w > first.w * 0.08);
+  const c1 = col(first);
+  return [c1, far ? col(far) : toHex(...(rgb(c1).map((v) => v + (255 - v) * 0.5) as [number, number, number]))];
+}

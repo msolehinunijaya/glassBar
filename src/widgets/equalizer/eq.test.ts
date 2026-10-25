@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { mix, resample, rgb, SRC_BANDS, step } from './eq';
+import { mix, palette, resample, rgb, SRC_BANDS, step } from './eq';
 
 const ramp = Array.from({ length: SRC_BANDS }, (_, i) => i / (SRC_BANDS - 1));
 
@@ -48,4 +48,27 @@ it('parses and blends hex colours', () => {
   expect(rgb('#ff8000')).toEqual([255, 128, 0]);
   expect(rgb('red')).toEqual([255, 255, 255]);
   expect(mix('#000000', '#ffffff', 0.5)).toBe('rgb(128,128,128)');
+});
+
+const px = (...cols: [number, number, number, number][]) => cols.flatMap(([r, g, b, n]) => Array(n).fill([r, g, b, 255]).flat());
+
+it('album palette: strongest hue first, a far hue second', () => {
+  const p = palette(px([230, 20, 20, 50], [20, 40, 230, 20], [120, 120, 120, 200]));
+  expect(p).toEqual(['#e61414', '#1428e6']);
+});
+
+it('album palette: one hue gives a lighter shade, grey gives null', () => {
+  expect(palette(px([0, 200, 0, 10]))).toEqual(['#00c800', '#80e480']);
+  expect(palette(px([128, 128, 128, 10], [5, 5, 5, 10]))).toBeNull();
+});
+
+it('presets: built-ins are valid looks and reset what they do not set', async () => {
+  const { applyPreset, EQ_DEFAULTS, pickLook, PRESETS } = await import('./settings');
+  expect(PRESETS.map((p) => p.name)).toEqual(['Neon', 'Retro LED', 'Minimal', 'Aurora', 'Rainbow Wave']);
+  for (const p of PRESETS) for (const k of Object.keys(p.values)) expect(k in EQ_DEFAULTS).toBe(true);
+  const patch = applyPreset({ name: 'x', values: { style: 'led' } });
+  expect(patch.style).toBe('led');
+  expect(patch.glow).toBe(EQ_DEFAULTS.glow);
+  expect('length' in patch || 'myPresets' in patch || 'fps' in patch).toBe(false); // size and power stay yours
+  expect('myPresets' in pickLook({ ...EQ_DEFAULTS, myPresets: [{ name: 'a', values: {} }] })).toBe(false);
 });
