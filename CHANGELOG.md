@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.4 — 2026-10-26
+
+### New
+- **Equalizer widget:** a live spectrum of what's playing, in many looks (Bars, Mirror, Glow spikes, LED, particle wave, line/area, radial), with an optional reflection, presets and colours from the album art. It pauses on battery to save power.
+- **Hover panels:** hover the music player to see its panel. Hover a Capture button for a quick menu: Screenshot (Full screen, Area, Window, Scrolling), Recording (area or screen, current app), OCR (Snap text and its mode) or your last 5 copies. A click still opens the full panel.
+
+### Fixed
+- No black flash when a screenshot or OCR selection is released, and the overlay opens and closes without fading.
+- The "Screenshot copied" card no longer appears as an empty box before its picture.
+- Hover panels no longer close by themselves just after opening (a tooltip or another window appearing under the pointer).
+
 ## 0.2.3 — 2026-10-25
 
 ### New
