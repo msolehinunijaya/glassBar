@@ -172,6 +172,7 @@ impl Audio for WinAudio {
     fn set_session_mute(&self, pid: u32, m: bool) -> Res<()> { audio::set_session_mute(pid, m) }
     fn watch(&self, f: Box<dyn Fn(AudioState) + Send>) { audio::watch(f) }
     fn peak(&self) -> Option<f32> { audio::peak() }
+    fn loopback(&self, f: &mut dyn FnMut(&[f32], u32) -> bool) -> Res<()> { audio::loopback(f) }
 }
 
 impl Media for WinMedia {

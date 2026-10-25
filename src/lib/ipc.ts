@@ -298,6 +298,7 @@ export const ipc = {
   openSettingsUri: (uri: string) => invoke<void>('open_settings_uri', { uri }),
   /** Keep the live output-level meter running ~3 s more (the music visualizer calls this every 2 s). */
   audioMeter: () => invoke<void>('audio_meter'),
+  audioSpectrum: () => invoke<void>('audio_spectrum'),
   trayRefresh: () => invoke<void>('tray_refresh'),
   trayIcons: () => invoke<TrayIcon[]>('tray_icons'),
   trayClick: (id: string, button: 'left' | 'right' | 'double') => invoke<boolean>('tray_click', { id, button }),

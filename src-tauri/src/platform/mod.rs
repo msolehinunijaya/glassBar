@@ -190,6 +190,8 @@ pub trait Audio: Send + Sync {
     fn watch(&self, on_change: Box<dyn Fn(AudioState) + Send>);
     /// Current output peak level 0..1 (None if no output device).
     fn peak(&self) -> Option<f32>;
+    /// Capture what the speakers play, as mono chunks (see windows/audio.rs `loopback`).
+    fn loopback(&self, on_chunk: &mut dyn FnMut(&[f32], u32) -> bool) -> Res<()>;
 }
 
 pub trait Media: Send + Sync {
