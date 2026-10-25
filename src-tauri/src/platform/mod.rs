@@ -108,6 +108,8 @@ pub trait Shell: Send + Sync {
     /// Hide a window at the OS level as well as through Tauri (belt and braces: a preview
     /// must never stay on screen as an empty box).
     fn hide_window(&self, win: &tauri::WebviewWindow);
+    /// Show and hide a window instantly, without Windows' fade.
+    fn no_animation(&self, _win: &tauri::WebviewWindow) {}
     /// Put a window back at the top of the always-on-top layer without activating it.
     fn raise_top(&self, _win: &tauri::WebviewWindow) {}
     /// Native blur + rounded corners (or plain transparent window for CSS glass).

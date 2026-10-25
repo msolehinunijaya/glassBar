@@ -92,7 +92,9 @@ async fn start(app: &AppHandle, purpose: &str) -> Result<(), String> {
         None => WebviewWindowBuilder::new(app, "snap", WebviewUrl::App("index.html".into()))
             .title("GlassBar Snap").decorations(false).skip_taskbar(true).always_on_top(true)
             .resizable(false).shadow(false).visible(false).focused(true)
-            .build().map_err(|e| e.to_string())?,
+            .build().map_err(|e| e.to_string())
+            // Appear and vanish at once: Windows' fade showed the overlay half-transparent.
+            .inspect(|w| crate::platform::shell().no_animation(w))?,
     };
     win.set_position(PhysicalPosition::new(x, y)).map_err(|e| e.to_string())?;
     win.set_size(PhysicalSize::new(w as u32, h as u32)).map_err(|e| e.to_string())?;

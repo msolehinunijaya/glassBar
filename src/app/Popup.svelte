@@ -1,10 +1,12 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { profile } from '../lib/config.svelte';
   import { events, ipc } from '../lib/ipc';
   import { GALLERY } from '../lib/popup';
   import { settingsOf, widgets } from '../widgets/registry';
   import Gallery from './Gallery.svelte';
+  import CapMenu from '../widgets/ocr/HoverMenu.svelte';
+  import { parseCapMenu } from '../widgets/ocr/menu';
   import WeatherPanel from '../widgets/weather/Popup.svelte';
   import SoundPanel from '../widgets/sound/SoundPanel.svelte';
   import { BATTERY_PANEL, SOUND_PANEL, soundOf } from '../widgets/sound/settings';
@@ -29,14 +31,15 @@
   const HOVER = '__hover:';
   /** "__weather:<clock instance>" = the weather forecast, opened from the clock's weather part. */
   const WEATHER = '__weather:';
-  const hover = $derived(!!instance && (instance.startsWith(WINDOWS) || instance.startsWith(HOVER)));
+  const capMenu = $derived(parseCapMenu(instance));
+  const hover = $derived(!!instance && (instance.startsWith(WINDOWS) || instance.startsWith(HOVER) || !!capMenu));
   const target = $derived(instance?.startsWith(HOVER) ? instance.slice(HOVER.length) : instance);
   const w = $derived(target ? profile().widgets.find((x) => x.instance === target) : undefined);
   const m = $derived(w ? widgets[w.id] : undefined);
 
   // Hover popups close shortly after the pointer leaves both the icon and the popup.
   let leaveTimer: ReturnType<typeof setTimeout>;
-  const leaveSoon = () => { clearTimeout(leaveTimer); if (hover) leaveTimer = setTimeout(close, 150); };
+  const leaveSoon = () => { clearTimeout(leaveTimer); if (hover) leaveTimer = setTimeout(() => ipc.popupLeaveClose(), 150); };
   const stay = () => clearTimeout(leaveTimer);
 
   // Size the window to the panel's content (no empty space below, no needless scrollbar):
@@ -61,7 +64,15 @@
 
   onMount(() => {
     const offs = [
-      events.popupShow((i) => { instance = i; stay(); }),
+      events.popupShow(async (i) => {
+        instance = i; stay();
+        if (i !== FEEDBACK) return;
+        // Draw the card (and decode its thumbnail) before the window appears.
+        await tick();
+        const t = (feedback as { thumb?: string } | null)?.thumb;
+        if (t) { const pic = new Image(); pic.src = t; await pic.decode().catch(() => {}); }
+        setTimeout(() => ipc.popupReveal(), 16);
+      }),
       events.popupHide(() => { instance = null; }),
       events.popupLeave(leaveSoon),
       events.captureDone((d) => (feedback = d)),
@@ -78,6 +89,9 @@
   <div class="content" bind:this={content} style:--origin={ORIGIN[profile().bar.edge]}>
   {#if instance?.startsWith(WINDOWS)}
     {#key instance}<WindowPreviews appKey={instance.slice(WINDOWS.length)} {close} />{/key}
+  {:else if capMenu}
+    {@const cw = profile().widgets.find((x) => x.instance === capMenu.instance)}
+    {#if cw}<CapMenu tab={capMenu.tab} instance={cw.instance} settings={settingsOf(widgets.ocr, cw)} />{/if}
   {:else if instance === FEEDBACK && feedback}
     {#key feedback}<Feedback data={feedback} {close} />{/key}
   {:else if instance && parsePartPanel(instance)}

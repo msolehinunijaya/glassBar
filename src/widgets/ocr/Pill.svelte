@@ -12,6 +12,8 @@
   import type { OcrSettings, CaptureTab } from './index';
   import { hotkeyLabel } from './hotkey';
   import CapIcon from './CapIcon.svelte';
+  import { hoverPanel } from '../../lib/hoverPanel';
+  import { CAP_MENU } from './menu';
 
   let { instance, settings, vertical }: PillProps<OcrSettings> = $props();
   // The hotkey actually registered (the default may have fallen back to Ctrl+Alt+T).
@@ -30,11 +32,15 @@
   let live = $state<CaptureTab[] | null>(null);
   const order = $derived(live ?? saved);
 
+  // Hovering a button shows its quick menu (screenshot kinds, recorders, OCR, last copies).
+  const hp = hoverPanel(300);
+  const HEIGHT: Record<CaptureTab, number> = { shot: 150, record: 150, ocr: 130, clip: 300 };
   let row = $state<HTMLElement>();
   let dragging = $state<CaptureTab | null>(null);
   let swallow = false;
   function down(e: PointerEvent, k: CaptureTab) {
     if (e.button !== 0) return;
+    hp.cancel();
     e.stopPropagation(); // no press-and-hold edit mode from these buttons
     const axis = (ev: PointerEvent) => (vertical ? ev.clientY : ev.clientX);
     const start = axis(e);
@@ -73,8 +79,10 @@
 <div class="pill capture-pill" class:vertical bind:this={row}>
   {#each order as k (k)}
     {@const M = meta[k].icon}
-    <button class="ic" class:drag={dragging === k} class:sel={settings.tab === k} title={meta[k].label} aria-label={meta[k].label}
-            animate:flip={{ duration: 200 }} onpointerdown={(e) => down(e, k)} onclick={(e) => click(e, k)} oncontextmenu={(e) => menu(e, k)}>
+    <!-- No tooltip: it pops up under the pointer and closed the hover menu (which shows the name). -->
+    <button class="ic" class:drag={dragging === k} class:sel={settings.tab === k} aria-label={meta[k].label}
+            animate:flip={{ duration: 200 }} onpointerdown={(e) => down(e, k)}
+            onpointerenter={(e) => { if (!dragging) hp.enter(e, `${CAP_MENU}${k}:${instance}`, 300, HEIGHT[k]); }} onpointerleave={hp.leave} onclick={(e) => click(e, k)} oncontextmenu={(e) => menu(e, k)}>
       <CapIcon {k} icon={M} look={settings.iconStyle} size={22} />
     </button>
   {/each}

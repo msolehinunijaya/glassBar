@@ -49,9 +49,11 @@
   }
   const box = $derived(picking && hover ? { x: hover.x / k(), y: hover.y / k(), w: hover.w / k(), h: hover.h / k() } : rect);
 
-  function cancel() { view = null; start = cur = null; hover = null; ipc.ocrSnapCancel(); }
+  // Leaving keeps the screenshot on screen until the window has hidden: clearing it first
+  // showed a black window for a moment (the window behind the picture is black).
+  function cancel() { start = cur = null; hover = null; ipc.ocrSnapCancel(); }
   async function finishWindow(w: WinRect) {
-    view = null; hover = null;
+    hover = null;
     await ipc.ocrSnapFinish(w.x, w.y, w.w, w.h, w.id).catch(() => {});
   }
   async function finishRect() {
@@ -59,7 +61,6 @@
     start = cur = null;
     if (!r || r.w < 4 || r.h < 4) return;
     const s = k();
-    view = null;
     await ipc.ocrSnapFinish(Math.round(r.x * s), Math.round(r.y * s), Math.round(r.w * s), Math.round(r.h * s), null).catch(() => {});
   }
   function down(e: PointerEvent) {

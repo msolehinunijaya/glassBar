@@ -173,7 +173,7 @@ fn main() {
             Ok(())
         })
         .on_window_event(|w, e| match (w.label(), e) {
-            ("popup", WindowEvent::Focused(false)) => bar::popup_hidden(w.app_handle()),
+            ("popup", WindowEvent::Focused(false)) => bar::popup_blurred(w.app_handle()),
             ("bar", WindowEvent::ScaleFactorChanged { .. })
                 if w.app_handle().state::<AppState>().dragging.load(std::sync::atomic::Ordering::Relaxed) => {}
             ("bar", WindowEvent::ThemeChanged(_)) => bar::apply(w.app_handle()),
@@ -190,7 +190,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             get_config, save_config, export_config, import_config, apply_bar, restore_taskbar,
-            bar::popup_open, bar::popup_hide, bar::banner_fit, bar::banner_hide, bar::jump_to, bar::open_settings_cmd, bar::set_edit_mode,
+            bar::popup_open, bar::popup_reveal, bar::popup_hide, bar::popup_leave_close, bar::banner_fit, bar::banner_hide, bar::jump_to, bar::open_settings_cmd, bar::set_edit_mode,
             bar::bar_preview, bar::bar_drag, bar::mouse_down, bar::transparency_effects, bar::appearance_support, backdrop::wallpaper_behind, bar::bar_reveal, bar::popup_leave,
             bar::thumbs_show, bar::thumbs_clear,
             widgets::todo::todo_list, widgets::todo::todo_add, widgets::todo::todo_update,
