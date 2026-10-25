@@ -217,9 +217,11 @@ pub fn solat_sound(s: &Value) -> Option<Value> {
     let short = mode != "full";
     // Pause other music while the adzan plays (on unless turned off).
     let pause = s["pauseMusic"].as_bool().unwrap_or(true);
+    // Adzan volume, 0-100 % (full when unset).
+    let volume = (s["azanVolume"].as_f64().unwrap_or(100.0) / 100.0).clamp(0.0, 1.0);
     Some(match s["azanFile"].as_str().filter(|f| !f.is_empty()) {
-        Some(f) => serde_json::json!({ "kind": "azan", "file": f, "short": short, "pauseMusic": pause }),
-        None => serde_json::json!({ "kind": "adhan", "short": short, "pauseMusic": pause }),
+        Some(f) => serde_json::json!({ "kind": "azan", "file": f, "short": short, "pauseMusic": pause, "volume": volume }),
+        None => serde_json::json!({ "kind": "adhan", "short": short, "pauseMusic": pause, "volume": volume }),
     })
 }
 
@@ -228,12 +230,13 @@ pub fn sound_payload(v: &Value) -> Value {
     let Some(path) = v["file"].as_str() else { return v.clone() };
     let short = v["short"].as_bool().unwrap_or(false);
     let pause = v["pauseMusic"].as_bool().unwrap_or(false);
+    let volume = v["volume"].as_f64().unwrap_or(1.0);
     // Check the size before reading: a mistakenly chosen huge file must not be loaded.
     let small = std::fs::metadata(path).map(|m| m.len() < 30 * 1024 * 1024).unwrap_or(false);
     match if small { std::fs::read(path) } else { Err(std::io::ErrorKind::InvalidData.into()) } {
         Ok(bytes) => {
             let mime = if path.to_lowercase().ends_with(".wav") { "audio/wav" } else { "audio/mpeg" };
-            serde_json::json!({ "kind": "azan", "short": short, "pauseMusic": pause, "src": format!("data:{mime};base64,{}", base64::engine::general_purpose::STANDARD.encode(bytes)) })
+            serde_json::json!({ "kind": "azan", "short": short, "pauseMusic": pause, "volume": volume, "src": format!("data:{mime};base64,{}", base64::engine::general_purpose::STANDARD.encode(bytes)) })
         }
         _ => serde_json::json!({ "kind": "chime" }),
     }
@@ -270,10 +273,11 @@ mod tests {
     #[test]
     fn prayer_sound_defaults_to_short_adhan() {
         use serde_json::json;
-        assert_eq!(solat_sound(&json!({})), Some(json!({ "kind": "adhan", "short": true, "pauseMusic": true })), "old configs get the short adzan, pausing music");
-        assert_eq!(solat_sound(&json!({ "azanSound": "full", "pauseMusic": false })), Some(json!({ "kind": "adhan", "short": false, "pauseMusic": false })));
+        assert_eq!(solat_sound(&json!({})), Some(json!({ "kind": "adhan", "short": true, "pauseMusic": true, "volume": 1.0 })), "old configs get the short adzan, pausing music, full volume");
+        assert_eq!(solat_sound(&json!({ "azanVolume": 40 })).unwrap()["volume"], json!(0.4));
+        assert_eq!(solat_sound(&json!({ "azanSound": "full", "pauseMusic": false })), Some(json!({ "kind": "adhan", "short": false, "pauseMusic": false, "volume": 1.0 })));
         assert_eq!(solat_sound(&json!({ "azanSound": "chime", "azanFile": "C:/a.mp3" })), None, "normal sound ignores the file");
-        assert_eq!(solat_sound(&json!({ "azanFile": "C:/a.mp3" })), Some(json!({ "kind": "azan", "file": "C:/a.mp3", "short": true, "pauseMusic": true })));
+        assert_eq!(solat_sound(&json!({ "azanFile": "C:/a.mp3" })), Some(json!({ "kind": "azan", "file": "C:/a.mp3", "short": true, "pauseMusic": true, "volume": 1.0 })));
         assert_eq!(sound_payload(&json!({ "kind": "azan", "file": "C:/missing.mp3", "pauseMusic": true })), json!({ "kind": "chime" }), "unreadable file falls back to the chime, which pauses nothing");
     }
     fn at(day: &PrayerDay, name: &str) -> i64 { day.times.iter().find(|(n, _)| n == name).unwrap().1 }

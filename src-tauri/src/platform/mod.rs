@@ -124,6 +124,8 @@ pub trait Shell: Send + Sync {
     fn appbar_remove(&self);
     /// No-op when the mode is unchanged. Restores the user's original state on `Show`.
     fn set_taskbar(&self, mode: TaskbarMode);
+    /// Whether GlassBar starts with Windows (then a hidden taskbar stays hidden across restarts).
+    fn set_starts_with_windows(&self, _on: bool) {}
     /// Live thumbnails of windows drawn into `dest` (client pixels). Returns the windows
     /// that got one; the caller shows a fallback for the rest.
     fn thumbs_show(&self, dest: isize, items: &[(isize, Rect)]) -> Vec<isize>;

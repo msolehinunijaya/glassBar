@@ -91,7 +91,7 @@
     </span>
   {/each}
   {#if settings.recycle && bin}
-    <span class="m" transition:slide={t} title="Recycle Bin: {bin.items} items"><Trash2 size={13} class="dim" />{fmtSize(bin.size)}</span>
+    <span class="m bin" transition:slide={t} title="Recycle Bin: {bin.items} items"><Trash2 size={13} class="dim" /><span class="bsz">{fmtSize(bin.size)}</span></span>
   {/if}
   {#if settings.network && last}
     <span class="m net stack" transition:slide={t} title="Download / upload">
@@ -114,4 +114,7 @@
   .dtrack span { display: block; height: 100%; border-radius: calc(2px * var(--rs)); }
   .hot { color: #ff453a; font-weight: 600; }
   .side-v.net { font-size: 0.85em; }
+  /* Recycle Bin: icon on top, size below. */
+  .bin { flex-direction: column; gap: 1px; line-height: 1; }
+  .bsz { font-size: 10px; }
 </style>

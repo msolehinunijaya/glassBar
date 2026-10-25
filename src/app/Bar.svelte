@@ -77,7 +77,7 @@
           }
         }, 450); // after the scroll settles
       }),
-      events.soundPlay((s) => (s.kind === 'azan' || s.kind === 'adhan' ? playAdzan(s.kind === 'azan' ? s.src : adhanUrl, !!s.short, !!s.pauseMusic, { pause: ipc.mediaPausePlaying, resume: ipc.mediaResume }) : s.kind === 'connect' || s.kind === 'disconnect' ? deviceTone(s.kind === 'connect', s.volume) : s.kind === 'plug' || s.kind === 'unplug' ? chargerTone(s.kind === 'plug', s.volume) : chime(s.volume))),
+      events.soundPlay((s) => (s.kind === 'azan' || s.kind === 'adhan' ? playAdzan(s.kind === 'azan' ? s.src : adhanUrl, !!s.short, !!s.pauseMusic, { pause: ipc.mediaPausePlaying, resume: ipc.mediaResume }, s.volume ?? 1) : s.kind === 'connect' || s.kind === 'disconnect' ? deviceTone(s.kind === 'connect', s.volume) : s.kind === 'plug' || s.kind === 'unplug' ? chargerTone(s.kind === 'plug', s.volume) : chime(s.volume))),
     ];
     return () => offs.forEach((p) => p.then((off) => off()));
   });
@@ -441,6 +441,9 @@
     transition: background 0.2s var(--ease), transform 0.35s var(--spring);
   }
   .more:hover { --fill: var(--pill-hover); }
+  /* Shown only while the pointer is on the dock. */
+  .more { transition: background 0.2s var(--ease), transform 0.35s var(--spring), opacity 0.2s var(--ease); }
+  .bar:not(:hover) .more { opacity: 0; pointer-events: none; }
   .more:active { transform: scale(0.95); }
   /* Transparency effects off: solid, like the dock. */
   :global(:root[data-solid='true']) .more { background: linear-gradient(var(--fill), var(--fill)), rgb(var(--tint)); backdrop-filter: none; }

@@ -98,6 +98,10 @@
         <div class="field"><span>Length {Math.round(bar.length * 100)}%</span>
           <input type="range" min="0.2" max="1" step="0.01" value={bar.length} onchange={(e) => setBar((b) => (b.length = +e.currentTarget.value))} />
         </div>
+        <div class="field"><span>Space from the edge {bar.gap ?? 6}px</span>
+          <input type="range" min="0" max="48" step="1" value={bar.gap ?? 6} onchange={(e) => setBar((b) => (b.gap = +e.currentTarget.value))} />
+        </div>
+        <p class="hint">Gap between the dock and the screen edge it sits on, in any position.</p>
         <label class="field"><span>Auto-hide</span>
           <input type="checkbox" checked={bar.autoHide} onchange={(e) => setBar((b) => { b.autoHide = e.currentTarget.checked; b.floating = null; })} />
         </label>

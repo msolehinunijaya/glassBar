@@ -2,7 +2,6 @@
 //! Explorer restarts, logoff) and owns our AppBar registration (fullscreen notices).
 use super::super::SystemEvent;
 use super::appbar;
-use crate::config::TaskbarMode;
 use std::sync::atomic::{AtomicIsize, AtomicU32, Ordering};
 use std::sync::mpsc::{channel, Sender};
 use std::sync::OnceLock;
@@ -38,8 +37,7 @@ unsafe extern "system" fn proc(h: HWND, msg: u32, wp: WPARAM, lp: LPARAM) -> LRE
         appbar::APPBAR_MSG if wp.0 as u32 == ABN_FULLSCREENAPP => Some(SystemEvent::Fullscreen(lp.0 != 0)),
         WM_ENDSESSION if wp.0 != 0 => {
             // Logoff/shutdown: the process may die right after this returns, so clean up here.
-            appbar::remove();
-            appbar::set_taskbar(TaskbarMode::Show);
+            appbar::end_session();
             None
         }
         m if m != 0 && m == TASKBAR_CREATED.load(Ordering::Relaxed) && IGNORE_CREATED.swap(false, Ordering::Relaxed) => None,

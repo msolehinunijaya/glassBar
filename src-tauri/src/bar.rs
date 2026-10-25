@@ -11,7 +11,6 @@ use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, WebviewUrl, WebviewWindow, WebviewWindowBuilder, Wry};
 
 /// Space between the bar and the screen edge, logical px.
-const GAP: f64 = 6.0;
 
 /// Window rect and reserved AppBar strip for a docked bar, all in physical px.
 pub fn place(mon: Rect, edge: Edge, length: f64, thick: i32, gap: i32) -> (Rect, Rect) {
@@ -98,7 +97,7 @@ fn bar_rect(app: &AppHandle, bar: &crate::config::BarCfg, length: f64) -> Option
     let mon = bar_monitor(app, bar.monitor)?;
     let s = mon.scale_factor();
     let thick = (bar.thickness() * s).round() as i32;
-    let gap = (GAP * s).round() as i32;
+    let gap = (bar.gap.clamp(0.0, 48.0) * s).round() as i32;
     let (mut r, strip) = place(monitor_rect(&mon), bar.edge, length, thick, gap);
     if let Some(p) = bar.floating { r.x = p.x; r.y = p.y; }
     Some((r, strip))

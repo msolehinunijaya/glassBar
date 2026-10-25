@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.2.3 — 2026-10-25
+
+### New
+- **Settings › Bar › Space from the edge:** set the gap between the dock and its screen edge (0–48 px), in any position.
+- **App Launcher:** put Start & Search on the left or the right of your apps. Choose how many icons show; the rest collapse into a "+N" chip, and hovering the launcher shows them all. The app you're using always stays visible.
+- **Waktu Solat:** adzan volume.
+- The arrows that page through more widgets show only while the pointer is on the dock.
+- Clock shows the weather by default.
+- System Monitor: the Recycle Bin icon sits above its size.
+
+### Fixed
+- Screenshot and OCR Snap no longer flash a black screen before the overlay appears.
+- After a restart the Windows taskbar stays hidden, and GlassBar starts with Windows from the installed app (it could point at an old copy, making the dock slow to appear).
+
 ## 0.2.2 — 2026-10-24
 
 ### New

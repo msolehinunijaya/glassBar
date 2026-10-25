@@ -54,10 +54,13 @@ pub fn commit(app: &AppHandle, cfg: Config) -> Result<(), String> {
 /// Make Windows' "run at sign-in" entry match the setting (also on start, so a fresh
 /// install that never saved its config still starts with Windows).
 fn sync_autostart(app: &AppHandle, cfg: &Config) {
+    platform::shell().set_starts_with_windows(cfg.startup.launch_at_login);
+    // Development runs never touch it: they'd point Windows at the slow debug build, which
+    // also needs the dev server (a blank, late dock after a restart).
+    if cfg!(debug_assertions) { return; }
     let al = app.autolaunch();
-    if al.is_enabled().unwrap_or(false) != cfg.startup.launch_at_login {
-        let _ = if cfg.startup.launch_at_login { al.enable() } else { al.disable() };
-    }
+    // Re-enable even when already on: the entry then names this program, not an old copy.
+    let _ = if cfg.startup.launch_at_login { al.enable() } else if al.is_enabled().unwrap_or(false) { al.disable() } else { Ok(()) };
 }
 
 #[tauri::command]
@@ -227,7 +230,7 @@ fn main() {
             widgets::apps::app_pin_target, widgets::apps::app_browse, widgets::apps::apps_installed, widgets::apps::paths_exist,
             widgets::ai::ai_key_status, widgets::ai::ai_key_set, widgets::ai::ai_key_clear, widgets::ai::ai_usage, widgets::ai::ai_ask,
             widgets::aiusage::aiu_state, widgets::aiusage::aiu_refresh, widgets::aiusage::aiu_connect, widgets::aiusage::aiu_disconnect,
-            widgets::ocr::ocr_hotkey_status, widgets::ocr::ocr_snap_start, widgets::ocr::ocr_shot, widgets::ocr::ocr_snap_cancel,
+            widgets::ocr::ocr_hotkey_status, widgets::ocr::ocr_snap_start, widgets::ocr::ocr_shot, widgets::ocr::ocr_snap_cancel, widgets::ocr::ocr_snap_show,
             widgets::ocr::ocr_snap_finish, widgets::screenshots::shots_list, widgets::clipboard::clip_list, widgets::clipboard::clip_copy, widgets::clipboard::clip_delete, widgets::screenshots::shots_copy,
             widgets::screenshots::shots_delete, widgets::screenshots::shots_open, widgets::screenshots::shot_fullscreen, widgets::quick::record_screen, widgets::ocr::ocr_history, widgets::ocr::ocr_history_delete, widgets::ocr::ocr_copy,
             widgets::quick::wifi_list, widgets::quick::wifi_connect, widgets::quick::wifi_disconnect,

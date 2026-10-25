@@ -2,6 +2,7 @@
   // Fullscreen overlay over a frozen screenshot. OCR and Region: drag a box. Window and
   // Scrolling: hover highlights a window, click picks it. Esc or right-click cancels.
   import { listen } from '@tauri-apps/api/event';
+  import { tick } from 'svelte';
   import { ipc, type SnapView, type WinRect } from '../lib/ipc';
   import { profile, store } from '../lib/config.svelte';
 
@@ -21,7 +22,15 @@
 
   async function load() {
     start = cur = null; hover = null;
-    view = await ipc.ocrShot();
+    const v = await ipc.ocrShot();
+    if (!v) return;
+    // Decode the screenshot before the window appears, so it never flashes black.
+    const pic = new Image();
+    pic.src = v.img;
+    await pic.decode().catch(() => {});
+    view = v;
+    await tick();
+    setTimeout(() => ipc.ocrSnapShow(), 16); // (no rAF: a hidden window may not run it)
   }
   $effect(() => {
     load();

@@ -6,7 +6,7 @@
   import type { PillProps } from '../types';
   import { flip } from 'svelte/animate';
   import { insertIndex } from '../../lib/geometry';
-  import { group, isWebApp, keyFor, keyOf, moveKey, nextWindow, pinsInOrder, stableOrder, type Group } from './groups';
+  import { group, isWebApp, keyFor, keyOf, limitIcons, moveKey, nextWindow, pinsInOrder, stableOrder, type Group } from './groups';
   import type { AppsSettings } from './index';
   import StartButtons from '../start/StartButtons.svelte';
 
@@ -37,6 +37,12 @@
   // ---- Drag to reorder (hold ~0.3 s or just drag). The icon moves to its new place
   // live and the others slide aside; release saves. It never launches anything. ----
   let dragKey = $state<string | null>(null);
+  // Show at most `maxIcons` (the rest as "+N") until the pointer is on the launcher.
+  let expanded = $state(false);
+  let collapseTimer: ReturnType<typeof setTimeout> | undefined;
+  const expand = () => { clearTimeout(collapseTimer); expanded = true; };
+  const collapse = () => { clearTimeout(collapseTimer); collapseTimer = setTimeout(() => (expanded = false), 400); };
+  const limited = $derived(expanded || dragKey ? { shown: groups, hidden: 0 } : limitIcons(groups, settings.maxIcons ?? 0, (g) => g.windows.some((w) => w.active)));
   let swallow = false;
   let row: HTMLElement;
   function onDown(e: PointerEvent, g: Group) {
@@ -179,12 +185,13 @@
   }
 </script>
 
-<div class="pill apps" class:vertical bind:this={row}>
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div class="pill apps" class:vertical bind:this={row} onpointerenter={expand} onpointerleave={collapse}>
   {#if settings.startPlacement === 'inline'}
     <StartButtons searchStyle={settings.searchStyle} />
     <span class="sep"></span>
   {/if}
-  {#each groups as g (g.key)}
+  {#each limited.shown as g (g.key)}
     {@const active = g.windows.some((w) => w.active)}
     {@const gone = !g.windows.length && missing[g.key]}
     <button
@@ -216,7 +223,14 @@
       {/if}
     </button>
   {/each}
+  {#if limited.hidden}
+    <button class="more-apps" title="{limited.hidden} more apps" onpointerdown={(e) => e.stopPropagation()} onclick={(e) => { e.stopPropagation(); expand(); }}>+{limited.hidden}</button>
+  {/if}
   {#if groups.length === 0}<span class="dim">No apps</span>{/if}
+  {#if settings.startPlacement === 'after'}
+    <span class="sep"></span>
+    <StartButtons searchStyle={settings.searchStyle} />
+  {/if}
 </div>
 
 <style>
@@ -242,4 +256,9 @@
   .app.dragging { z-index: 2; transform: scale(1.18); background: var(--pill-hover); box-shadow: 0 6px 18px rgba(0,0,0,0.25); cursor: grabbing; }
   .app.gone img, .app.gone .fallback { opacity: 0.35; filter: grayscale(1); }
   .app.failed { box-shadow: inset 0 0 0 2px #ff453a; }
+  .more-apps {
+    flex: none; align-self: center; min-width: 26px; height: 22px; padding: 0 6px; border-radius: var(--r-chip, 11px);
+    background: var(--pill-hover); color: var(--fg); font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums;
+  }
+  .more-apps:hover { background: var(--pill-active, var(--pill-hover)); }
 </style>
