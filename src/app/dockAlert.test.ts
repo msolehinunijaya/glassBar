@@ -65,3 +65,15 @@ describe('the water alert', () => {
     expect(viewOf({ kind: 'water', total: 2000, goal: 2000, cup: 250, reached: true }).label).toBe('Goal of 2,000 ml reached today');
   });
 });
+
+describe('the Pomodoro alert', () => {
+  it('says which phase ended, in its colour', () => {
+    expect(viewOf({ kind: 'pomodoro', done: 'focus', body: 'Your break has started.' })).toMatchObject({ icon: 'break', value: 'Focus done', label: 'Your break has started.', tone: '#30d158' });
+    expect(viewOf({ kind: 'pomodoro', done: 'break', body: 'Focus has started.' })).toMatchObject({ icon: 'focus', value: 'Break over', tone: '#ff9f0a' });
+  });
+  it('outranks the charger and volume, not prayer time', () => {
+    expect(arrive('charger', 'pomodoro')).toBe('show');
+    expect(arrive('pomodoro', 'volume')).toBe('drop');
+    expect(arrive('pomodoro', 'prayer')).toBe('show');
+  });
+});

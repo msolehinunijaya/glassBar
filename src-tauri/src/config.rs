@@ -241,11 +241,11 @@ impl Default for Banners {
 /// dock slides out for one, and how long they stay: "short" | "normal" | "long".
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase", default)]
-pub struct DockAlerts { pub volume: bool, pub brightness: bool, pub prayer: bool, pub water: bool, pub reveal: bool, pub length: String,
+pub struct DockAlerts { pub volume: bool, pub brightness: bool, pub prayer: bool, pub water: bool, pub pomodoro: bool, pub reveal: bool, pub length: String,
     /// Hide Windows' own volume / brightness pop-up while GlassBar shows its alerts.
     pub hide_windows_osd: bool }
 impl Default for DockAlerts {
-    fn default() -> Self { Self { volume: true, brightness: true, prayer: true, water: true, reveal: true, length: "normal".into(), hide_windows_osd: true } }
+    fn default() -> Self { Self { volume: true, brightness: true, prayer: true, water: true, pomodoro: true, reveal: true, length: "normal".into(), hide_windows_osd: true } }
 }
 
 /// Sounds when a USB device is plugged in / removed. Off by default: Windows plays its own.

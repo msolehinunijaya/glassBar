@@ -336,6 +336,14 @@ pub fn sw_reset(app: AppHandle) -> Stopwatch { sw_do(&app, |sw, _| *sw = Stopwat
 
 // ---- Scheduler items ----
 
+/// The dock alert for a Pomodoro phase that just ended: which one ("focus" / "break") and
+/// what happens now. None for one missed while GlassBar was off, and in Do Not Disturb.
+pub fn pomo_alert(title: &str, body: &str, missed: bool, dnd: bool) -> Option<serde_json::Value> {
+    if missed || dnd { return None; }
+    let done = if title.starts_with("Focus") { "focus" } else { "break" };
+    Some(serde_json::json!({ "kind": "pomodoro", "done": done, "body": body }))
+}
+
 pub fn due_items(app: &AppHandle) -> Vec<Due> {
     let mut v = Vec::new();
     let p = load_pomo(app);
@@ -359,6 +367,15 @@ pub fn due_items(app: &AppHandle) -> Vec<Due> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_finished_phase_becomes_a_dock_alert_saying_which() {
+        let a = super::pomo_alert("Focus session complete", "Your break has started.", false, false).unwrap();
+        assert_eq!((a["done"].as_str(), a["body"].as_str()), (Some("focus"), Some("Your break has started.")));
+        assert_eq!(super::pomo_alert("Break complete", "Focus has started.", false, false).unwrap()["done"], "break");
+        assert!(super::pomo_alert("Break complete", "x", true, false).is_none(), "missed while off");
+        assert!(super::pomo_alert("Break complete", "x", false, true).is_none(), "Do Not Disturb");
+    }
+
     use super::*;
 
     fn cfg() -> PomoCfg { PomoCfg::default() }

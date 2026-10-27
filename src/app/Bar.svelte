@@ -3,7 +3,7 @@
   import { flip } from 'svelte/animate';
   import { onMount } from 'svelte';
   import { adhan, setAdhanPlaying, stopAdhan } from '../lib/adhan.svelte';
-  import { Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Droplet, Maximize2, MoonStar, Plus, Square, PlugZap, Sun, Unplug, Volume2, VolumeX, X } from '@lucide/svelte';
+  import { Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Coffee, Droplet, Maximize2, MoonStar, Plus, Square, Target, PlugZap, Sun, Unplug, Volume2, VolumeX, X } from '@lucide/svelte';
   import { profile, store, update } from '../lib/config.svelte';
   import { events, ipc, type WidgetInst, type WidgetSize } from '../lib/ipc';
   import { FLASH } from './chargeFlash';
@@ -504,7 +504,7 @@
          onpointerenter={pauseAlert} onpointerleave={resumeAlert} onpointerdown={(e) => e.stopPropagation()} onclick={dismissAlert}>
       {#if view.fill !== null}<div class="flash-fill"></div>{/if}
       <div class="flash-body">
-        {#if view.icon === 'plug'}<PlugZap size={16} />{:else if view.icon === 'unplug'}<Unplug size={16} />{:else if view.icon === 'volume'}<Volume2 size={16} />{:else if view.icon === 'mute'}<VolumeX size={16} />{:else if view.icon === 'sun'}<Sun size={16} />{:else if view.icon === 'water'}<Droplet size={16} />{:else}<MoonStar size={16} />{/if}
+        {#if view.icon === 'plug'}<PlugZap size={16} />{:else if view.icon === 'unplug'}<Unplug size={16} />{:else if view.icon === 'volume'}<Volume2 size={16} />{:else if view.icon === 'mute'}<VolumeX size={16} />{:else if view.icon === 'sun'}<Sun size={16} />{:else if view.icon === 'water'}<Droplet size={16} />{:else if view.icon === 'break'}<Coffee size={16} />{:else if view.icon === 'focus'}<Target size={16} />{:else}<MoonStar size={16} />{/if}
         <strong>{view.value}</strong>
         <span class="flash-label">{view.label}</span>
         {#if alert.kind === 'water' && !alert.reached}
