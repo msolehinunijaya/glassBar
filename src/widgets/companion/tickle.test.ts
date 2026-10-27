@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FULL, MIN_DX, NO_TICKLE, WINDOW_MS, level, onMove, reset, type Tickle } from './tickle';
+import { FULL, MIN_DX, NO_TICKLE, WINDOW_MS, level, nextChangeAt, onMove, reset, type Tickle } from './tickle';
 
 /** Walk the pointer through a list of x positions, one per `step` ms. */
 function walk(xs: number[], step = 60, from: Tickle = NO_TICKLE, t0 = 1_000) {
@@ -72,6 +72,36 @@ describe('leaving and coming back', () => {
     const { t, now } = walk([0, 30, 0, 30]);
     const before = level(t, now);
     expect(level(reset(t), now)).toBe(before);
+  });
+});
+
+describe('knowing when to look again', () => {
+  // The bug this guards: nothing else watches the window expiring, so a tickle followed by the
+  // pointer leaving (or simply holding still) left the face giggling for good.
+  it('says when the level will next drop', () => {
+    const { t, now } = walk([0, 30, 0, 30]);
+    const at = nextChangeAt(t, now)!;
+    expect(at).toBe(Math.min(...t.flips) + WINDOW_MS);
+    expect(level(t, at + 1)).toBeLessThan(level(t, now));
+  });
+
+  it('keeps pointing forward until the level really is zero', () => {
+    const { t } = walk([0, 30, 0, 30, 0, 30, 0]);
+    let now = Math.max(...t.flips); // as if the pointer stopped dead on the last flip
+    let steps = 0;
+    while (level(t, now) > 0) {
+      const at = nextChangeAt(t, now);
+      expect(at, 'a level above zero must always say when to look again').not.toBeNull();
+      now = at! + 1;
+      expect(++steps).toBeLessThan(20); // it has to terminate
+    }
+    expect(nextChangeAt(t, now)).toBeNull();
+  });
+
+  it('has nothing to wait for when it was never tickled', () => {
+    expect(nextChangeAt(NO_TICKLE, 1_000)).toBeNull();
+    const { t, now } = walk([0, 20, 40]); // a plain pass across
+    expect(nextChangeAt(t, now)).toBeNull();
   });
 });
 

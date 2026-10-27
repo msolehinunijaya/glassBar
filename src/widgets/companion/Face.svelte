@@ -77,7 +77,9 @@
 </span>
 
 <style>
-  .face { display: block; flex: none; width: calc(var(--fs) * 40 / 24); height: var(--fs); }
+  /* max-width matters on a side dock: the column is 56-96 px, so a large face would overflow
+     it. The viewBox letterboxes instead of distorting, so it just comes out smaller. */
+  .face { display: block; flex: none; width: calc(var(--fs) * 40 / 24); max-width: 100%; height: var(--fs); }
   svg { display: block; width: 100%; height: 100%; overflow: visible; }
 
   .ball { fill: var(--eye); }

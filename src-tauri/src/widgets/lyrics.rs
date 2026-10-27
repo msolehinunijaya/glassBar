@@ -74,7 +74,10 @@ fn stamp_ms(tag: &str) -> Option<i64> {
             _ => v,
         }
     };
-    Some(min * 60_000 + sec * 1000 + frac_ms)
+    // Checked: `min` is whatever parsed, and a hand-written or garbled .lrc can carry a
+    // number big enough to wrap. Release builds have overflow checks off, so it would wrap
+    // silently and `.max(0)` below would hide it.
+    min.checked_mul(60_000)?.checked_add(sec * 1000)?.checked_add(frac_ms)
 }
 
 /// Timed lines from LRC text, earliest first. Metadata tags are skipped. `[offset:+N]` shifts
@@ -105,7 +108,7 @@ pub fn parse_lrc(text: &str) -> Vec<LyricLine> {
     }
     // The offset tag can appear after the lines it affects, so it is applied at the end.
     for l in &mut out {
-        l.at_ms = (l.at_ms - offset).max(0);
+        l.at_ms = l.at_ms.saturating_sub(offset).max(0);
     }
     out.sort_by_key(|l| l.at_ms);
     out
@@ -139,6 +142,28 @@ fn synced_of(v: &Value) -> Option<Vec<LyricLine>> {
     (!lines.is_empty()).then_some(lines)
 }
 
+/// LRCLIB answering "I don't have that track", as opposed to not answering at all.
+///
+/// Only a 404 means absent. A 429, a 5xx, or a captive portal replying with HTML all mean we
+/// couldn't ask -- and must never be cached as a miss, or one bad minute would hide a song's
+/// lyrics until tomorrow.
+fn is_absent(err: &str) -> bool {
+    err.starts_with("HTTP 404")
+}
+
+/// The first candidate with synced lyrics that is also the right length.
+///
+/// Without the duration check the first hit wins, so a live version, a remix or a radio edit
+/// takes a studio track's place -- with timings that are wrong for the whole song, cached for
+/// thirty days. A track whose own duration is unknown can't be checked, so it takes the first.
+fn pick(v: &Value, dur_s: i64) -> Option<Vec<LyricLine>> {
+    let close = |c: &Value| {
+        dur_s <= 0
+            || c.get("duration").and_then(Value::as_f64).is_some_and(|d| (d - dur_s as f64).abs() <= 2.0)
+    };
+    v.as_array()?.iter().filter(|c| close(c)).find_map(synced_of)
+}
+
 /// Ok(Some) found · Ok(None) LRCLIB says this track has no synced lyrics · Err couldn't ask.
 /// The distinction matters: only Ok(None) may be cached as a miss.
 fn fetch(artist: &str, title: &str, album: &str, dur_s: i64) -> Result<Option<Vec<LyricLine>>, String> {
@@ -152,14 +177,14 @@ fn fetch(artist: &str, title: &str, album: &str, dur_s: i64) -> Result<Option<Ve
                 return Ok(Some(l));
             }
         }
-        Err(e) if e.starts_with("network") => return Err(e),
-        Err(_) => {} // 404 and friends: no exact match, try the search
+        Err(e) if is_absent(&e) => {} // no exact match: try the search
+        Err(e) => return Err(e),
     }
     let search = format!("https://lrclib.net/api/search?artist_name={}&track_name={}", enc(artist), enc(title));
     match get_json(&search) {
-        Ok(v) => Ok(v.as_array().and_then(|a| a.iter().find_map(synced_of))),
-        Err(e) if e.starts_with("network") => Err(e),
-        Err(_) => Ok(None),
+        Ok(v) => Ok(pick(&v, dur_s)),
+        Err(e) if is_absent(&e) => Ok(None),
+        Err(e) => Err(e),
     }
 }
 
@@ -295,6 +320,49 @@ mod tests {
         assert!(synced_of(&serde_json::json!({ "plainLyrics": "Hi", "syncedLyrics": null })).is_none());
         assert!(synced_of(&serde_json::json!({ "instrumental": true, "syncedLyrics": "" })).is_none());
         assert!(synced_of(&serde_json::json!({})).is_none());
+    }
+
+    #[test]
+    fn only_a_404_counts_as_the_track_being_absent() {
+        // Anything else means we couldn't ask, and must not be remembered as "no lyrics".
+        assert!(is_absent("HTTP 404 Not Found"));
+        assert!(!is_absent("HTTP 429 Too Many Requests"));
+        assert!(!is_absent("HTTP 503 Service Unavailable"));
+        assert!(!is_absent("network: timed out"));
+        assert!(!is_absent("bad response: expected value"), "a captive portal answering HTML");
+    }
+
+    #[test]
+    fn the_search_takes_a_candidate_of_the_right_length() {
+        let results = serde_json::json!([
+            { "duration": 412.0, "syncedLyrics": "[00:01.00]live version" },
+            { "duration": 296.0, "syncedLyrics": "[00:02.00]the studio one" },
+        ]);
+        assert_eq!(at(&pick(&results, 296).unwrap()), vec![(2_000, "the studio one")]);
+        // Nothing close enough is better than the wrong song's timings.
+        assert!(pick(&results, 120).is_none());
+        // A couple of seconds out is the same recording.
+        assert!(pick(&results, 298).is_some());
+        assert!(pick(&results, 299).is_none());
+    }
+
+    #[test]
+    fn the_search_cannot_check_a_track_with_no_duration() {
+        let results = serde_json::json!([{ "syncedLyrics": "[00:01.00]something" }]);
+        assert!(pick(&results, 0).is_some(), "a live stream: take what there is");
+        assert!(pick(&results, 296).is_none(), "a real track: no duration to agree with");
+        assert!(pick(&serde_json::json!([]), 0).is_none());
+    }
+
+    #[test]
+    fn a_hostile_timestamp_cannot_overflow() {
+        assert_eq!(stamp_ms("9223372036854775:00"), None, "minutes big enough to wrap");
+        assert_eq!(stamp_ms("153722867280913:00"), None, "one minute past what an i64 holds");
+        // Just inside the range is not an error: a nonsense timestamp that simply never
+        // matches a playing position does no harm.
+        assert_eq!(stamp_ms("153722867280912:00"), Some(9_223_372_036_854_720_000));
+        // And an offset big enough to wrap the subtraction clamps instead.
+        assert_eq!(at(&parse_lrc("[offset:-9223372036854775807]\n[00:10.00]Line\n")), vec![(i64::MAX, "Line")]);
     }
 
     #[test]

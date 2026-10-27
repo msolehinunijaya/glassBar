@@ -29,12 +29,17 @@ fn drag_image(path: &str) -> drag::Image {
 /// Hand a drag to Windows so the files can be dropped into Explorer, a chat or an email.
 /// Must run on the window's UI thread while the mouse button is still down.
 ///
-/// When the drop actually happens, `shelf:dropped` goes back to the bar with the paths, and
-/// the widget takes them off the shelf -- a cancelled drag leaves the shelf alone, so a stray
-/// drag can't lose anything. The files themselves are copied by whatever received them;
-/// GlassBar never moves or deletes them.
+/// When the drop actually happens, `shelf:dropped` goes back to the bar with the instance and
+/// the paths, and that widget takes them off its shelf -- a cancelled drag leaves the shelf
+/// alone, so a stray drag can't lose anything. The files themselves are copied by whatever
+/// received them; GlassBar never moves or deletes them.
 #[tauri::command]
-pub fn shelf_drag(app: AppHandle, window: WebviewWindow, paths: Vec<String>) -> Result<(), String> {
+pub fn shelf_drag(app: AppHandle, window: WebviewWindow, instance: String, paths: Vec<String>) -> Result<(), String> {
+    // A path that has since been moved or deleted gives Windows nothing to carry, and
+    // `start_drag` would fail silently. Same guard the Downloads widget's drag uses.
+    if let Some(gone) = paths.iter().find(|p| !std::path::Path::new(p).exists()) {
+        return Err(format!("{gone} isn't there any more"));
+    }
     let Some(first) = paths.first().cloned() else { return Err("nothing to drag".into()) };
     let items: Vec<PathBuf> = paths.iter().map(PathBuf::from).collect();
     let back = app.clone();
@@ -46,7 +51,9 @@ pub fn shelf_drag(app: AppHandle, window: WebviewWindow, paths: Vec<String>) -> 
             drag_image(&first),
             move |result, _| {
                 if matches!(result, drag::DragResult::Dropped) {
-                    let _ = back.emit_to("bar", "shelf:dropped", &sent);
+                    // Named: without the instance, a second Shelf widget would take the same
+                    // file off its own list too.
+                    let _ = back.emit_to("bar", "shelf:dropped", serde_json::json!({ "instance": instance, "paths": sent }));
                 }
             },
             Default::default(),

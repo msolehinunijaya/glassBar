@@ -32,9 +32,20 @@
     } catch { /* cancelled */ }
   };
 
+  // preventDefault cancels the HTML5 drag so Windows can run its own, but the pointer sequence
+  // still ends as a click here -- which would open the file you were dragging out. The
+  // timestamp makes that deterministic instead of a race with DoDragDrop's modal loop.
+  let dragAt = 0;
   function startDrag(e: DragEvent, path: string) {
-    e.preventDefault(); // hand the drag to Windows so the file can land in other apps
-    ipc.shelfDrag([path]);
+    e.preventDefault();
+    if (gone[path]) return;
+    dragAt = Date.now();
+    ipc.shelfDrag(instance, [path]).catch(() => {});
+  }
+  function open(path: string) {
+    if (Date.now() - dragAt < 600) return; // that click was the end of a drag
+    if (gone[path]) return;
+    ipc.downloadsOpen(path).catch(() => {});
   }
 </script>
 
@@ -48,8 +59,9 @@
   <ul class="list">
     {#each files as f (f)}
       <li class="row" class:gone={gone[f]}>
-        <button type="button" class="grab" draggable="true" ondragstart={(e) => startDrag(e, f)} onclick={() => ipc.downloadsOpen(f)}
-                title="Click to open · drag out to take it off the shelf">
+        <button type="button" class="grab" draggable={!gone[f]} disabled={gone[f]}
+                ondragstart={(e) => startDrag(e, f)} onclick={() => open(f)}
+                title={gone[f] ? 'This file is no longer there' : 'Click to open · drag out to take it off the shelf'}>
           <FileIcon path={f} size={28} />
           <span class="meta">
             <span class="nm ellipsis">{nameOf(f)}</span>
@@ -57,7 +69,7 @@
           </span>
         </button>
         <span class="acts">
-          <button class="icon-btn" onclick={() => ipc.downloadsReveal(f)} aria-label="Show in folder" title="Show in folder"><FolderOpen size={15} /></button>
+          <button class="icon-btn" disabled={gone[f]} onclick={() => ipc.downloadsReveal(f).catch(() => {})} aria-label="Show in folder" title="Show in folder"><FolderOpen size={15} /></button>
           <button class="icon-btn" onclick={() => save(remove(files, f))} aria-label="Take off the shelf" title="Take off the shelf"><X size={15} /></button>
         </span>
       </li>

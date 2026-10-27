@@ -108,7 +108,7 @@
   {/if}
 
   {#if lyricsOn}
-    <LyricLine text={lyricText} progress={lyricProg} side={lyr.side} opts={lyr} />
+    <LyricLine text={lyricText} idx={lyricIdx} progress={lyricProg} side={lyr.side} opts={lyr} />
   {/if}
 
   {#if p.progress && hasDur}

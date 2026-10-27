@@ -42,6 +42,18 @@ export function level(t: Tickle, now: number): number {
   return Math.min(1, recent / FULL);
 }
 
+/**
+ * When the level will next drop, or null once it has faded to nothing.
+ *
+ * The level falls as flips age out of the window, which is a clock nothing else watches.
+ * Anything showing the level has to re-read it on this, or a tickle latches on: the pointer
+ * leaves, nothing re-reads, and the face stays giggling for good.
+ */
+export function nextChangeAt(t: Tickle, now: number): number | null {
+  const live = t.flips.filter((f) => now - f <= WINDOW_MS);
+  return live.length ? Math.min(...live) + WINDOW_MS : null;
+}
+
 /** Pointer left the pill: forget where it was and which way it was going, so coming back
  *  somewhere else isn't a reversal. The flips already earned keep fading on their own. */
 export const reset = (t: Tickle): Tickle => ({ ...t, dir: 0, lastX: null });

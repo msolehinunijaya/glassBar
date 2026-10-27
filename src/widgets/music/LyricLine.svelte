@@ -15,7 +15,7 @@
   import { fade, fly, type TransitionConfig } from 'svelte/transition';
   import type { LyricsSettings } from './settings';
 
-  let { text, progress, side, opts }: { text: string; progress: number; side: 'left' | 'right'; opts: LyricsSettings } = $props();
+  let { text, idx, progress, side, opts }: { text: string; idx: number; progress: number; side: 'left' | 'right'; opts: LyricsSettings } = $props();
 
   /** Reveals the line left to right without laying anything out per character. */
   const typewriter = (_: Element, { duration = 300 }: { duration?: number } = {}): TransitionConfig => ({
@@ -39,7 +39,10 @@
 <span class="lyr" class:left={side === 'left'}
       style:--lyr-w="{opts.maxWidth}px" style:--lyr-size="{opts.size}px" style:--lyr-weight={opts.weight}
       style:--lyr-style={opts.italic ? 'italic' : 'normal'} style:--lyr-case={opts.caps ? 'uppercase' : 'none'}>
-  {#key text}
+  <!-- Keyed on the line's position, not its words. A chorus line printed twice in a row, or
+       "Oh" then "Oh", kept the same element: the arrival never played, and the karaoke wipe
+       un-filled right to left for a whole second as --k dropped back to zero. -->
+  {#key idx}
     {#if text}
       <span class="line" in:arrive={{ anim: opts.anim, side }} out:fade={{ duration: opts.anim === 'none' ? 0 : 160 }}>
         <span class="base">{text}</span>

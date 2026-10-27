@@ -50,9 +50,10 @@
   });
 
   // A drag-out that really landed somewhere takes the file off the shelf. A cancelled drag
-  // reports nothing, so a stray drag can't lose anything.
+  // reports nothing, so a stray drag can't lose anything. The instance check matters with two
+  // Shelf widgets: otherwise both would drop the file one of them handed over.
   $effect(() => {
-    const off = events.shelfDropped((paths) => save(removeAll(files, paths)));
+    const off = events.shelfDropped((d) => { if (d.instance === instance) save(removeAll(files, d.paths)); });
     return () => { off.then((f) => f()).catch(() => {}); };
   });
 
@@ -63,18 +64,33 @@
     } catch { /* cancelled */ }
   };
 
+  // preventDefault cancels the HTML5 drag so Windows can run its own, but the pointer
+  // sequence then still ends as a click on this element -- which would open the file you were
+  // trying to drag out. The timestamp makes that deterministic instead of a race with
+  // DoDragDrop's modal loop.
+  let dragAt = 0;
   function startDrag(e: DragEvent, path: string) {
-    e.preventDefault(); // hand the drag to Windows so the file can land in other apps
-    ipc.shelfDrag([path]);
+    if (missing[path]) { e.preventDefault(); return; }
+    e.preventDefault();
+    dragAt = Date.now();
+    ipc.shelfDrag(instance, [path]).catch(() => {});
+  }
+  function open(e: Event, path: string) {
+    e.stopPropagation();
+    if (Date.now() - dragAt < 600) return; // that click was the end of a drag
+    if (missing[path]) return;
+    ipc.downloadsOpen(path).catch(() => {});
   }
 
   const context = (e: MouseEvent, path: string) => {
     e.preventDefault();
     e.stopPropagation();
+    // Everything but "take it off" needs the file to still be there.
+    const here = !missing[path];
     showMenu([
-      { text: 'Open', action: () => ipc.downloadsOpen(path) },
-      { text: 'Show in folder', action: () => ipc.downloadsReveal(path) },
-      { text: 'Open with…', action: () => ipc.downloadsOpenWith(path) },
+      { text: 'Open', enabled: here, action: () => ipc.downloadsOpen(path).catch(() => {}) },
+      { text: 'Show in folder', enabled: here, action: () => ipc.downloadsReveal(path).catch(() => {}) },
+      { text: 'Open with…', enabled: here, action: () => ipc.downloadsOpenWith(path).catch(() => {}) },
       '-',
       { text: 'Take off the shelf', action: () => save(remove(files, path)) },
       { text: 'Empty the shelf', action: () => save([]), enabled: files.length > 1 },
@@ -83,15 +99,17 @@
 
   const stop = (e: Event) => e.stopPropagation();
   const down = (e: PointerEvent) => e.stopPropagation(); // buttons must not start a widget drag
+  const addFile = (e: Event) => { stop(e); pick(); };
 </script>
 
 {#if vertical}
   <div class="side-stack" bind:this={box} class:over>
     {#each files as f (f)}
       <div class="side shelf-side" class:gone={missing[f]} title={nameOf(f)}>
-        <button type="button" class="grab" draggable="true" aria-label="Open {nameOf(f)}"
+        <button type="button" class="grab" draggable={!missing[f]} disabled={missing[f]}
+                aria-label={missing[f] ? `${nameOf(f)} is no longer there` : `Open ${nameOf(f)}`}
                 ondragstart={(e) => startDrag(e, f)} onpointerdown={down}
-                onclick={(e) => { stop(e); ipc.downloadsOpen(f); }} oncontextmenu={(e) => context(e, f)}>
+                onclick={(e) => open(e, f)} oncontextmenu={(e) => context(e, f)}>
           <FileIcon path={f} size={20} />
         </button>
       </div>
@@ -103,10 +121,13 @@
 {:else}
   <div class="pill shelf" bind:this={box} class:over title={files.length ? `${files.length} of ${MAX} on the shelf` : 'Drag files here to park them'}>
     {#each files as f (f)}
-      <button type="button" class="item" class:gone={missing[f]} draggable="true"
-              title={missing[f] ? `${nameOf(f)} — moved or deleted` : nameOf(f)} aria-label="Open {nameOf(f)}"
+      <!-- A file that has been moved or deleted stays visible but does nothing when clicked or
+           dragged, rather than failing silently (DESIGN_RULES section 7: dim it, don't hide it). -->
+      <button type="button" class="item" class:gone={missing[f]} draggable={!missing[f]} disabled={missing[f]}
+              title={missing[f] ? `${nameOf(f)} — moved or deleted. Right-click to take it off the shelf.` : nameOf(f)}
+              aria-label={missing[f] ? `${nameOf(f)} is no longer there` : `Open ${nameOf(f)}`}
               ondragstart={(e) => startDrag(e, f)} onpointerdown={down}
-              onclick={(e) => { stop(e); ipc.downloadsOpen(f); }} oncontextmenu={(e) => context(e, f)}>
+              onclick={(e) => open(e, f)} oncontextmenu={(e) => context(e, f)}>
         <FileIcon path={f} size={18} />
         {#if settings.showNames}<span class="nm ellipsis">{nameOf(f)}</span>{:else if extOf(f)}<span class="ext">{extOf(f)}</span>{/if}
       </button>
@@ -118,7 +139,7 @@
     {/if}
 
     {#if files.length < MAX}
-      <button class="addbtn" onpointerdown={down} onclick={(e) => { stop(e); pick(); }} aria-label="Add a file to the shelf" title="Add a file"><Plus size={13} /></button>
+      <button class="addbtn" onpointerdown={down} onclick={addFile} aria-label="Add a file to the shelf" title="Add a file"><Plus size={13} /></button>
     {/if}
   </div>
 {/if}

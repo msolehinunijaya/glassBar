@@ -54,6 +54,9 @@
   let flashTimers: ReturnType<typeof setTimeout>[] = [];
 
   function showFlash(f: ChargerFlip) {
+    // The setting is checked here, not in Rust: the charger flip also drives the Companion's
+    // face, so gating the event itself would switch that off too.
+    if (store.config?.chargerFlash === false) return;
     // Mid-drag it would sit under the floating copy and look broken; the dock is busy anyway.
     if (dragId) return;
     flashTimers.forEach(clearTimeout);
@@ -561,9 +564,12 @@
   .flash-label { font-size: 11px; color: var(--fg-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .bar[data-size='compact'] .flash-body strong { font-size: 16px; }
   .bar[data-size='compact'] .flash-label { font-size: 10px; }
-  /* A side dock is 56-96 px wide: icon and number only, no label to cut off. */
+  /* A side dock is 56-96 px wide: icon and number only, no label to cut off. The number also
+     has to shrink, or "100%" is clipped in a slim column (DESIGN_RULES section 8). */
   .vertical .flash-body { flex-direction: column; gap: 2px; padding: 0 4px; }
   .vertical .flash-label { display: none; }
+  .bar.vertical .flash-body strong { font-size: 16px; }
+  .bar.vertical[data-side='slim'] .flash-body strong { font-size: 13px; }
 
   .badge {
     position: absolute;

@@ -14,9 +14,9 @@
   import Face from './Face.svelte';
   import { canBlink, moodFor, type Mood } from './mood';
   import { IDLE_MS, REACT_MS, triggersOf, type CompanionSettings } from './settings';
-  import { NO_TICKLE, level, onMove, reset, type Tickle } from './tickle';
+  import { NO_TICKLE, level, nextChangeAt, onMove, reset, type Tickle } from './tickle';
 
-  let { settings: s }: PillProps<CompanionSettings> = $props();
+  let { settings: s, vertical }: PillProps<CompanionSettings> = $props();
 
   const on = $derived(triggersOf(s));
   const bat = live<Battery | null>('battery', ipc.batteryGet, null);
@@ -109,31 +109,45 @@
     if (on.idle) idleTimer = setTimeout(() => (asleep = true), IDLE_MS);
   }
   $effect(() => { wake(); return () => clearTimeout(idleTimer); });
+  // Reads nothing, so this runs once and its cleanup is unmount: the reaction and fade timers
+  // would otherwise fire against a widget the user had just taken off the dock.
+  $effect(() => () => { clearTimeout(reactTimer); clearTimeout(fade); });
 
   // Tickling: direction changes, not movement, so walking the pointer across is not a tickle.
-  // The level fades on its own, so this needs a nudge to re-read it, not a running clock.
+  //
+  // The level fades as the flips age out of their window, which is a clock nothing else
+  // watches: without re-arming until it reaches zero, a tickle followed by the pointer leaving
+  // (or just holding still) left the face stuck giggling for good, hiding every other mood.
   let fade: ReturnType<typeof setTimeout>;
+  function scheduleFade() {
+    clearTimeout(fade);
+    const now = performance.now();
+    const at = nextChangeAt(tickle, now);
+    if (at === null) return;
+    fade = setTimeout(() => { tickled = level(tickle, performance.now()); scheduleFade(); }, Math.max(60, at - now + 20));
+  }
   function move(e: PointerEvent) {
     if (!on.tickle) return;
     const now = performance.now();
     tickle = onMove(tickle, e.clientX, now);
     tickled = level(tickle, now);
     wake();
-    clearTimeout(fade);
-    if (tickled > 0) fade = setTimeout(() => { tickled = level(tickle, performance.now()); }, 300);
+    scheduleFade();
   }
   function leave() {
     tickle = reset(tickle);
-    clearTimeout(fade);
-    fade = setTimeout(() => { tickled = level(tickle, performance.now()); }, 300);
+    scheduleFade();
   }
 
   const label = $derived(`Companion: ${mood}`);
 </script>
 
 <!-- A button, not a decorated div: you really do poke it, and this way a keyboard gets the
-     wink too. The click still reaches the dock slot, so it opens the panel as any widget does. -->
-<button type="button" class="pill comp" data-back={s.backdrop} class:plain={s.backdrop === 'none'}
+     wink too. The click still reaches the dock slot, so it opens the panel as any widget does.
+     On a left/right dock it becomes a side tile, because a 56-96 px column has no room for a
+     horizontal pill; the face letterboxes into whatever width is left. -->
+<button type="button" class="comp" class:pill={!vertical} class:side={vertical} class:vert={vertical}
+        data-back={s.backdrop} class:plain={s.backdrop === 'none'}
         style:--comp-c={s.backdrop === 'solid' ? s.color : 'var(--accent)'}
         onpointermove={move} onpointerleave={leave} onclick={() => react('click')}
         aria-label={label} title={label}>
@@ -142,6 +156,7 @@
 
 <style>
   .comp { padding: 0 8px; cursor: default; }
+  .comp.vert { padding: 6px 4px; }
   .comp:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   /* No pill at all: the creature sits straight on the dock. */
   .comp.plain { background: none; border-color: transparent; box-shadow: none; }

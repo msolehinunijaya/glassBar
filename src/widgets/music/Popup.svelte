@@ -18,7 +18,11 @@
   const saveCustom = (p: Record<string, unknown>) => updateWidgetSettings(instance, { custom: { ...custom, ...p } });
   const lyr = $derived({ ...LYRICS_DEFAULTS, ...(settings.lyrics ?? {}) });
   const saveLyr = (p: Record<string, unknown>) => updateWidgetSettings(instance, { lyrics: { ...lyr, ...p } });
-  const openLyricsFolder = async () => { try { ipc.downloadsOpen(await ipc.lyricsFolder()); } catch { /* nothing to open */ } };
+  // Both awaited: without the second one, a failure to open the folder was an unhandled
+  // rejection and the button just did nothing.
+  const openLyricsFolder = async () => {
+    try { await ipc.downloadsOpen(await ipc.lyricsFolder()); } catch { /* nothing to open */ }
+  };
   const media = liveMedia();
   let now = $state(Date.now());
   $effect(() => { const t = setInterval(() => (now = Date.now()), 500); return () => clearInterval(t); });

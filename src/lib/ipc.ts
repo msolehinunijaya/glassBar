@@ -194,7 +194,7 @@ export const ipc = {
   fileIcon: (path: string) => invoke<string | null>('file_icon', { path }),
   /** Hand a drag to Windows so shelved files can land in another app. `shelf:dropped` comes
    *  back with the paths once a drop really happens; a cancelled drag reports nothing. */
-  shelfDrag: (paths: string[]) => invoke<void>('shelf_drag', { paths }),
+  shelfDrag: (instance: string, paths: string[]) => invoke<void>('shelf_drag', { instance, paths }),
   /** Add files with a picker instead of a drag. Empty = cancelled. */
   shelfPick: () => invoke<string[]>('shelf_pick'),
   recycleInfo: () => invoke<RecycleInfo>('recycle_info'),
@@ -335,7 +335,8 @@ export const events = {
   sysmonSample: (cb: (s: Sample) => void) => listen<Sample>('sysmon:sample', (e) => cb(e.payload)),
   soundPlay: (cb: (s: Sound) => void) => listen<Sound>('sound:play', (e) => cb(e.payload)),
   chargerFlip: (cb: (f: ChargerFlip) => void) => listen<ChargerFlip>('charger:flip', (e) => cb(e.payload)),
-  shelfDropped: (cb: (paths: string[]) => void) => listen<string[]>('shelf:dropped', (e) => cb(e.payload)),
+  shelfDropped: (cb: (d: { instance: string; paths: string[] }) => void) =>
+    listen<{ instance: string; paths: string[] }>('shelf:dropped', (e) => cb(e.payload)),
   /** Any "<name>:changed" event from Rust (todos, notes, timers, ...). */
   changed: (name: string, cb: () => void) => listen(`${name}:changed`, () => cb()),
 };
