@@ -5,7 +5,8 @@
   // - `fromEmpty`: on first show it fills up from the bottom (the panel opening).
   // - `live`: the surface keeps moving gently (the open panel only; on the dock an endless
   //   animation would cost CPU all day).
-  // - `fixed`: fill the whole window (the panel), not just the parent.
+  // - `fixed`: fill the whole panel window edge to edge, past the panel's padding (--pad,
+  //   set by app/Popup.svelte); the panel's content box is the frame it is measured from.
   import { onMount, untrack } from 'svelte';
 
   let { fill, color = '#40c8e0', fromEmpty = false, live = false, fixed = false }: { fill: number; color?: string; fromEmpty?: boolean; live?: boolean; fixed?: boolean } = $props();
@@ -43,7 +44,7 @@
 
 <style>
   .tank { position: absolute; inset: 0; z-index: 0; overflow: hidden; border-radius: inherit; pointer-events: none; }
-  .tank.fixed { position: fixed; border-radius: var(--r-window, 16px); }
+  .tank.fixed { inset: calc(-1 * var(--pad, 14px)); border-radius: var(--r-window, 16px); }
   .water {
     position: absolute; left: 0; right: 0; bottom: 0;
     background: linear-gradient(180deg, color-mix(in srgb, var(--c) 34%, transparent), color-mix(in srgb, var(--c) 52%, transparent));

@@ -1,6 +1,6 @@
 <script lang="ts">
-  import BatteryFill from './BatteryFill.svelte';
-  import { Gauge, Leaf, Rocket, Settings2 } from '@lucide/svelte';
+  import Tank from '../../lib/Tank.svelte';
+  import { Gauge, Leaf, Rocket, Settings2, Zap } from '@lucide/svelte';
   import { ipc, type Battery, type PowerInfo, type PowerMode } from '../../lib/ipc';
   import { live } from '../../lib/live.svelte';
   import { duration } from '../../lib/time';
@@ -35,10 +35,12 @@
   }
 </script>
 
+<!-- Fill design: the whole panel fills to the charge level, like the battery on the dock. -->
+{#if style === 'fill' && bat.v}<Tank fill={Math.max(0, Math.min(100, bat.v.percent)) / 100} color={bat.v.percent > 50 ? '#30d158' : bat.v.percent >= 20 ? '#ffb340' : '#ff453a'} fromEmpty live fixed />{/if}
 <div class="bhead"><h4 class="dim">Battery</h4></div>
 {#if bat.v}
   <div class="big">
-    {#if style === 'liquid'}<LiquidBattery b={bat.v} height={40} />{:else if style === 'fill'}<span class="fillbox"><BatteryFill b={bat.v} big /></span>{:else}<BatteryIcon b={bat.v} size={30} />{/if}
+    {#if style === 'liquid'}<LiquidBattery b={bat.v} height={40} />{:else if style === 'fill'}{#if bat.v.onAc}<span class="bolt"><Zap size={26} fill="currentColor" strokeWidth={1.5} /></span>{/if}{:else}<BatteryIcon b={bat.v} size={30} />{/if}
     <span>{bat.v.percent}%</span>
   </div>
   <p class="dim status">
@@ -86,8 +88,7 @@
   .big { display: flex; align-items: center; gap: 12px; font-size: 26px; font-weight: 600; }
   .status { margin: 4px 0 0; }
   .style { margin-top: 10px; }
-  .fillbox { position: relative; display: grid; place-items: center; width: 120px; height: 44px; border-radius: var(--r-inner); overflow: hidden;
-             background: var(--bg-2, var(--pill)); border: 1px solid var(--line-soft); }
+  .bolt { display: inline-flex; color: #ffd60a; filter: drop-shadow(0 0 3px rgba(0, 0, 0, 0.35)); }
   .seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; padding: 3px; border-radius: calc(12px * var(--rs)); background: var(--pill); }
   .seg button { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 2px; border-radius: calc(9px * var(--rs)); font-size: 11px; }
   .seg .sel { background: var(--accent); color: var(--on-accent); }

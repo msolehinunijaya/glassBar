@@ -138,7 +138,9 @@
 </div>
 
 <style>
-  .popup { padding: 14px; overflow: auto; }
+  /* --pad: how far a panel's full-background (the water, the battery Fill) reaches past its
+     content to the window's edges (lib/Tank.svelte). */
+  .popup { --pad: 14px; padding: var(--pad); overflow: auto; }
   /* flow-root: a last child's bottom margin stays inside, so the measured height is exact */
   .content { display: flow-root; }
   /* Opening: 180 ms ease-out, 0.96 → 1 and a fade, from the dock side (content mounts on every show). */
@@ -148,7 +150,9 @@
   :global(:root[data-preset='liquid']) .content { animation: liquid-grow 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
   @keyframes liquid-grow { from { opacity: 0; transform: scale(0.94); filter: blur(4px); } }
   @media (prefers-reduced-motion: reduce) { .content { animation: none; } }
-  .popup.hover { padding: 8px; }
+  .popup.hover { --pad: 8px; }
   /* A section shown as its own panel: no gap above its heading. */
   .solo :global(.bhead) { margin-top: 0; }
+  /* Content above a full-background fill (battery Fill design). */
+  .solo > :global(:not(.tank)) { position: relative; z-index: 1; }
 </style>
