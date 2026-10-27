@@ -42,3 +42,10 @@ export function moveApp(f: Folder, key: string, to: number): Folder {
 /** Replace folder `id` in the list. */
 export const replace = (list: Folder[], f: Folder) => list.map((x) => (x.id === f.id ? f : x));
 export const newFolder = (): Folder => ({ id: `f${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`, name: '', apps: [] });
+
+/** An app dragged from the App Launcher and released on a folder tile: the launcher sends
+ *  this DOM event to the tile (`data-folder-drop`); the folder adds the app. Both widgets live
+ *  in the dock's own page, so a plain event is all it takes. */
+export const ADD_APP = 'glassbar:add-app';
+/** Set on <html> while an App Launcher icon is being dragged, so folders can light up. */
+export const APP_DRAG = 'appDrag';

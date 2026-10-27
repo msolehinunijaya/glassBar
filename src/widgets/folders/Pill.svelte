@@ -12,7 +12,8 @@
   import { hits } from '../shelf/shelf';
   import type { PillProps } from '../types';
   import type { FoldersSettings } from './index';
-  import { addApps, folderKey, isApp, newFolder, pinName, replace, type Folder } from './folders';
+  import { ADD_APP, addApps, folderKey, isApp, newFolder, pinName, replace, type Folder } from './folders';
+  import type { Pin } from '../apps/index';
   import { iconOf, liveWindows } from './appIcons.svelte';
 
   let { instance, settings, vertical }: PillProps<FoldersSettings> = $props();
@@ -48,6 +49,28 @@
     ]);
   }
 
+  // An icon dragged from the App Launcher and released on a folder (see ADD_APP).
+  let wrap = $state<HTMLElement>();
+  let landed = $state<string | null>(null);
+  let landedTimer: ReturnType<typeof setTimeout>;
+  function put(f: Folder, apps: Pin[]) {
+    save(replace(folders, addApps(f, apps)));
+    landed = f.id; // a little pop, so you see where it went
+    clearTimeout(landedTimer);
+    landedTimer = setTimeout(() => (landed = null), 500);
+  }
+  $effect(() => {
+    const node = wrap;
+    if (!node) return;
+    const onAdd = (e: Event) => {
+      const id = (e.target as HTMLElement).closest<HTMLElement>('[data-folder-drop]')?.dataset.folderDrop;
+      const f = folders.find((x) => x.id === id);
+      if (f) put(f, [(e as CustomEvent<Pin>).detail]);
+    };
+    node.addEventListener(ADD_APP, onAdd);
+    return () => { node.removeEventListener(ADD_APP, onAdd); clearTimeout(landedTimer); };
+  });
+
   // Programs or shortcuts dragged in from Explorer: into the folder under the pointer.
   let over = $state<string | null>(null);
   $effect(() => {
@@ -58,18 +81,18 @@
       if (d.type === 'enter' || d.type === 'over') { over = at?.id ?? null; return; }
       over = null;
       const apps = d.paths.filter(isApp).map((path) => ({ path }));
-      if (at && apps.length) save(replace(folders, addApps(at, apps)));
+      if (at && apps.length) put(at, apps);
     });
     return () => { off.then((f) => f()).catch(() => {}); };
   });
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class={vertical ? 'side-stack' : 'pill folders'} oncontextmenu={(e) => menu(e)}>
+<div class={vertical ? 'side-stack' : 'pill folders'} bind:this={wrap} oncontextmenu={(e) => menu(e)}>
   {#each folders as f (f.id)}
     {@const first = f.apps.slice(0, 4)}
-    <button class="folder" class:side={vertical} class:over={over === f.id} bind:this={tiles[f.id]}
-            title={`${f.name || 'Folder'} · ${f.apps.length ? f.apps.map(pinName).join(', ') : 'empty — click to add apps'}`}
+    <button class="folder" class:side={vertical} class:over={over === f.id} class:landed={landed === f.id} bind:this={tiles[f.id]} data-folder-drop={f.id}
+            title={`${f.name || 'Folder'} · ${f.apps.length ? f.apps.map(pinName).join(', ') : 'empty — click to add apps, or drag one here'}`}
             onclick={(e) => open(e, f)} oncontextmenu={(e) => menu(e, f)}
             onpointerenter={(e) => enter(e, f)} onpointerleave={hp.leave}>
       <span class="grid" class:empty={!first.length}>
@@ -105,6 +128,13 @@
   .folder.side { justify-content: center; padding: 6px 0; }
   /* A file dragged over this folder from Explorer. */
   .folder.over { box-shadow: inset 0 0 0 2px var(--accent); transform: scale(1.06); }
+  /* An App Launcher icon is being dragged: every folder shows it can take it; the one under
+     the pointer grows. */
+  :global(html[data-app-drag]) .folder { box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--accent) 55%, transparent); }
+  :global(html[data-app-drag]) .folder:hover { box-shadow: inset 0 0 0 2px var(--accent); transform: scale(1.1); background: var(--pill-hover); }
+  .folder.landed .grid { animation: landed 0.45s var(--spring, ease); }
+  @keyframes landed { 40% { transform: scale(1.18); } }
+  @media (prefers-reduced-motion: reduce) { .folder.landed .grid { animation: none; } }
   /* The 2 x 2 preview, on a soft rounded square like a phone folder. */
   .grid {
     display: grid; grid-template-columns: repeat(2, 12px); grid-auto-rows: 12px; gap: 2px; padding: 3px;

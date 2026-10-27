@@ -10,12 +10,17 @@
   import { showMenu } from '../../lib/menu';
   import { nextWindow } from '../apps/groups';
   import type { Pin } from '../apps/index';
-  import type { FoldersSettings } from './index';
+  import manifest, { type FoldersSettings } from './index';
+  import { settingsOf } from '../types';
   import { addApps, isApp, moveApp, pinKey, pinName, removeApp, replace, type Folder } from './folders';
   import { iconOf, liveWindows } from './appIcons.svelte';
+  import AppPicker from './AppPicker.svelte';
 
   let { instance, id, close }: { instance: string; id: string; close: () => void } = $props();
-  const settings = $derived(profile().widgets.find((w) => w.instance === instance)?.settings as FoldersSettings | undefined);
+  // With the widget's defaults merged in, like every other widget: a new Folders widget has
+  // saved nothing yet, and reading the raw settings made its first folder look deleted.
+  const inst = $derived(profile().widgets.find((w) => w.instance === instance));
+  const settings = $derived(inst ? settingsOf<FoldersSettings>(manifest, inst) : undefined);
   const folder = $derived(settings?.folders?.find((f) => f.id === id));
   const save = (f: Folder) => settings && updateWidgetSettings(instance, { folders: replace(settings.folders, f) });
   const wins = liveWindows();
@@ -27,10 +32,10 @@
     if (w) ipc.appActivate(w.id); else ipc.appLaunch(p.path, p.args ?? '', p.aumid ?? null).catch(() => {});
     close();
   }
-  async function add() {
-    const t = await ipc.appBrowse().catch(() => null);
-    if (t && folder) save(addApps(folder, [{ path: t.path, args: t.args || undefined }]));
-  }
+  // Add app: the installed apps, searchable, inside the panel (a file dialog would take
+  // focus and close a click-opened panel).
+  let picking = $state(false);
+  const addOne = (p: Pin) => { if (folder) save(addApps(folder, [p])); };
   function menu(e: MouseEvent, p: Pin, i: number) {
     e.preventDefault();
     if (!folder) return;
@@ -109,6 +114,9 @@
     <input class="name" value={folder.name} placeholder="Folder name (optional)" maxlength="32" aria-label="Folder name"
            onchange={(e) => save({ ...folder, name: e.currentTarget.value.trim() })}
            onkeydown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }} />
+    {#if picking}
+      <AppPicker have={folder.apps} add={addOne} done={() => (picking = false)} />
+    {:else}
     <div class="grid" bind:this={grid}>
       {#each shown as p, i (pinKey(p))}
         {@const src = iconOf(p)}
@@ -121,9 +129,10 @@
           {#if on}<span class="run"></span>{/if}
         </button>
       {/each}
-      <button class="app add" onclick={add} title="Add a program or shortcut"><span class="plus"><Plus size={18} /></span><span class="nm">Add app</span></button>
+      <button class="app add" onclick={() => (picking = true)} title="Add apps to this folder"><span class="plus"><Plus size={18} /></span><span class="nm">Add app</span></button>
     </div>
     <p class="hint dim">{outside ? 'Release to take it out of the folder' : folder.apps.length ? 'Drag to reorder · drag out to remove · drop programs here to add' : 'Drop programs or shortcuts here, or use Add app'}</p>
+    {/if}
   </div>
 {:else}
   <p class="dim hint">This folder was deleted.</p>
