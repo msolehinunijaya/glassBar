@@ -1,5 +1,6 @@
-import { expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { mix, palette, resample, rgb, SRC_BANDS, step } from './eq';
+import { shrunkAt } from './settings';
 
 const ramp = Array.from({ length: SRC_BANDS }, (_, i) => i / (SRC_BANDS - 1));
 
@@ -71,4 +72,16 @@ it('presets: built-ins are valid looks and reset what they do not set', async ()
   expect(patch.glow).toBe(EQ_DEFAULTS.glow);
   expect('length' in patch || 'myPresets' in patch || 'fps' in patch).toBe(false); // size and power stay yours
   expect('myPresets' in pickLook({ ...EQ_DEFAULTS, myPresets: [{ name: 'a', values: {} }] })).toBe(false);
+});
+
+describe('shrinking when silent', () => {
+  it('waits out short silences, like the gap between songs', () => {
+    expect(shrunkAt(1000, 2500)).toBe(false);
+  });
+  it('shrinks after two seconds of silence', () => {
+    expect(shrunkAt(1000, 3000)).toBe(true);
+  });
+  it('grows back as soon as there is sound', () => {
+    expect(shrunkAt(null, 99999)).toBe(false);
+  });
 });

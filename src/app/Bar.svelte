@@ -2,10 +2,14 @@
   import { availableMonitors, getCurrentWindow, primaryMonitor } from '@tauri-apps/api/window';
   import { flip } from 'svelte/animate';
   import { onMount } from 'svelte';
-  import { Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Maximize2, Plus, X } from '@lucide/svelte';
+  import { adhan, setAdhanPlaying, stopAdhan } from '../lib/adhan.svelte';
+  import { Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Coffee, Droplet, Maximize2, MoonStar, Pause, Play, Plus, SkipForward, Square, Target, Timer as TimerIcon, PlugZap, Sun, Unplug, Volume2, VolumeX, X } from '@lucide/svelte';
   import { profile, store, update } from '../lib/config.svelte';
   import { events, ipc, type WidgetInst, type WidgetSize } from '../lib/ipc';
-  import { hiddenCounts, insertIndex, snap } from '../lib/geometry';
+  import { FLASH } from './chargeFlash';
+  import { ALERT_DEFAULTS, arrive, holdMs, viewOf, type AlertKind, type DockAlert } from './dockAlert';
+  import { fmtWater } from '../widgets/water/units';
+  import { hiddenCounts, insertIndex, revealBy, snap } from '../lib/geometry';
   import { GALLERY, openPopup } from '../lib/popup';
   import { chargerTone, chime, deviceTone, playAdzan, shutter, tick } from '../lib/sound';
   // Bundled adzan: "Beautiful adhan" by Adam-synagda, Wikimedia Commons, CC0.
@@ -41,6 +45,87 @@
   const setBar = (f: (b: typeof bar) => void) => update((c) => f(c.profiles[c.activeProfile].bar));
   function onEnter() { if (autoHide) ipc.barReveal(true); }
   $effect(() => { if (autoHide && edit) ipc.barReveal(true); });
+
+  // ---- Dock alerts ----
+  // For a moment the whole dock says one thing: the charger moved, the volume or brightness
+  // changed from outside GlassBar, prayer time (rules and wording in dockAlert.ts). Rust
+  // decides whether an event fires at all; here we only gate on the settings and time it.
+  // Timeouts own the schedule, never a transitionend: with motion off there is nothing to
+  // wait for. The widgets stay mounted and fade, because unmounting them mid-animation makes
+  // the leaving ones float over their neighbours (see the App Launcher's +N row).
+  let alert = $state<DockAlert | null>(null);
+  /** Bumped by a new alert (not an update), so only a new one replays the entrance. */
+  let alertSeq = $state(0);
+  let leaving = $state(false);
+  let alertTimers: ReturnType<typeof setTimeout>[] = [];
+  const alertCfg = $derived({ ...ALERT_DEFAULTS, ...(store.config?.dockAlerts ?? {}) });
+  const view = $derived(alert ? viewOf(alert) : null);
+  // The prayer alert says it for a few seconds (holdMs), with Stop adhan while the adzan
+  // plays; the adzan goes on after it, and the prayer widget and its panel can stop it too.
+
+  // The charger's switch is the older `chargerFlash`; the Companion also rides the charger
+  // event, so the switch is checked here rather than in Rust.
+  const enabled = (k: AlertKind) => (k === 'charger' ? store.config?.chargerFlash !== false : alertCfg[k] !== false);
+  const current = () => (alert && !leaving ? alert.kind : null);
+  function clearAlertTimers() { alertTimers.forEach(clearTimeout); alertTimers = []; }
+  function endAlert() {
+    clearAlertTimers();
+    alert = null;
+    leaving = false;
+    ipc.dockAlertEnd().catch(() => {});
+  }
+  /** Stay readable for `ms`, then leave -- but never from under the pointer: while the mouse
+   *  is on the alert (also one that appeared under a still mouse) it waits, and goes a
+   *  moment after the mouse moves off. */
+  let flashEl = $state<HTMLElement>();
+  function holdFor(ms: number) {
+    clearAlertTimers();
+    alertTimers = [setTimeout(function go() {
+      if (flashEl?.matches(':hover')) { alertTimers = [setTimeout(go, 400)]; return; }
+      leaving = true;
+      alertTimers = [setTimeout(endAlert, FLASH.exit)];
+    }, ms)];
+  }
+  async function showAlert(a: DockAlert) {
+    // Mid-drag it would sit under the floating copy and look broken; the dock is busy anyway.
+    if ((!enabled(a.kind) && !a.test) || dragId || arrive(current(), a.kind) === 'drop') return;
+    const hold = holdMs(a.kind, alertCfg.length);
+    // Rust refuses over a full-screen app, and slides an auto-hidden dock out for the alert.
+    if (!(await ipc.dockAlertBegin(a.kind, FLASH.enter + hold + FLASH.exit).catch(() => true))) return;
+    const how = arrive(current(), a.kind); // again: another alert may have come in meanwhile
+    if (how === 'drop') return;
+    alert = a;
+    leaving = false;
+    if (how === 'show') alertSeq++;
+    holdFor((how === 'show' ? FLASH.enter : 0) + hold);
+  }
+  // Water: "+ cup" logs it, the fill rises to the new total, then the alert goes; "Later"
+  // snoozes reminders for 15 minutes. A Settings test only pretends.
+  async function drink() {
+    if (alert?.kind !== 'water') return;
+    const a = alert;
+    const total = a.test ? a.total + a.cup : (await ipc.waterAdd(a.cup).catch(() => null))?.total;
+    if (total === undefined || alert !== a) return;
+    alert = { ...a, total, reached: total >= a.goal };
+    holdFor(1400);
+  }
+  function later() {
+    if (alert?.kind === 'water' && !alert.test) ipc.waterSnooze(15).catch(() => {});
+    dismissAlert();
+  }
+
+  /** A button on an alert: do it, then the alert has done its job. */
+  function act(f: () => Promise<unknown>) { f().catch(() => {}); dismissAlert(); }
+
+  // Hovering holds it; moving away gives it a short moment more. A click dismisses it.
+  const pauseAlert = () => { if (alert && !leaving) clearAlertTimers(); };
+  const resumeAlert = () => { if (alert && !leaving) holdFor(1200); };
+  function dismissAlert() {
+    if (!alert || leaving) return;
+    clearAlertTimers();
+    leaving = true;
+    alertTimers = [setTimeout(endAlert, FLASH.exit)];
+  }
 
   onMount(() => {
     const offs = [
@@ -79,9 +164,14 @@
           }
         }, 450); // after the scroll settles
       }),
-      events.soundPlay((s) => (s.kind === 'azan' || s.kind === 'adhan' ? playAdzan(s.kind === 'azan' ? s.src : adhanUrl, !!s.short, !!s.pauseMusic, { pause: ipc.mediaPausePlaying, resume: ipc.mediaResume }, s.volume ?? 1) : s.kind === 'connect' || s.kind === 'disconnect' ? deviceTone(s.kind === 'connect', s.volume) : s.kind === 'plug' || s.kind === 'unplug' ? chargerTone(s.kind === 'plug', s.volume) : chime(s.volume))),
+      events.soundPlay((s) => (s.kind === 'azan' || s.kind === 'adhan' ? (setAdhanPlaying(true), playAdzan(s.kind === 'azan' ? s.src : adhanUrl, !!s.short, !!s.pauseMusic, { pause: ipc.mediaPausePlaying, resume: ipc.mediaResume }, s.volume ?? 1, () => setAdhanPlaying(false))) : s.kind === 'connect' || s.kind === 'disconnect' ? deviceTone(s.kind === 'connect', s.volume) : s.kind === 'plug' || s.kind === 'unplug' ? chargerTone(s.kind === 'plug', s.volume) : chime(s.volume))),
+      events.chargerFlip((f) => showAlert({ kind: 'charger', ...f })),
+      events.dockAlert(showAlert),
     ];
-    return () => offs.forEach((p) => p.then((off) => off()));
+    return () => {
+      offs.forEach((p) => p.then((off) => off()));
+      clearAlertTimers();
+    };
   });
 
   // ---- Move: drag the bar background, snap to an edge on release ----
@@ -187,12 +277,56 @@
   $effect(() => {
     shown.length; vertical; // re-measure when widgets or the edge change
     measure();
-    const ro = new ResizeObserver(measure);
+    const ro = new ResizeObserver(() => { measure(); revealSoon(); });
     ro.observe(scroller);
     for (const s of scroller.children) ro.observe(s);
     scroller.addEventListener('scroll', measure, { passive: true });
-    return () => { ro.disconnect(); scroller.removeEventListener('scroll', measure); cancelAnimationFrame(measureRaf); };
+    return () => { ro.disconnect(); scroller.removeEventListener('scroll', measure); cancelAnimationFrame(measureRaf); clearTimeout(revealTimer); };
   });
+
+  // ---- Dragging past the visible part of the dock -- a widget being moved, or an app icon
+  // on its way to a folder: holding it near either end scrolls the dock that way (faster the
+  // closer to the end), and the drop spot keeps up with the scroll, so a widget can go all
+  // the way to either end in one move. ----
+  $effect(() => {
+    let v = 0, raf = 0;
+    let at: { x: number; y: number } | null = null;
+    const dragging = () => !!document.documentElement.dataset.appDrag || dragId !== null;
+    const step = () => {
+      if (!dragging() || !v) { raf = 0; return; }
+      const before = vertical ? scroller.scrollTop : scroller.scrollLeft;
+      if (vertical) scroller.scrollTop += v; else scroller.scrollLeft += v;
+      const moved = (vertical ? scroller.scrollTop : scroller.scrollLeft) !== before;
+      raf = moved ? requestAnimationFrame(step) : 0; // at the very end: stop
+      // The pointer is still, but what's under it moved: let the drag work out its spot again.
+      if (moved && at) dispatchEvent(new PointerEvent('pointermove', { clientX: at.x, clientY: at.y, buttons: 1 }));
+    };
+    const move = (e: PointerEvent) => {
+      at = { x: e.clientX, y: e.clientY };
+      if (!dragging()) { v = 0; return; }
+      const r = scroller.getBoundingClientRect();
+      const [p, a, b] = vertical ? [e.clientY, r.top, r.bottom] : [e.clientX, r.left, r.right];
+      const zone = 56;
+      v = p < a + zone ? -Math.ceil((a + zone - p) / 4) : p > b - zone ? Math.ceil((p - (b - zone)) / 4) : 0;
+      if (v && !raf) raf = requestAnimationFrame(step);
+    };
+    addEventListener('pointermove', move);
+    return () => { removeEventListener('pointermove', move); cancelAnimationFrame(raf); };
+  });
+
+  // ---- A widget that opens up under the pointer (the File Shelf, the launcher's +N, tray
+  // icons) and now runs past the visible part of the dock: scroll so all of it shows, once it
+  // has finished growing. Only the hovered one, so nothing else moves the dock by itself. ----
+  let revealTimer: ReturnType<typeof setTimeout>;
+  function revealSoon() { clearTimeout(revealTimer); revealTimer = setTimeout(revealHovered, 140); }
+  function revealHovered() {
+    if (dragId || edit) return;
+    const slot = scroller.querySelector<HTMLElement>(':scope > .slot:hover');
+    if (!slot) return;
+    // 44 px: clear of the fade and the "› N" chip at the ends.
+    const by = revealBy(slot.getBoundingClientRect(), scroller.getBoundingClientRect(), vertical, 44);
+    if (by) scroller.scrollBy({ [vertical ? 'top' : 'left']: by, behavior: 'smooth' });
+  }
   function page(dir: -1 | 1) {
     const by = (vertical ? scroller.clientHeight : scroller.clientWidth) * 0.8 * dir;
     scroller.scrollBy({ [vertical ? 'top' : 'left']: by, behavior: 'smooth' });
@@ -204,7 +338,9 @@
   function onSlotClick(w: WidgetInst, el: HTMLElement) {
     if (swallowClick) { swallowClick = false; return; } // the click that ended a long-press
     const m = widgets[w.id];
-    if (!edit && m.Popup) openPopup(w.instance, el, m.Popup.width, m.Popup.height);
+    // A widget can ask for a wider panel right now (music with lyrics beside the player).
+    const want = Number(el.querySelector<HTMLElement>('[data-popup-width]')?.dataset.popupWidth) || 0;
+    if (!edit && m.Popup) openPopup(w.instance, el, want || m.Popup.width, m.Popup.height);
   }
 
   async function onContext(e: MouseEvent) {
@@ -222,6 +358,8 @@
       '-',
       { text: 'Task Manager', action: () => ipc.appLaunch('taskmgr.exe') },
       { text: 'Show the desktop', action: () => ipc.showDesktop() },
+      '-',
+      { text: 'Close GlassBar', action: () => ipc.appQuit() },
     ]);
   }
 
@@ -329,7 +467,8 @@
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="surface bar dock" class:vertical class:edit onpointerdown={onBarDown} oncontextmenu={onContext}
+<div class="surface bar dock" class:vertical class:edit class:flashing={!!alert} onpointerdown={onBarDown} oncontextmenu={onContext}
+     oncontextmenucapture={() => ipc.popupHoverHide()}
      onpointerenter={onEnter} data-size={bar.size} data-side={bar.sideWidth ?? 'regular'}>
   <div class="handle start" onpointerdown={(e) => onHandleDown(e, -1)}></div>
 
@@ -373,6 +512,48 @@
     </button>
   {/if}
   </div>
+
+  {#if alert && view}
+    {#key alertSeq}
+    <!-- Hovering holds it, a click dismisses it; buttons inside act without dismissing. -->
+    <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
+    <div class="flash" class:out={leaving} bind:this={flashEl} role="status" aria-live="polite"
+         style:--c={view.tone} style:--p={view.fill ?? 0}
+         style:--f-enter="{FLASH.enter}ms" style:--f-fill="{FLASH.fill}ms" style:--f-exit="{FLASH.exit}ms"
+         onpointerenter={pauseAlert} onpointerleave={resumeAlert} onpointerdown={(e) => e.stopPropagation()} onclick={dismissAlert}>
+      {#if view.fill !== null}<div class="flash-fill"></div>{/if}
+      <div class="flash-body">
+        {#if view.icon === 'plug'}<PlugZap size={16} />{:else if view.icon === 'unplug'}<Unplug size={16} />{:else if view.icon === 'volume'}<Volume2 size={16} />{:else if view.icon === 'mute'}<VolumeX size={16} />{:else if view.icon === 'sun'}<Sun size={16} />{:else if view.icon === 'water'}<Droplet size={16} />{:else if view.icon === 'break'}<Coffee size={16} />{:else if view.icon === 'focus'}<Target size={16} />{:else if view.icon === 'timer'}<TimerIcon size={16} />{:else}<MoonStar size={16} />{/if}
+        <strong>{view.value}</strong>
+        <span class="flash-label">{view.label}</span>
+        {#if alert.kind === 'water' && !alert.reached}
+          <button class="flash-act" onclick={(e) => { e.stopPropagation(); drink(); }} aria-label="Log a drink of {fmtWater(alert.cup, alert.unit)}">
+            <Plus size={11} /><span>{fmtWater(alert.cup, alert.unit)}</span>
+          </button>
+          <button class="flash-act quiet" onclick={(e) => { e.stopPropagation(); later(); }} aria-label="Remind me in 15 minutes"><span>Later</span></button>
+        {/if}
+        {#if alert.kind === 'pomodoro'}
+          {#if alert.auto}
+            <button class="flash-act" onclick={(e) => { e.stopPropagation(); act(() => ipc.pomoPause()); }}><Pause size={11} /><span>Pause</span></button>
+          {:else}
+            <button class="flash-act" onclick={(e) => { e.stopPropagation(); act(() => ipc.pomoStart()); }}><Play size={11} /><span>{alert.done === 'focus' ? 'Start break' : 'Start focus'}</span></button>
+          {/if}
+          <button class="flash-act quiet" onclick={(e) => { e.stopPropagation(); act(() => ipc.pomoSkip()); }}><SkipForward size={11} /><span>Skip</span></button>
+        {/if}
+        {#if alert.kind === 'timer' && alert.id !== null}
+          {@const id = alert.id}
+          <button class="flash-act" onclick={(e) => { e.stopPropagation(); act(() => ipc.timerSnooze(id, 60_000)); }}><Plus size={11} /><span>1 min</span></button>
+          <button class="flash-act quiet" onclick={(e) => { e.stopPropagation(); act(() => ipc.timerSnooze(id, 300_000)); }}><span>+5 min</span></button>
+        {/if}
+        {#if alert.kind === 'prayer' && adhan.playing}
+          <button class="flash-act" onclick={(e) => { e.stopPropagation(); stopAdhan(); }} aria-label="Stop the adhan">
+            <Square size={10} fill="currentColor" /><span>Stop adhan</span>
+          </button>
+        {/if}
+      </div>
+    </div>
+    {/key}
+  {/if}
 
   {#if ghost && dragId}
     {@const w = placed.find((x) => x.instance === dragId)}
@@ -481,6 +662,69 @@
   .edit .slot { animation: jiggle 0.28s ease-in-out infinite; }
   .edit .slot:nth-child(2n) { animation-delay: -0.14s; }
 
+  /* ---- Dock alerts (the charger flash and its siblings) ----
+     One thing across the whole dock for a moment (dockAlert.ts). Every rule
+     declares its resting state and animates *from* somewhere else, so with motion turned off
+     (which drops every animation) the flash still draws correctly — it appears instead of
+     growing. Durations come from chargeFlash.ts, so the CSS and the timeouts can't drift. */
+  .flashing .slot, .flashing .empty, .flashing .more { opacity: 0; pointer-events: none; }
+  .flash {
+    position: absolute; inset: 0; z-index: 4; cursor: default;
+    display: grid; place-items: center;
+    border-radius: var(--r-window); overflow: hidden;
+    background: color-mix(in srgb, var(--c) 8%, transparent);
+    animation: flash-in var(--f-enter) var(--ease);
+  }
+  @keyframes flash-in { from { opacity: 0; transform: scale(0.96); } }
+  .flash.out { animation: flash-out var(--f-exit) var(--ease) forwards; }
+  @keyframes flash-out { to { opacity: 0; } }
+
+  /* The level itself, sweeping in from the leading edge. Transform only, so it stays on the
+     GPU compositor and never reflows the dock. */
+  .flash-fill {
+    position: absolute; inset: 0;
+    transform-origin: left; transform: scaleX(var(--p));
+    background: linear-gradient(90deg, color-mix(in srgb, var(--c) 45%, transparent), color-mix(in srgb, var(--c) 22%, transparent));
+    animation: flash-sweep var(--f-fill) var(--ease) var(--f-enter) backwards;
+    /* An update in place (volume-up again) slides the level instead of replaying the sweep. */
+    transition: transform 0.3s var(--ease);
+  }
+  @keyframes flash-sweep { from { transform: scaleX(0); } }
+  .vertical .flash-fill {
+    transform-origin: bottom; transform: scaleY(var(--p));
+    background: linear-gradient(0deg, color-mix(in srgb, var(--c) 45%, transparent), color-mix(in srgb, var(--c) 22%, transparent));
+    animation-name: flash-sweep-v;
+  }
+  @keyframes flash-sweep-v { from { transform: scaleY(0); } }
+
+  .flash-body { position: relative; display: flex; align-items: center; gap: 8px; min-width: 0; padding: 0 12px; color: var(--fg); }
+  .flash-body :global(svg) { color: var(--c); flex: none; }
+  .flash-body strong { font-size: 20px; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; }
+  .flash-label { font-size: 11px; color: var(--fg-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* A button on the alert (Stop adhan): a quiet inset pill, so the value stays the hero. */
+  .flash-act {
+    display: inline-flex; align-items: center; gap: 6px; flex: none; height: 26px; padding: 0 10px; margin-left: 4px;
+    border-radius: var(--r-chip); background: var(--bg-2, var(--pill)); color: var(--fg); font-size: 11px; font-weight: 500;
+    border: 1px solid var(--line-soft); transition: background 0.2s var(--ease), transform 0.15s var(--ease);
+    animation: flash-in var(--f-enter) var(--ease);
+  }
+  .flash-act:hover { background: var(--pill-hover); }
+  .flash-act.quiet { background: transparent; border-color: transparent; color: var(--fg-dim); }
+  .flash-act:active { transform: scale(0.96); }
+  .flash-act :global(svg) { color: inherit; }
+  .bar[data-size='compact'] .flash-body strong { font-size: 16px; }
+  .bar[data-size='compact'] .flash-label { font-size: 10px; }
+  /* A side dock is 56-96 px wide: icon and number only, no label to cut off. The number also
+     has to shrink, or "100%" is clipped in a slim column (DESIGN_RULES section 8). */
+  .vertical .flash-body { flex-direction: column; gap: 2px; padding: 0 4px; }
+  .vertical .flash-label { display: none; }
+  /* No room for words in a side column: the stop icon alone. */
+  .vertical .flash-act { margin: 2px 0 0; padding: 0; width: 26px; justify-content: center; }
+  .vertical .flash-act span { display: none; }
+  .vertical .flash-act.quiet { display: none; }
+  .bar.vertical .flash-body strong { font-size: 16px; }
+  .bar.vertical[data-side='slim'] .flash-body strong { font-size: 13px; }
+
   .badge {
     position: absolute;
     width: 18px; height: 18px;
@@ -491,11 +735,11 @@
     z-index: 2;
   }
   .remove { top: -3px; left: -3px; background: #ff453a; }
-  .resize { bottom: -3px; right: -3px; background: var(--accent); }
+  .resize { bottom: -3px; right: -3px; background: var(--accent); color: var(--on-accent); }
 
   .edit-tools { display: flex; gap: 2px; align-items: center; }
   .vertical .edit-tools { flex-direction: column; }
-  .done { background: var(--accent); color: #fff; }
+  .done { background: var(--accent); color: var(--on-accent); }
 
   .handle { flex: none; width: 6px; cursor: ew-resize; border-radius: calc(3px * var(--rs)); }
   .vertical .handle { width: auto; height: 6px; cursor: ns-resize; }

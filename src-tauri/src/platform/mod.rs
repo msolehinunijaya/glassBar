@@ -162,6 +162,12 @@ pub trait Shell: Send + Sync {
     fn list_windows(&self) -> Vec<AppWindow>;
     /// Calls `on_change` (debounced) whenever top-level windows change.
     fn watch_windows(&self, on_change: Box<dyn Fn() + Send>);
+    /// Hide (or stop hiding) Windows' own volume / brightness pop-up (windows/osd.rs).
+    fn windows_osd(&self, _hide: bool) {}
+    /// The volume or brightness just changed: catch Windows' pop-up as it appears.
+    fn windows_osd_nudge(&self) {}
+    /// Closing: give Windows its pop-up back now.
+    fn windows_osd_restore(&self) {}
     /// Focus, restore, or minimize if it is already the active window.
     fn activate(&self, id: isize);
     fn close(&self, id: isize);
@@ -189,7 +195,10 @@ pub trait Audio: Send + Sync {
     fn sessions(&self) -> Res<Vec<AudioSession>>;
     fn set_session_volume(&self, pid: u32, v: f32) -> Res<()>;
     fn set_session_mute(&self, pid: u32, m: bool) -> Res<()>;
-    fn watch(&self, on_change: Box<dyn Fn(AudioState) + Send>);
+    /// `on_change`: the volume, mute or device list changed (any source). `on_level`: the
+    /// master volume or mute changed from *outside* GlassBar (keys, Windows, another app), as
+    /// it happens -- (volume 0..1, muted).
+    fn watch(&self, on_change: Box<dyn Fn(AudioState) + Send>, on_level: Box<dyn Fn(f32, bool) + Send>);
     /// Current output peak level 0..1 (None if no output device).
     fn peak(&self) -> Option<f32>;
     /// Capture what the speakers play, as mono chunks (see windows/audio.rs `loopback`).
@@ -204,6 +213,9 @@ pub trait Media: Send + Sync {
     fn pause_playing(&self) -> Res<Vec<String>>;
     fn resume(&self, ids: &[String]) -> Res<()>;
     fn watch(&self, on_change: Box<dyn Fn(Option<MediaInfo>) + Send>);
+    /// The app behind the current media session: Windows' id for it ("Spotify.exe",
+    /// "Chrome", "MSEdge", a Store app id). None when nothing is playing.
+    fn source_id(&self) -> Option<String> { None }
 }
 
 pub trait Radios: Send + Sync {
@@ -213,6 +225,25 @@ pub trait Radios: Send + Sync {
     fn hotspot(&self) -> Res<Hotspot>;
     fn set_hotspot(&self, on: bool) -> Res<()>;
 }
+
+/// Quick Settings toggles Windows has no public API for (windows/toggles.rs). Each reads the
+/// real state back; an error means "open the Windows page instead".
+pub trait Toggles: Send + Sync {
+    fn night_light(&self) -> Res<bool>;
+    fn set_night_light(&self, on: bool) -> Res<()>;
+    /// Nearby sharing: 0 off, 1 my devices only, 2 everyone nearby.
+    fn nearby(&self) -> Res<u32>;
+    fn set_nearby(&self, mode: u32) -> Res<()>;
+    /// Wireless displays nearby, and whether this PC is casting to one now.
+    fn cast(&self) -> Res<CastState>;
+}
+
+#[derive(Serialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct CastState { pub casting: bool, pub displays: Vec<CastDisplay> }
+#[derive(Serialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct CastDisplay { pub id: String, pub name: String }
 
 #[derive(Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -336,6 +367,8 @@ pub trait Display: Send + Sync {
     fn connected(&self) -> u32 { 1 }
     fn brightness(&self) -> Option<u32>;
     fn set_brightness(&self, v: u32) -> Res<()>;
+    /// The built-in screen's brightness changed from outside GlassBar (0..100).
+    fn watch_brightness(&self, _on_change: Box<dyn Fn(u32) + Send>) {}
 }
 
 #[cfg(windows)]
@@ -350,6 +383,8 @@ pub fn audio() -> &'static dyn Audio { &win::WinAudio }
 pub fn media() -> &'static dyn Media { &win::WinMedia }
 #[cfg(windows)]
 pub fn radios() -> &'static dyn Radios { &win::WinRadios }
+#[cfg(windows)]
+pub fn toggles() -> &'static dyn Toggles { &win::WinToggles }
 #[cfg(windows)]
 pub fn display() -> &'static dyn Display { &win::WinDisplay }
 #[cfg(windows)]

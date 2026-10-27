@@ -44,6 +44,7 @@ pub fn commit(app: &AppHandle, cfg: Config) -> Result<(), String> {
     config::save(&st.path, &cfg).map_err(|e| e.to_string())?;
     *st.config.lock().unwrap() = cfg.clone();
     bar::apply(app);
+    bar::sync_osd(app);
     bar::refresh_tray(app);
     widgets::ocr::register_hotkey(app);
     widgets::quick::sync_tray(app);
@@ -151,12 +152,15 @@ fn main() {
                     let desktop = on && platform::shell().foreground_exe()
                         .is_some_and(|e| e.to_lowercase().ends_with("\\explorer.exe"));
                     if let Some(w) = a.get_webview_window("bar") { let _ = w.set_always_on_top(!on || desktop); }
+                    bar::set_fullscreen(on && !desktop);
                 }
             }));
             sync_autostart(h, &h.state::<AppState>().config.lock().unwrap().clone());
             bar::start_apply_worker(h);
             widgets::ocr::register_hotkey(h);
             bar::watch_autohide(h);
+            bar::watch_hover_panel(h);
+            bar::sync_osd(h);
             backdrop::watch(h);
             widgets::sound::charger_init();
             widgets::screenshots::prune(h);
@@ -202,8 +206,8 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             get_config, save_config, export_config, import_config, apply_bar, restore_taskbar,
-            health::health_pong, bar::popup_open, bar::popup_reveal, bar::popup_hide, bar::popup_leave_close, bar::banner_fit, bar::banner_hide, bar::jump_to, bar::open_settings_cmd, bar::set_edit_mode,
-            bar::bar_preview, bar::bar_drag, bar::mouse_down, bar::transparency_effects, bar::appearance_support, backdrop::wallpaper_behind, bar::bar_reveal, bar::popup_leave,
+            health::health_pong, bar::popup_open, bar::popup_reveal, bar::popup_hide, bar::popup_leave_close, bar::popup_width, bar::popup_hover_hide, bar::banner_fit, bar::banner_hide, bar::jump_to, bar::open_settings_cmd, bar::set_edit_mode,
+            bar::bar_preview, bar::bar_drag, bar::mouse_down, bar::menu_open, bar::app_quit, bar::dock_alert_begin, bar::dock_alert_end, bar::dock_alert_test, bar::transparency_effects, bar::appearance_support, backdrop::wallpaper_behind, bar::bar_reveal, bar::popup_leave,
             bar::thumbs_show, bar::thumbs_clear,
             widgets::todo::todo_list, widgets::todo::todo_add, widgets::todo::todo_update,
             widgets::todo::todo_delete, widgets::todo::todo_clear_done,
@@ -217,6 +221,7 @@ fn main() {
             widgets::downloads::downloads_state, widgets::downloads::downloads_open, widgets::downloads::downloads_reveal,
             widgets::downloads::downloads_open_folder, widgets::downloads::downloads_open_with, widgets::downloads::downloads_rename,
             widgets::downloads::downloads_recycle, widgets::downloads::downloads_drag, widgets::downloads::file_icon,
+            widgets::shelf::shelf_drag, widgets::shelf::shelf_pick,
             widgets::downloads::recycle_info, widgets::downloads::recycle_empty,
             widgets::focus::sw_get, widgets::focus::sw_toggle, widgets::focus::sw_lap, widgets::focus::sw_reset,
             widgets::location::location_status, widgets::location::location_clear, widgets::location::location_open_map, widgets::location::location_search, widgets::weather::weather_get,
@@ -233,11 +238,14 @@ fn main() {
             widgets::sound::audio_state, widgets::sound::audio_set_volume, widgets::sound::audio_set_mute,
             widgets::sound::audio_set_default, widgets::sound::audio_sessions,
             widgets::sound::audio_set_session_volume, widgets::sound::audio_set_session_mute,
-            widgets::media::media_info, widgets::media::media_control, widgets::media::media_seek, widgets::media::media_pause_playing, widgets::media::media_resume,
+            widgets::media::media_info, widgets::media::media_control, widgets::media::media_seek, widgets::media::media_source, widgets::media::media_source_open, widgets::media::media_pause_playing, widgets::media::media_resume,
+            widgets::lyrics::lyrics_get, widgets::lyrics::lyrics_folder,
             widgets::quick::radios_list, widgets::quick::radio_set, widgets::quick::airplane_set,
             widgets::quick::display_mode, widgets::quick::display_set_mode, widgets::quick::display_count,
             widgets::quick::brightness_get, widgets::quick::brightness_set,
             widgets::quick::hotspot_get, widgets::quick::hotspot_set,
+            widgets::quick::night_light_get, widgets::quick::night_light_set, widgets::quick::nearby_get, widgets::quick::nearby_set, widgets::quick::cast_get,
+            widgets::water::water_today, widgets::water::water_add, widgets::water::water_remove, widgets::water::water_snooze,
             widgets::currency::fx_rates,
             widgets::apps::app_pin_target, widgets::apps::app_browse, widgets::apps::apps_installed, widgets::apps::paths_exist,
             widgets::ocr::ocr_hotkey_status, widgets::ocr::ocr_snap_start, widgets::ocr::ocr_shot, widgets::ocr::ocr_snap_cancel, widgets::ocr::ocr_snap_show,

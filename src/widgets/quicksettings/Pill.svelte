@@ -12,14 +12,16 @@
   import BatteryIcon from '../battery/BatteryIcon.svelte';
   import LiquidBattery from '../battery/LiquidBattery.svelte';
   import BatteryTall from '../battery/BatteryTall.svelte';
+  import BatteryFill from '../battery/BatteryFill.svelte';
   import SoundPart from '../sound/SoundPart.svelte';
   import { BATTERY_PANEL, soundOf } from '../sound/settings';
+  import { reallyLeft } from '../../lib/hoverPanel';
 
   let { instance, size, settings, vertical }: PillProps<QuickSettings> = $props();
   // Tray icons on the dock (switch in the panel), collapsed behind a chevron by default.
-  // Click the chevron to show them all; a click anywhere else on the dock (another widget,
-  // the bar itself) folds them away again. Not on losing focus: right-clicking a tray icon
-  // opens that app's own menu, which takes focus, and the icons must stay put for it.
+  // Click the chevron to show them all; they fold away again on a click anywhere else on the
+  // dock, or 600 ms after the pointer leaves them -- but not while a menu is open (a tray
+  // icon's own right-click menu, which also takes focus, so focus can't be the signal).
   const tray = liveTray();
   const trayIcons = $derived(settings.trayOnDock ? [...tray.v].sort((a, b) => Number(b.promoted) - Number(a.promoted)) : []);
   let expanded = $state(false);
@@ -28,8 +30,19 @@
     if (!expanded) return;
     const outside = (e: PointerEvent) => { if (!trayEl?.contains(e.target as Node)) expanded = false; };
     addEventListener('pointerdown', outside, true);
-    return () => removeEventListener('pointerdown', outside, true);
+    return () => { removeEventListener('pointerdown', outside, true); clearTimeout(foldTimer); };
   });
+  let foldTimer: ReturnType<typeof setTimeout> | undefined;
+  async function foldWhenFree() {
+    if (await ipc.menuOpen().catch(() => false)) { foldTimer = setTimeout(foldWhenFree, 300); return; }
+    expanded = false;
+  }
+  function trayLeave(e: PointerEvent) {
+    if (!expanded || !reallyLeft(e, trayEl)) return; // a tooltip appearing is not a leave
+    clearTimeout(foldTimer);
+    foldTimer = setTimeout(foldWhenFree, 600);
+  }
+  const trayEnter = () => clearTimeout(foldTimer);
   // The chevron points the way the icons unfold (towards the screen centre on side docks).
   const Open = $derived(vertical ? ChevronDown : ChevronLeft);
   const Close = $derived(vertical ? ChevronUp : ChevronRight);
@@ -65,7 +78,7 @@
 <!-- Left/right dock: joined tiles, tray (unfolds downward) · connectivity · volume · battery. -->
 <div class="side-stack" title="Quick settings">
   {#if trayIcons.length}
-    <div class="side" bind:this={trayEl}>
+    <div class="side" role="group" aria-label="Tray icons" bind:this={trayEl} onpointerenter={trayEnter} onpointerleave={trayLeave}>
       <button class="chev" class:open={expanded} title={expanded ? 'Hide tray icons' : `Show ${trayIcons.length} tray icons`}
               onpointerdown={(e) => e.stopPropagation()} onclick={(e) => { e.stopPropagation(); expanded = !expanded; }}>
         {#if expanded}<Close size={14} />{:else}<Open size={14} /><span class="count">{trayIcons.length}</span>{/if}
@@ -90,11 +103,15 @@
   {#if settings.soundOnDock}<SoundPart {instance} {size} settings={soundOf(settings)} vertical />{/if}
   {#if bat.v}
     <!-- svelte-ignore a11y_click_events_have_key_events -->
-    <div class="side" title="{bat.v.percent}% · {batWord}" role="button" tabindex="-1" onpointerdown={(e) => e.stopPropagation()}
+    <div class="side" class:batfill={settings.batteryStyle === 'fill'} title="{bat.v.percent}% · {batWord}" role="button" tabindex="-1" onpointerdown={(e) => e.stopPropagation()}
          onclick={(e) => { e.stopPropagation(); ipc.popupOpen(BATTERY_PANEL + instance, e.currentTarget.getBoundingClientRect(), 320, 420); }}>
+      {#if settings.batteryStyle === 'fill'}
+      <BatteryFill b={bat.v} />
+      {:else}
       <BatteryTall b={bat.v} />
       <span class="side-v">{bat.v.percent}<small>%</small></span>
       {#if bat.v.onAc}<span class="plugc" title={batWord}><Plug size={11} strokeWidth={2.4} /></span>{/if}
+      {/if}
     </div>
   {/if}
 </div>
@@ -103,7 +120,7 @@
 <div class="qswrap">
 <div class="pill qs" title="Quick settings">
   {#if trayIcons.length}
-    <span class="tray" bind:this={trayEl}>
+    <span class="tray" role="group" aria-label="Tray icons" bind:this={trayEl} onpointerenter={trayEnter} onpointerleave={trayLeave}>
       <button class="chev" class:open={expanded} title={expanded ? 'Hide tray icons' : `Show ${trayIcons.length} tray icons`}
               onpointerdown={(e) => e.stopPropagation()} onclick={(e) => { e.stopPropagation(); expanded = !expanded; }}>
         {#if expanded}<Close size={14} />{:else}<Open size={14} /><span class="count">{trayIcons.length}</span>{/if}
@@ -128,10 +145,15 @@
 {#if settings.soundOnDock}<SoundPart {instance} {size} settings={soundOf(settings)} vertical={false} />{/if}
 {#if bat.v}
   <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <div class="pill bat" title="{bat.v.percent}% · {batWord}" role="button" tabindex="-1" onpointerdown={(e) => e.stopPropagation()}
+  <div class="pill bat" class:batfill={settings.batteryStyle === 'fill'} title="{bat.v.percent}% · {batWord}" role="button" tabindex="-1" onpointerdown={(e) => e.stopPropagation()}
        onclick={(e) => { e.stopPropagation(); ipc.popupOpen(BATTERY_PANEL + instance, e.currentTarget.getBoundingClientRect(), 320, 420); }}>
-    {#if settings.batteryStyle === 'liquid'}<LiquidBattery b={bat.v} />{:else}<BatteryIcon b={bat.v} size={16} />{/if}
-    {#if bat.v.onAc}<span class="plug"><Plug size={12} strokeWidth={2.2} /></span>{/if}
+    {#if settings.batteryStyle === 'fill'}
+      <!-- The whole battery part fills up to the charge level, % in the middle. -->
+      <BatteryFill b={bat.v} />
+    {:else}
+      {#if settings.batteryStyle === 'liquid'}<LiquidBattery b={bat.v} />{:else}<BatteryIcon b={bat.v} size={16} />{/if}
+      {#if bat.v.onAc}<span class="plug"><Plug size={12} strokeWidth={2.2} /></span>{/if}
+    {/if}
   </div>
 {/if}
 </div>
@@ -148,6 +170,9 @@
   .chev:hover, .chev.open { background: var(--pill-hover); }
   .lang { font-size: 11.5px; letter-spacing: 0.04em; min-width: 18px; text-align: center; }
   .bat { gap: 2px; padding: 0 9px; }
+  /* Fill design: the part is the tank; the % sits in its middle. */
+  .bat.batfill { position: relative; justify-content: center; min-width: 58px; padding: 0 10px; overflow: hidden; }
+  .side.batfill { position: relative; overflow: hidden; min-height: 40px; justify-content: center; }
   .plug { display: inline-flex; color: #30d158; }
   .count { font-size: 10px; font-variant-numeric: tabular-nums; opacity: 0.75; }
   .icons { overflow: hidden; }

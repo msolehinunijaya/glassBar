@@ -1,5 +1,52 @@
 # Changelog
 
+## 0.4.0 — 2026-10-27
+
+### New
+- **Dock alerts:** for a moment the whole dock says one thing, then goes back to your widgets. The charger flash is now one of them, joined by:
+  - **Volume and brightness**, when they change from your keys, Windows or another app (not GlassBar's own sliders). Windows' own volume and brightness pop-up is hidden while GlassBar shows its own (switchable).
+  - **Prayer time**, with **Stop adhan** while the adzan plays. The adzan now plays whatever your banner settings are.
+  - **Pomodoro**: "Focus done" / "Break over", with Start, Pause and Skip.
+  - **Timer**: "Time's up", with +1 min and +5 min.
+  - **Water reminders**, with "+250 ml" and "Later".
+  An alert stays while your mouse is on it, slides an auto-hidden dock out (and back), stays out of full-screen apps (except prayer time), and has its own switch and **Test** button in **Settings › Dock alerts** — where the charger flash switch now lives too.
+- **Water widget:** a daily goal (fixed, or from your weight with a little more on hot days), one-tap cups with Undo, today's drinks and the last 7 days, and reminders every so often after your last drink. The widget and its panel fill with water up to today's level.
+- **App Folders widget:** phone-style folders of apps on the dock. Add apps from a searchable list, drag icons in from the App Launcher or drop programs from Explorer, rename, reorder, drag out to remove.
+- **Lyrics** work on every music design, as a second part of the widget, and the whole song shows beside the player in the music panel — click a line to jump there. A **Lyrics** switch sits at the top of the panel. Songs with no lyrics say so; the line hides while the music is paused.
+- **Music:** the playing app (Spotify, Chrome, Edge, Firefox…) shows on the album art and in the panel — click it to bring that app to the front.
+- **Quick Settings:** Night light, Nearby sharing and Cast tiles; Hotspot's › opens its settings; **Edit tiles** to choose which show; split tiles readable on any accent colour.
+- **Battery › Fill design:** the battery part fills to the charge level, % in the middle, a bolt while plugged in.
+- **Equalizer:** shrinks to a small square when silent and grows back with the music; the radial ring sizes itself; **Fill the whole widget** (on by default).
+- **File Shelf:** shows the newest file and "+N", opening on hover.
+- **Settings › Bar:** set the space towards the screen edge and towards your windows separately.
+- **Windows logo colour** for the Start button (App Launcher › Start & Search).
+- **Close GlassBar** in the dock's right-click menu.
+
+### Changed
+- Prayer time, Pomodoro and Timer no longer make banners — the dock tells you (they're still in the Notification Center), and they're gone from Settings › Notifications.
+- The music panel opens on click only (hover is an option). Lyrics sit beside the player however the panel opens.
+- A widget that opens up under the pointer scrolls fully into view; dragging a widget or an app icon near either end scrolls the dock.
+
+### Fixed
+- Lyrics missing for songs that have them (too strict a length match, a busy lyrics site, wrong "no lyrics" answers remembered for a day).
+- Clicking a lyric line jumped back and forth before settling.
+- A hover panel could stay open after a right-click on the dock.
+- Scrolling the dock changed the volume when passing over a volume control.
+- Labels were unreadable on a white, yellow or light accent colour.
+- Tray icons didn't fold away when the mouse left them.
+
+## 0.3.0 — 2026-10-27
+
+### New
+- **The dock shows your charge level when the charger moves.** Plug the charger in or unplug it and the whole dock becomes a battery display for a couple of seconds — the level as a filled background, the percentage, and how long is left — then it goes back to your widgets. No notification. On by default; turn it off in Settings › Sounds. It only ever reacts to a real plug change, never to the battery level ticking down while it stays plugged in.
+- **Music › Custom design:** pick every part yourself. Album art (circle, rounded or square, and its size), title, artist, album, the app name, the progress bar, each of Previous / Play-Pause / Next / volume, elapsed / left / total time in any combination, and either the output level meter or the real frequency spectrum in seven looks. Player, Classic and Mini are unchanged.
+- **Lyrics** (Music › Lyrics): the line that's playing, beside the pill, on the left or the right. Choose its length, text size, weight, italics or capitals, and how each line arrives — fading, sliding up, sliding in from the side, typing itself out, karaoke (the words fill in as they're sung), or just appearing. Off by default, because turning it on looks lyrics up online.
+- **File Shelf:** park up to 5 files by the dock and pick them up later. Drag them in, click to open, right-click for Show in folder or Open with, and drag one out into Explorer, a chat or an email to take it off the shelf. It remembers only where the files are, so yours are never moved, copied or deleted, and it survives a restart. A file that's been moved or deleted since shows struck through instead of vanishing.
+- **Companion:** a small creature on the dock. It blinks on its own, giggles when you wiggle the pointer across it (and gets dizzy if you keep going), winks when clicked, and changes its eyes for what's going on: the charger, a battery under 15 %, music playing (it sings along), a prayer time arriving, a Pomodoro working or on a break, Do Not Disturb, and being left alone. Fifteen faces. Every trigger can be switched off, and its size, background, eye colour, hands and blink rate are yours. It holds still whenever the dock isn't on screen.
+
+### Changed
+- The Equalizer and the Music widget's spectrum are now the same piece of code, so they look and cost the same.
+
 ## 0.2.7 — 2026-10-27
 
 ### New

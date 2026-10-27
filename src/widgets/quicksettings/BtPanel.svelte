@@ -85,7 +85,7 @@
   .name { flex: 1; min-width: 0; display: flex; flex-direction: column; font-size: 13px; }
   .dev p { width: 100%; margin: 0; }
   .btn.sm { padding: 4px 8px; font-size: 11px; }
-  .primary { background: var(--accent); color: #fff; }
+  .primary { background: var(--accent); color: var(--on-accent); }
   .small { font-size: 11px; }
   .err { color: #ff453a; }
   .link { color: var(--accent); font-size: 12px; }

@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { MapPin, Play, Settings2 } from '@lucide/svelte';
+  import { MapPin, Play, Settings2, Square, Volume2 } from '@lucide/svelte';
+  import { adhan, stopAdhan } from '../../lib/adhan.svelte';
   import PanelHeader from '../../lib/PanelHeader.svelte';
   import { updateWidgetSettings } from '../../lib/config.svelte';
   import { ipc } from '../../lib/ipc';
@@ -44,6 +45,14 @@
   <button class="btn test" disabled={!settings.alerts} onclick={() => ipc.solatTestSound(settings)}><Play size={12} /> Test sound</button>
   <p class="dim small hint">Press ✓ on the prayer pill to stop the adzan. Your own recording can be set in Settings › Widgets.</p>
 {/if}
+{#if adhan.playing}
+  <!-- The adzan is playing (in the dock): stop it from here. -->
+  <div class="adhan" role="status">
+    <Volume2 size={16} />
+    <span>Adhan is playing</span>
+    <button class="stop" onclick={stopAdhan}><Square size={10} fill="currentColor" /> Stop</button>
+  </div>
+{/if}
 {#if s.info && today}
   <div class="dim small loc">
     <MapPin size={12} />
@@ -78,6 +87,18 @@
 {/if}
 
 <style>
+  .adhan {
+    display: flex; align-items: center; gap: 8px; margin: 0 0 12px; padding: 10px 12px; border-radius: var(--r-inner);
+    background: color-mix(in srgb, #30d158 18%, var(--pill)); font-size: 13px; font-weight: 500;
+    animation: rise 0.2s var(--ease);
+  }
+  .adhan span { flex: 1; }
+  .adhan .stop {
+    display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 14px; border-radius: var(--r-chip);
+    background: #ff453a; color: #fff; font-size: 12px; font-weight: 600; transition: transform 0.15s var(--ease);
+  }
+  .adhan .stop:active { transform: scale(0.95); }
+  @keyframes rise { from { opacity: 0; transform: translateY(-4px); } }
   .vol { display: flex; align-items: center; gap: 10px; margin: 2px 0 8px; font-size: 13px; }
   .vol .slider { flex: 1; }
   .vol .pct { min-width: 36px; text-align: right; font-variant-numeric: tabular-nums; font-size: 12px; }

@@ -6,6 +6,7 @@ mod files;
 mod gpu;
 mod hotspot;
 mod lang;
+mod osd;
 mod power;
 mod packages;
 mod powermode;
@@ -19,6 +20,7 @@ mod snap;
 mod system;
 mod thermal;
 mod thumbs;
+mod toggles;
 pub(crate) mod tray;
 mod windows_list;
 mod wireless;
@@ -30,6 +32,7 @@ pub struct WinShell;
 pub struct WinAudio;
 pub struct WinMedia;
 pub struct WinRadios;
+pub struct WinToggles;
 pub struct WinDisplay;
 pub struct WinLocation;
 pub struct WinPower;
@@ -160,6 +163,9 @@ impl Shell for WinShell {
     fn set_starts_with_windows(&self, on: bool) { appbar::KEEP_ON_RESTART.store(on, std::sync::atomic::Ordering::Relaxed) }
     fn list_windows(&self) -> Vec<AppWindow> { windows_list::list() }
     fn watch_windows(&self, f: Box<dyn Fn() + Send>) { windows_list::watch(f) }
+    fn windows_osd(&self, hide: bool) { osd::set(hide) }
+    fn windows_osd_nudge(&self) { osd::nudge() }
+    fn windows_osd_restore(&self) { osd::restore_now() }
     fn activate(&self, id: isize) { windows_list::activate(id) }
     fn close(&self, id: isize) { windows_list::close(id) }
     fn launch(&self, path: &str, args: &str) -> Res<()> { windows_list::launch(path, args) }
@@ -180,7 +186,7 @@ impl Audio for WinAudio {
     fn sessions(&self) -> Res<Vec<AudioSession>> { audio::sessions() }
     fn set_session_volume(&self, pid: u32, v: f32) -> Res<()> { audio::set_session_volume(pid, v) }
     fn set_session_mute(&self, pid: u32, m: bool) -> Res<()> { audio::set_session_mute(pid, m) }
-    fn watch(&self, f: Box<dyn Fn(AudioState) + Send>) { audio::watch(f) }
+    fn watch(&self, f: Box<dyn Fn(AudioState) + Send>, level: Box<dyn Fn(f32, bool) + Send>) { audio::watch(f, level) }
     fn peak(&self) -> Option<f32> { audio::peak() }
     fn loopback(&self, f: &mut dyn FnMut(&[f32], u32) -> bool) -> Res<()> { audio::loopback(f) }
 }
@@ -192,6 +198,7 @@ impl Media for WinMedia {
     fn pause_playing(&self) -> Res<Vec<String>> { media::pause_playing() }
     fn resume(&self, ids: &[String]) -> Res<()> { media::resume(ids) }
     fn watch(&self, f: Box<dyn Fn(Option<MediaInfo>) + Send>) { media::watch(f) }
+    fn source_id(&self) -> Option<String> { media::source_id() }
 }
 
 impl Radios for WinRadios {
@@ -201,12 +208,21 @@ impl Radios for WinRadios {
     fn set_hotspot(&self, on: bool) -> Res<()> { hotspot::set(on) }
 }
 
+impl Toggles for WinToggles {
+    fn night_light(&self) -> Res<bool> { toggles::night_light() }
+    fn set_night_light(&self, on: bool) -> Res<()> { toggles::set_night_light(on) }
+    fn nearby(&self) -> Res<u32> { toggles::nearby() }
+    fn set_nearby(&self, mode: u32) -> Res<()> { toggles::set_nearby(mode) }
+    fn cast(&self) -> Res<CastState> { toggles::cast() }
+}
+
 impl Display for WinDisplay {
     fn mode(&self) -> Option<DisplayMode> { display::mode() }
     fn set_mode(&self, m: DisplayMode) -> Res<()> { display::set_mode(m) }
     fn connected(&self) -> u32 { display::connected() }
     fn brightness(&self) -> Option<u32> { display::brightness() }
     fn set_brightness(&self, v: u32) -> Res<()> { display::set_brightness(v) }
+    fn watch_brightness(&self, f: Box<dyn Fn(u32) + Send>) { display::watch_brightness(f) }
 }
 
 impl Location for WinLocation {

@@ -13,6 +13,10 @@ export interface AppsSettings {
   /** Icons shown before a "+N" chip (0 = all); hovering the launcher shows them all. */
   maxIcons: number;
   searchStyle: 'icon' | 'bar';
+  /** The Windows logo on the Start button: blue (as Windows), the accent, the text colour,
+   *  the classic four colours, or `startCustom`. */
+  startColor?: 'blue' | 'accent' | 'text' | 'classic' | 'custom';
+  startCustom?: string;
   /** Icon order chosen by dragging (program keys = lower-case paths). */
   order: string[];
 }

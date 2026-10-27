@@ -46,7 +46,7 @@
   .tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; padding: 3px; border-radius: calc(12px * var(--rs)); background: var(--pill); margin-bottom: 12px; }
   /* Colour tile above the label: four tabs fit side by side without crowding. */
   .tabs button { min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 7px 2px 6px; border-radius: calc(9px * var(--rs)); font-size: 11px; font-weight: 500; }
-  .tabs .sel { background: var(--accent); color: #fff; }
+  .tabs .sel { background: var(--accent); color: var(--on-accent); }
   /* Bottom dock: tab buttons last, the tab's options above them, its history on top. */
   .up { display: flex; flex-direction: column-reverse; }
   .up .tabs { margin: 12px 0 0; }

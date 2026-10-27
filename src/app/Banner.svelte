@@ -125,7 +125,7 @@
   @keyframes in-left { from { opacity: 0; transform: translateX(-14px); } }
   @keyframes in-right { from { opacity: 0; transform: translateX(14px); } }
   .banner:hover { border-color: color-mix(in srgb, var(--accent) 60%, transparent); }
-  .ic { display: grid; place-items: center; width: 30px; height: 30px; border-radius: calc(9px * var(--rs)); flex: none; background: var(--accent); color: #fff; }
+  .ic { display: grid; place-items: center; width: 30px; height: 30px; border-radius: calc(9px * var(--rs)); flex: none; background: var(--accent); color: var(--on-accent); }
   .txt { flex: 1; min-width: 0; }
   .row1 { display: flex; align-items: baseline; gap: 8px; }
   .row1 b { flex: 1; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

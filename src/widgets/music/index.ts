@@ -2,12 +2,9 @@ import { Music } from '@lucide/svelte';
 import { defineWidget } from '../types';
 import Pill from './Pill.svelte';
 import Popup from './Popup.svelte';
+import { MUSIC_DEFAULTS, type MusicSettings } from './settings';
 
-export interface MusicSettings {
-  showControls: boolean; style: 'player' | 'classic' | 'mini'; showProgress: boolean;
-  /** Live level visualizer in the Player design, and its width in px (adjustable). */
-  showViz: boolean; vizWidth: number;
-}
+export type { ArtShape, MusicLayout, MusicParts, MusicSettings, MusicStyle, MusicViz } from './settings';
 
 export default defineWidget<MusicSettings>({
   id: 'music',
@@ -17,7 +14,7 @@ export default defineWidget<MusicSettings>({
   icon: Music,
   sizes: ['small', 'medium', 'large'],
   defaultSize: 'medium',
-  defaults: { showControls: true, style: 'player', showProgress: true, showViz: true, vizWidth: 64 },
+  defaults: MUSIC_DEFAULTS,
   Pill,
   Popup: { component: Popup, width: 320, height: 560 },
 });

@@ -13,6 +13,8 @@ export interface BarCfg {
   sideWidth: SideWidth;
   /** Space between the dock and its screen edge (px). */
   gap: number;
+  /** Space on the other side, between the dock and the apps' windows (px); unset = `gap`. */
+  gapInner?: number | null;
 }
 export type SideWidth = 'slim' | 'regular' | 'wide';
 export const SIDE_PX: Record<SideWidth, number> = { slim: 56, regular: 72, wide: 96 };
@@ -34,8 +36,19 @@ export interface Config {
   version: number; activeProfile: string; profiles: Record<string, Profile>;
   theme: Theme; startup: { launchAtLogin: boolean };
   dnd: boolean; location: LocationCfg; deviceSounds: { connect: boolean; disconnect: boolean; charger: boolean; volume: number };
+  /** Show the charge level across the whole dock when the charger is plugged in or unplugged. */
+  chargerFlash: boolean;
+  /** Settings › Dock alerts (see app/dockAlert.ts). */
+  dockAlerts: import('../app/dockAlert').DockAlertsCfg;
   banners: Banners;
 }
+/** A real charger plug/unplug. `percent` is null on a PC with no battery. */
+export interface ChargerFlip { plugged: boolean; percent: number | null; secsLeft: number | null }
+/** One timed lyric line. `text` is empty for a gap between verses. */
+export interface LyricLine { atMs: number; text: string }
+/** Synced lyrics for a track. `lines` empty = this track has none. */
+/** source 'offline': LRCLIB couldn't be reached (asked again shortly), not 'this song has none'. */
+export interface Lyrics { lines: LyricLine[]; source: 'local' | 'lrclib' | 'none' | 'offline'; fetchedAt: number }
 
 export interface Alert { id: number; source: string; title: string; body: string; at: number; missed: boolean; read: boolean; data: unknown }
 /** Pop-up banners: on/off, seconds shown, next to the dock or in the corner, what a click
@@ -103,6 +116,7 @@ export interface AppWindow { id: number; title: string; exe: string; active: boo
 export interface AudioDevice { id: string; name: string; isDefault: boolean }
 export interface AudioSession { pid: number; name: string; exe: string; volume: number; muted: boolean }
 export interface AudioState { volume: number; muted: boolean; devices: AudioDevice[] }
+export interface MediaSource { name: string; id: string; exe: string | null; window: number | null; aumid: string | null }
 export interface MediaInfo {
   app: string; title: string; artist: string; album: string; art: string | null; playing: boolean;
   positionMs: number; durationMs: number; updatedAtMs: number;
@@ -110,6 +124,10 @@ export interface MediaInfo {
 }
 export interface RadioInfo { kind: 'wifi' | 'bluetooth' | 'other'; name: string; on: boolean }
 export interface Hotspot { on: boolean; ssid: string; clients: number; maxClients: number }
+/** Wireless displays nearby (Miracast) and whether this PC is casting to one now. */
+/** Today's water: total and goal in ml, each drink, the last 7 days (oldest first). */
+export interface WaterToday { total: number; goal: number; cup: number; entries: { at: number; ml: number }[]; week: { day0: number; ml: number }[]; hot: boolean }
+export interface CastState { casting: boolean; displays: { id: string; name: string }[] }
 export type DisplayMode = 'internal' | 'clone' | 'extend' | 'external';
 
 export const ipc = {
@@ -136,11 +154,25 @@ export const ipc = {
   popupReveal: () => invoke<void>('popup_reveal'),
   healthPong: (seq: number) => invoke<void>('health_pong', { seq }),
   popupLeaveClose: () => invoke<void>('popup_leave_close'),
+  /** Close a hover-opened panel now (a right-click on the dock); click-opened ones stay. */
+  popupHoverHide: () => invoke<void>('popup_hover_hide'),
+  /** A popup menu (ours or another app's, e.g. a tray icon's) is on screen. */
+  menuOpen: () => invoke<boolean>('menu_open'),
+  /** Close GlassBar (gives the screen space and the taskbar back). */
+  appQuit: () => invoke<void>('app_quit'),
+  /** A dock alert is about to show for `ms`: false over a full-screen app; slides an
+   *  auto-hidden dock out for it when that setting is on. */
+  dockAlertBegin: (kind: string, ms: number) => invoke<boolean>('dock_alert_begin', { kind, ms }),
+  dockAlertEnd: () => invoke<void>('dock_alert_end'),
+  /** Settings › Dock alerts › Test: show a sample alert of this kind on the dock. */
+  dockAlertTest: (kind: string) => invoke<void>('dock_alert_test', { kind }),
   bannerFit: (width: number, height: number) => invoke<void>('banner_fit', { width, height }),
   bannerHide: () => invoke<void>('banner_hide'),
   jumpTo: (source: string, data: unknown) => invoke<void>('jump_to', { source, data }),
   /** Make the open popup exactly this tall (CSS px): panels size themselves to their content. */
   popupFit: (height: number) => invoke<void>('popup_fit', { height }),
+  /** Make the open popup this wide (CSS px), keeping its place: e.g. room for lyrics. */
+  popupWidth: (width: number) => invoke<void>('popup_width', { width }),
   // alerts
   alertsList: () => invoke<Alert[]>('alerts_list'),
   alertsMarkRead: () => invoke<void>('alerts_mark_read'),
@@ -184,6 +216,11 @@ export const ipc = {
   downloadsRecycle: (path: string) => invoke<void>('downloads_recycle', { path }),
   downloadsDrag: (path: string) => invoke<void>('downloads_drag', { path }),
   fileIcon: (path: string) => invoke<string | null>('file_icon', { path }),
+  /** Hand a drag to Windows so shelved files can land in another app. `shelf:dropped` comes
+   *  back with the paths once a drop really happens; a cancelled drag reports nothing. */
+  shelfDrag: (instance: string, paths: string[]) => invoke<void>('shelf_drag', { instance, paths }),
+  /** Add files with a picker instead of a drag. Empty = cancelled. */
+  shelfPick: () => invoke<string[]>('shelf_pick'),
   recycleInfo: () => invoke<RecycleInfo>('recycle_info'),
   recycleEmpty: (root: string | null) => invoke<void>('recycle_empty', { root }),
   swGet: () => invoke<Stopwatch>('sw_get'),
@@ -234,6 +271,14 @@ export const ipc = {
   mediaInfo: () => invoke<MediaInfo | null>('media_info'),
   mediaControl: (action: 'toggle' | 'next' | 'prev') => invoke<void>('media_control', { action }),
   mediaSeek: (positionMs: number) => invoke<void>('media_seek', { positionMs }),
+  /** The app that is playing (name, its window and program). */
+  mediaSource: () => invoke<MediaSource | null>('media_source'),
+  /** Bring the playing app to the front, or start it. */
+  mediaSourceOpen: () => invoke<void>('media_source_open'),
+  /** `lookup` false never touches the network: only a local .lrc or the cache is used. */
+  lyricsGet: (title: string, artist: string, album: string, durationMs: number, lookup: boolean) =>
+    invoke<Lyrics>('lyrics_get', { title, artist, album, durationMs, lookup }),
+  lyricsFolder: () => invoke<string>('lyrics_folder'),
   /** Pause all playing media; returns the paused apps' ids for `mediaResume`. */
   mediaPausePlaying: () => invoke<string[]>('media_pause_playing'),
   mediaResume: (ids: string[]) => invoke<void>('media_resume', { ids }),
@@ -242,6 +287,17 @@ export const ipc = {
   setRadio: (kind: RadioInfo['kind'], on: boolean) => invoke<void>('radio_set', { kind, on }),
   setAirplane: (on: boolean) => invoke<void>('airplane_set', { on }),
   hotspotGet: () => invoke<Hotspot>('hotspot_get'),
+  nightLightGet: () => invoke<boolean>('night_light_get'),
+  nightLightSet: (on: boolean) => invoke<void>('night_light_set', { on }),
+  /** Nearby sharing: 0 off, 1 my devices only, 2 everyone nearby. */
+  nearbyGet: () => invoke<number>('nearby_get'),
+  nearbySet: (mode: number) => invoke<void>('nearby_set', { mode }),
+  castGet: () => invoke<CastState>('cast_get'),
+  waterToday: () => invoke<WaterToday>('water_today'),
+  waterAdd: (ml: number) => invoke<WaterToday>('water_add', { ml }),
+  waterRemove: (at: number) => invoke<WaterToday>('water_remove', { at }),
+  /** 'Later': no water reminder for this many minutes. */
+  waterSnooze: (minutes: number) => invoke<void>('water_snooze', { minutes }),
   hotspotSet: (on: boolean) => invoke<void>('hotspot_set', { on }),
   fxRates: (base: string, force = false) => invoke<Rates>('fx_rates', { base, force }),
   ocrSnapStart: (purpose: SnapView['purpose'] = 'ocr') => invoke<void>('ocr_snap_start', { purpose }),
@@ -317,6 +373,11 @@ export const events = {
   settingsSection: (cb: (s: string) => void) => listen<string>('settings:section', (e) => cb(e.payload)),
   sysmonSample: (cb: (s: Sample) => void) => listen<Sample>('sysmon:sample', (e) => cb(e.payload)),
   soundPlay: (cb: (s: Sound) => void) => listen<Sound>('sound:play', (e) => cb(e.payload)),
+  chargerFlip: (cb: (f: ChargerFlip) => void) => listen<ChargerFlip>('charger:flip', (e) => cb(e.payload)),
+  waterChanged: (cb: (t: WaterToday) => void) => listen<WaterToday>('water:changed', (e) => cb(e.payload)),
+  dockAlert: (cb: (a: import('../app/dockAlert').DockAlert) => void) => listen<import('../app/dockAlert').DockAlert>('dock:alert', (e) => cb(e.payload)),
+  shelfDropped: (cb: (d: { instance: string; paths: string[] }) => void) =>
+    listen<{ instance: string; paths: string[] }>('shelf:dropped', (e) => cb(e.payload)),
   /** Any "<name>:changed" event from Rust (todos, notes, timers, ...). */
   changed: (name: string, cb: () => void) => listen(`${name}:changed`, () => cb()),
 };

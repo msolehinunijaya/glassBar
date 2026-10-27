@@ -102,7 +102,7 @@
   .pwbox input { flex: 1; }
   .acts { display: flex; justify-content: flex-end; gap: 6px; }
   .btn.sm { padding: 4px 10px; font-size: 12px; }
-  .primary { background: var(--accent); color: #fff; }
+  .primary { background: var(--accent); color: var(--on-accent); }
   .wide { width: 100%; margin-top: 6px; }
   .small { font-size: 11px; }
   .err { color: #ff453a; width: 100%; margin: 0 8px 6px; }

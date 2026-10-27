@@ -25,6 +25,6 @@
   .langs { display: flex; flex-direction: column; gap: 4px; }
   .lang { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: calc(10px * var(--rs)); background: var(--pill); text-align: left; font-size: 12px; }
   .lang b { min-width: 24px; font-size: 12px; }
-  .lang.sel { background: var(--accent); color: #fff; }
+  .lang.sel { background: var(--accent); color: var(--on-accent); }
   .small { font-size: 12px; }
 </style>

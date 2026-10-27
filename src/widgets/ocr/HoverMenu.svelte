@@ -79,7 +79,7 @@
   .opt:active { transform: scale(0.95); }
   .rec :global(svg) { color: #ff453a; }
   .go { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 9px; border-radius: calc(12px * var(--rs));
-        background: var(--accent); color: #fff; font-weight: 600; font-size: 13px; }
+        background: var(--accent); color: var(--on-accent); font-weight: 600; font-size: 13px; }
   .go .k { opacity: 0.75; font-size: 11px; font-weight: 500; }
   .seg { display: flex; gap: 2px; margin-top: 8px; padding: 3px; border-radius: calc(10px * var(--rs)); background: var(--pill); }
   .seg button { flex: 1; padding: 5px; border-radius: calc(8px * var(--rs)); font-size: 12px; }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hiddenCounts, reorder, snap, indexAt } from './geometry';
+import { hiddenCounts, reorder, snap, indexAt, revealBy } from './geometry';
 
 const mons = [{ x: 0, y: 0, w: 1920, h: 1080 }, { x: 1920, y: 0, w: 1920, h: 1080 }];
 
@@ -92,5 +92,25 @@ describe('hiddenCounts', () => {
   it('uses left/right for a row', () => {
     const r = (left: number, right: number) => ({ left, right, top: 0, bottom: 40 });
     expect(hiddenCounts([r(-30, 10), r(20, 60), r(90, 140)], r(0, 100), false)).toEqual({ before: 1, after: 1 });
+  });
+});
+
+describe('revealBy', () => {
+  const view = { left: 0, right: 500, top: 0, bottom: 40 };
+  const box = (left: number, right: number) => ({ left, right, top: 0, bottom: 40 });
+  it('leaves a widget that already shows alone', () => {
+    expect(revealBy(box(100, 300), view, false, 10)).toBe(0);
+  });
+  it('scrolls a widget that grew past the end into view', () => {
+    expect(revealBy(box(300, 620), view, false, 10)).toBe(130);
+  });
+  it('scrolls back for one cut off at the start', () => {
+    expect(revealBy(box(-50, 200), view, false, 10)).toBe(-60);
+  });
+  it('shows the start of one wider than the dock', () => {
+    expect(revealBy(box(300, 1000), view, false, 10)).toBe(290);
+  });
+  it('works down a side dock', () => {
+    expect(revealBy({ left: 0, right: 60, top: 700, bottom: 900 }, { left: 0, right: 60, top: 0, bottom: 800 }, true, 10)).toBe(110);
   });
 });

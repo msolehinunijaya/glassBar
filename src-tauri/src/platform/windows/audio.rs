@@ -5,7 +5,7 @@ use std::ffi::c_void;
 use std::time::Duration;
 use windows::core::{Interface, GUID, HRESULT, PCWSTR};
 use windows::Win32::Devices::FunctionDiscovery::PKEY_Device_FriendlyName;
-use windows::Win32::Media::Audio::Endpoints::IAudioEndpointVolume;
+use windows::Win32::Media::Audio::Endpoints::{IAudioEndpointVolume, IAudioEndpointVolumeCallback, IAudioEndpointVolumeCallback_Impl};
 use windows::Win32::Media::Audio::*;
 use windows::Win32::System::Com::*;
 
@@ -58,12 +58,35 @@ pub fn state() -> Res<AudioState> {
     Ok(AudioState { volume, muted, devices })
 }
 
+/// Tags GlassBar's own master volume/mute changes, so the change notification can tell them
+/// from the keyboard keys, Windows' flyout or another app (the volume dock alert skips ours).
+const OURS: GUID = GUID::from_u128(0x5b7c2e1a_4d3f_4a8e_9c61_2f0d8e7b4a13);
+
 pub fn set_volume(v: f32) -> Res<()> {
-    unsafe { endpoint().and_then(|e| e.SetMasterVolumeLevelScalar(v.clamp(0.0, 1.0), std::ptr::null())).map_err(err) }
+    unsafe { endpoint().and_then(|e| e.SetMasterVolumeLevelScalar(v.clamp(0.0, 1.0), &OURS)).map_err(err) }
 }
 
 pub fn set_mute(m: bool) -> Res<()> {
-    unsafe { endpoint().and_then(|e| e.SetMute(m, std::ptr::null())).map_err(err) }
+    unsafe { endpoint().and_then(|e| e.SetMute(m, &OURS)).map_err(err) }
+}
+
+/// One master volume change, straight from Core Audio: (volume, muted, made by GlassBar).
+type Level = (f32, bool, bool);
+
+#[windows_core::implement(IAudioEndpointVolumeCallback)]
+struct VolumeCallback(std::sync::mpsc::Sender<Level>);
+
+impl IAudioEndpointVolumeCallback_Impl for VolumeCallback_Impl {
+    fn OnNotify(&self, d: *mut AUDIO_VOLUME_NOTIFICATION_DATA) -> windows::core::Result<()> {
+        // Runs on a Core Audio thread: hand it over and return at once.
+        if let Some(d) = unsafe { d.as_ref() } { let _ = self.0.send((d.fMasterVolume, d.bMuted.as_bool(), d.guidEventContext == OURS)); }
+        Ok(())
+    }
+}
+
+/// Pure: a burst of notifications -> the level to report, if any of them came from outside.
+fn outside_level(burst: &[Level]) -> Option<(f32, bool)> {
+    if burst.iter().any(|l| !l.2) { burst.last().map(|l| (l.0, l.1)) } else { None }
 }
 
 /// Undocumented but stable since Windows 7; used by EarTrumpet, SoundSwitch, etc.
@@ -143,18 +166,34 @@ pub fn set_session_mute(pid: u32, m: bool) -> Res<()> {
 
 /// ponytail: 1 s poll instead of COM callbacks; no re-registration when the
 /// default device changes, and the cost is a few COM calls per second.
-pub fn watch(on_change: Box<dyn Fn(AudioState) + Send>) {
+/// Volume changes arrive at once through Core Audio's change notification on the default
+/// speakers (re-registered when the default device changes); the device list is still
+/// checked once a second. A notification also wakes the loop, so widgets update at once too.
+pub fn watch(on_change: Box<dyn Fn(AudioState) + Send>, on_level: Box<dyn Fn(f32, bool) + Send>) {
     std::thread::spawn(move || {
         com_init();
+        let (tx, rx) = std::sync::mpsc::channel::<Level>();
+        let mut reg: Option<(String, IAudioEndpointVolume, IAudioEndpointVolumeCallback)> = None;
         let mut last: Option<AudioState> = None;
         loop {
+            let id = default_device().map(|d| id_of(&d)).unwrap_or_default();
+            if reg.as_ref().map(|r| r.0.as_str()) != Some(id.as_str()) {
+                if let Some((_, ep, cb)) = reg.take() { unsafe { let _ = ep.UnregisterControlChangeNotify(&cb); } }
+                if let Ok(ep) = endpoint() {
+                    let cb: IAudioEndpointVolumeCallback = VolumeCallback(tx.clone()).into();
+                    if unsafe { ep.RegisterControlChangeNotify(&cb) }.is_ok() { reg = Some((id, ep, cb)); }
+                }
+            }
+            if let Ok(first) = rx.recv_timeout(Duration::from_secs(1)) {
+                let burst: Vec<Level> = std::iter::once(first).chain(rx.try_iter()).collect();
+                if let Some((v, m)) = outside_level(&burst) { on_level(v, m); }
+            }
             if let Ok(s) = state() {
                 if last.as_ref() != Some(&s) {
                     on_change(s.clone());
                     last = Some(s);
                 }
             }
-            std::thread::sleep(Duration::from_secs(1));
         }
     });
 }
@@ -220,5 +259,18 @@ pub fn loopback(on_chunk: &mut dyn FnMut(&[f32], u32) -> bool) -> Res<()> {
         };
         let _ = client.Stop();
         res
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::outside_level;
+
+    #[test]
+    fn only_changes_from_outside_glassbar_raise_the_volume_alert() {
+        assert_eq!(outside_level(&[(0.4, false, true)]), None, "our own slider");
+        assert_eq!(outside_level(&[(0.4, false, false)]), Some((0.4, false)), "a volume key");
+        assert_eq!(outside_level(&[(0.4, false, false), (0.5, false, true)]), Some((0.5, false)), "a mixed burst reports the latest level");
+        assert_eq!(outside_level(&[]), None);
     }
 }

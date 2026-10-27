@@ -17,6 +17,7 @@
   import { group, isWebApp, keyFor, keyOf, limitIcons, moveKey, nextWindow, pinsInOrder, stableOrder, type Group } from './groups';
   import type { AppsSettings } from './index';
   import StartButtons from '../start/StartButtons.svelte';
+  import { ADD_APP, APP_DRAG } from '../folders/folders';
 
   let { instance, size, settings, vertical }: PillProps<AppsSettings> = $props();
   let windows = $state<AppWindow[]>([]);
@@ -70,6 +71,7 @@
       if (previewOpen) { previewOpen = false; ipc.popupHide(); }
       dragKey = g.key;
       liveOrder = groups.map((x) => x.key);
+      document.documentElement.dataset[APP_DRAG] = '1'; // folders on the dock light up
     };
     const timer = setTimeout(pick, 300);
     const move = (ev: PointerEvent) => {
@@ -82,14 +84,19 @@
       const next = moveKey(liveOrder, g.key, insertIndex(others, axis(ev)));
       if (next.join() !== liveOrder.join()) liveOrder = next;
     };
-    const up = () => {
+    const up = (ev?: PointerEvent) => {
       clearTimeout(timer);
       removeEventListener('pointermove', move);
       removeEventListener('pointerup', up);
       removeEventListener('keydown', esc);
+      delete document.documentElement.dataset[APP_DRAG];
       if (!picked) return;
       swallow = true;
-      if (liveOrder) saveOrder(liveOrder);
+      // Released on an App Folders tile: the app goes into that folder, the row stays as it was.
+      const folder = ev && document.elementFromPoint(ev.clientX, ev.clientY)?.closest<HTMLElement>('[data-folder-drop]');
+      if (folder) {
+        folder.dispatchEvent(new CustomEvent(ADD_APP, { bubbles: true, detail: { path: g.path, args: g.pin?.args, aumid: g.aumid, ...(isWebApp(g.aumid) ? { name: g.name } : {}) } }));
+      } else if (liveOrder) saveOrder(liveOrder);
       dragKey = null;
       liveOrder = null;
     };
@@ -200,7 +207,7 @@
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="pill apps" class:vertical bind:this={row} onpointerenter={expand} onpointerleave={collapse}>
   {#if settings.startPlacement === 'inline'}
-    <StartButtons searchStyle={settings.searchStyle} />
+    <StartButtons searchStyle={settings.searchStyle} color={settings.startColor} custom={settings.startCustom} />
     <span class="sep"></span>
   {/if}
   {#each groups as g (g.key)}
@@ -245,7 +252,7 @@
   {#if groups.length === 0}<span class="dim">No apps</span>{/if}
   {#if settings.startPlacement === 'after'}
     <span class="sep"></span>
-    <StartButtons searchStyle={settings.searchStyle} />
+    <StartButtons searchStyle={settings.searchStyle} color={settings.startColor} custom={settings.startCustom} />
   {/if}
 </div>
 
@@ -274,7 +281,7 @@
   .app:active { transform: scale(0.88); }
   .app.active { background: var(--pill-hover); }
   img { display: block; }
-  .fallback { display: grid; place-items: center; border-radius: calc(8px * var(--rs)); background: var(--accent); color: #fff; font-weight: 600; }
+  .fallback { display: grid; place-items: center; border-radius: calc(8px * var(--rs)); background: var(--accent); color: var(--on-accent); font-weight: 600; }
   .title { max-width: 140px; font-size: 12px; }
   .dots { position: absolute; bottom: 1px; left: 50%; transform: translateX(-50%); display: flex; gap: 2px; }
   .dots i { width: 4px; height: 4px; border-radius: calc(2px * var(--rs)); background: var(--fg-dim); }

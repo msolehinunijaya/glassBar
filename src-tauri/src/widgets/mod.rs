@@ -7,6 +7,7 @@ pub mod focus;
 pub mod ipu;
 pub mod jumplist;
 pub mod location;
+pub mod lyrics;
 pub mod media;
 pub mod notes;
 pub mod ocr;
@@ -14,6 +15,8 @@ pub mod ocr_text;
 pub mod quick;
 pub mod screenshots;
 pub mod screentime;
+pub mod shelf;
+pub mod water;
 pub mod solat;
 pub mod sound;
 pub mod spectrum;
@@ -30,7 +33,19 @@ pub fn start_watchers(app: &AppHandle) {
     let a = app.clone();
     p.watch_windows(Box::new(move || { let _ = a.emit("apps:changed", crate::platform::shell().list_windows()); }));
     let a = app.clone();
-    crate::platform::audio().watch(Box::new(move |s| { let _ = a.emit("audio:changed", s); }));
+    let b = app.clone();
+    // Changes from outside GlassBar also go to the dock as a volume / brightness alert (the
+    // page checks Settings > Dock alerts; dockAlert.ts).
+    // Each such change also catches Windows' own pop-up as it appears (windows/osd.rs).
+    crate::platform::audio().watch(Box::new(move |s| { let _ = a.emit("audio:changed", s); }), Box::new(move |v, muted| {
+        crate::platform::shell().windows_osd_nudge();
+        let _ = b.emit_to("bar", "dock:alert", serde_json::json!({ "kind": "volume", "percent": (v * 100.0).round(), "muted": muted }));
+    }));
+    let a = app.clone();
+    crate::platform::display().watch_brightness(Box::new(move |p| {
+        crate::platform::shell().windows_osd_nudge();
+        let _ = a.emit_to("bar", "dock:alert", serde_json::json!({ "kind": "brightness", "percent": p }));
+    }));
     let a = app.clone();
     crate::platform::media().watch(Box::new(move |m| { let _ = a.emit("media:changed", m); }));
 }

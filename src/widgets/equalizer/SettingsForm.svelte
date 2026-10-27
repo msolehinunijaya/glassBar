@@ -30,7 +30,7 @@
         { value: 'led', label: 'LED blocks', hint: 'Stacked segments, like an old stereo' },
         { value: 'particles', label: 'Particle wave', hint: 'Stacked dotted waves' },
         { value: 'line', label: 'Line / area', hint: 'A smooth curve through the bar tops' },
-        { value: 'radial', label: 'Radial ring', hint: 'Bars around a circle; best with Length ≈ the bar’s height' }] },
+        { value: 'radial', label: 'Radial ring', hint: 'Bars around a circle, sized to fit the dock by itself' }] },
       ...opt(s.style === 'led', { type: 'range', key: 'ledSize', label: 'Segment', min: 1, max: 8, unit: 'px' }),
       ...opt(s.style === 'particles', { type: 'range', key: 'layers', label: 'Layers', min: 1, max: 8 }),
       ...opt(s.style === 'line',
@@ -39,8 +39,9 @@
       { type: 'toggle', key: 'flip', label: 'Treble on the left' },
     ]],
     ['Size', [
-      { type: 'range', key: 'length', label: 'Length', min: 30, max: 400, step: 2, unit: 'px' },
-      { type: 'range', key: 'fill', label: 'Height', min: 30, max: 100, step: 5, unit: '%' },
+      ...opt(s.style !== 'radial', { type: 'range', key: 'length', label: 'Length', min: 30, max: 400, step: 2, unit: 'px' }),
+      { type: 'toggle', key: 'full', label: 'Fill the whole widget', hint: 'Edge to edge and full height, no margin (the default). Off: a margin around it' },
+      ...opt(!s.full, { type: 'range', key: 'fill', label: 'Height', min: 30, max: 100, step: 5, unit: '%' }),
       { type: 'range', key: 'bands', label: 'Bars', min: 8, max: 128 },
       { type: 'range', key: 'gap', label: 'Gap', min: 0, max: 8, step: 0.5, unit: 'px' },
       ...opt(barLike || s.style === 'radial', { type: 'range', key: 'radius', label: 'Corners', min: 0, max: 6, step: 0.5, unit: 'px' }),
@@ -89,6 +90,7 @@
     ]],
     ['Idle & power', [
       { type: 'choice', key: 'idle', label: 'Nothing playing', choices: [{ value: 'dots', label: 'Dots' }, { value: 'line', label: 'Line' }, { value: 'hide', label: 'Hide' }] },
+      { type: 'toggle', key: 'shrinkIdle', label: 'Shrink when silent', hint: 'After 2 s of silence it slides small (or away, with Hide) to save room, and back when sound plays' },
       { type: 'choice', key: 'fps', label: 'Frame rate', choices: [{ value: '30', label: '30 fps' }, { value: '60', label: '60 fps' }] },
       { type: 'toggle', key: 'batterySaver', label: 'Pause on battery', hint: 'Stops listening while unplugged' },
     ]],

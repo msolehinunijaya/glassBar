@@ -5,7 +5,7 @@ use crate::db::{now_ms, Db};
 use std::collections::HashSet;
 use std::sync::{Condvar, Mutex};
 use std::time::Duration;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 
 /// Alerts later than this when we notice them are recorded as missed (no toast/sound).
 pub const MISSED_AFTER_MS: i64 = 15 * 60 * 1000;
@@ -55,6 +55,7 @@ fn collect(app: &AppHandle) -> Vec<Due> {
     let mut v = crate::widgets::todo::due_items(app);
     v.extend(crate::widgets::focus::due_items(app));
     v.extend(crate::widgets::solat::due_items(app));
+    v.extend(crate::widgets::water::due_items(app));
     // Due "now" so it sorts after anything else that is due (alerts go first).
     v.push(Due {
         key: format!("house:{}", chrono::Local::now().format("%Y-%m-%d")),
@@ -66,14 +67,38 @@ fn collect(app: &AppHandle) -> Vec<Due> {
 fn handle(app: &AppHandle, d: &Due, missed: bool) {
     match d.source {
         "house" => housekeeping(app),
+        // A Dock alert only: no banner, no sound, nothing in the Notification Center.
+        "water" => crate::widgets::water::remind(app, missed),
+        // Timer, Pomodoro and prayer time are told by the dock itself (a full-dock alert with
+        // its own sound), not by a banner: alerts::DOCK_SOURCES. Still in the list.
         "timer" => {
             let id = crate::widgets::focus::timer_id(&d.key);
             if let Some(id) = id { crate::widgets::focus::on_timer_due(app, id); }
-            crate::alerts::notify_full(app, d.source, &d.title, &d.body, missed, serde_json::json!({ "kind": "chime" }), serde_json::json!({ "timerId": id }));
+            let dnd = app.state::<crate::AppState>().config.lock().unwrap().dnd;
+            crate::alerts::notify_full(app, d.source, &d.title, &d.body, missed, serde_json::Value::Null, serde_json::json!({ "timerId": id }));
+            if !missed && !dnd { let _ = app.emit_to("bar", "sound:play", serde_json::json!({ "kind": "chime" })); }
+            if let Some(a) = crate::widgets::focus::timer_alert(id, &d.body, missed, dnd) { let _ = app.emit_to("bar", "dock:alert", a); }
         }
         "pomodoro" => {
             let (sound, data) = crate::widgets::focus::on_pomo_due(app);
-            crate::alerts::notify_full(app, d.source, &d.title, &d.body, missed, sound, data);
+            let dnd = app.state::<crate::AppState>().config.lock().unwrap().dnd;
+            let auto = data["auto"].as_bool().unwrap_or(false);
+            crate::alerts::notify_full(app, d.source, &d.title, &d.body, missed, serde_json::Value::Null, data);
+            if !missed && !dnd && !sound.is_null() { let _ = app.emit_to("bar", "sound:play", sound); }
+            if let Some(a) = crate::widgets::focus::pomo_alert(&d.title, &d.body, missed, dnd, auto) { let _ = app.emit_to("bar", "dock:alert", a); }
+        }
+        "solat" => {
+            // The adzan is the prayer widget's own sound setting, not a banner chime: it plays
+            // whether or not prayer banners are muted or their sound is off. Only Do Not Disturb
+            // (and a prayer missed while GlassBar was off) keeps it quiet.
+            let dnd = app.state::<crate::AppState>().config.lock().unwrap().dnd;
+            crate::alerts::notify_full(app, d.source, &d.title, &d.body, missed, serde_json::Value::Null, serde_json::json!({ "key": d.key }));
+            if !missed && !dnd {
+                let sound = d.sound.as_ref().map(crate::widgets::solat::sound_payload).unwrap_or(serde_json::json!({ "kind": "chime" }));
+                let _ = app.emit_to("bar", "sound:play", sound);
+            }
+            // After the sound, so the dock already knows the adzan is playing (Stop button).
+            if let Some(a) = crate::widgets::solat::prayer_alert(&d.key, d.at, missed, dnd) { let _ = app.emit_to("bar", "dock:alert", a); }
         }
         _ => {
             let sound = d.sound.as_ref().map(crate::widgets::solat::sound_payload).unwrap_or(serde_json::json!({ "kind": "chime" }));

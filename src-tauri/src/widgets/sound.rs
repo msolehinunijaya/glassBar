@@ -59,7 +59,7 @@ mod tests {
     }
 }
 
-// ---- Charger sounds ----
+// ---- Charger sounds and the dock flash ----
 
 /// Pure: returns Some(plugged_in) only when the charger state really flipped.
 /// Windows sends power events for battery % changes too; those must stay silent.
@@ -72,18 +72,44 @@ static LAST_AC: std::sync::Mutex<Option<bool>> = std::sync::Mutex::new(None);
 /// Remember the starting state so launching GlassBar never plays a sound.
 pub fn charger_init() { *LAST_AC.lock().unwrap() = crate::platform::power().battery().map(|b| b.on_ac); }
 
+/// Pure: whether a real charger flip should make a sound. Do Not Disturb silences it, because
+/// a sound is an interruption.
+///
+/// There is no matching gate for the dock flash. The flip event goes to the bar either way:
+/// the flash is chrome reporting what the user just did with a cable, Do Not Disturb has no
+/// business hiding it, and its own switch is checked in the page -- gating the *event* here
+/// would also have switched off every other thing that reacts to the charger, such as the
+/// Companion's face.
+pub fn charger_sound(charger_sound_on: bool, dnd: bool) -> bool {
+    charger_sound_on && !dnd
+}
+
 pub fn power_event(app: &tauri::AppHandle) {
     use tauri::{Emitter, Manager};
-    let now = crate::platform::power().battery().map(|b| b.on_ac);
-    let flip = { let mut l = LAST_AC.lock().unwrap(); let f = charger_flip(*l, now); if now.is_some() { *l = now; } f };
+    let bat = crate::platform::power().battery();
+    let flip = {
+        let now = bat.map(|b| b.on_ac);
+        let mut l = LAST_AC.lock().unwrap();
+        let f = charger_flip(*l, now);
+        if now.is_some() { *l = now; }
+        f
+    };
     let Some(plugged) = flip else { return };
-    let s = {
+    let (sound, volume) = {
         let st = app.state::<crate::AppState>();
         let c = st.config.lock().unwrap();
-        if c.dnd || !c.device_sounds.charger { return; }
-        c.device_sounds.clone()
+        (charger_sound(c.device_sounds.charger, c.dnd), c.device_sounds.volume)
     };
-    let _ = app.emit_to("bar", "sound:play", serde_json::json!({ "kind": if plugged { "plug" } else { "unplug" }, "volume": s.volume }));
+    // Unconditional: the dock flash and the Companion both ride this. Only the bar gets it --
+    // a broadcast would wake the hidden panels for nothing.
+    let _ = app.emit_to("bar", "charger:flip", serde_json::json!({
+        "plugged": plugged,
+        "percent": bat.map(|b| b.percent),
+        "secsLeft": bat.and_then(|b| b.secs_left),
+    }));
+    if sound {
+        let _ = app.emit_to("bar", "sound:play", serde_json::json!({ "kind": if plugged { "plug" } else { "unplug" }, "volume": volume }));
+    }
 }
 
 #[cfg(test)]
@@ -96,6 +122,15 @@ mod charger_tests {
         assert_eq!(charger_flip(Some(true), Some(true)), None, "battery % updates while plugged in");
         assert_eq!(charger_flip(None, Some(true)), None, "first reading");
         assert_eq!(charger_flip(Some(true), None), None, "no battery info");
+    }
+
+    #[test]
+    fn dnd_silences_the_charger_sound() {
+        use super::charger_sound;
+        assert!(charger_sound(true, false));
+        assert!(!charger_sound(true, true), "Do Not Disturb silences it");
+        assert!(!charger_sound(false, false), "switched off");
+        assert!(!charger_sound(false, true));
     }
 }
 

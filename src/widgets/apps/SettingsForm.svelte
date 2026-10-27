@@ -39,6 +39,13 @@
 <OptionsPopover title="Start & Search" values={settings} save={(p) => save(p as Partial<AppsSettings>)} options={[
   { type: 'choice', key: 'startPlacement', label: 'Placement', choices: [{ value: 'inline', label: 'Left of apps' }, { value: 'after', label: 'Right of apps' }, { value: 'separate', label: 'Own widget' }] },
   { type: 'choice', key: 'searchStyle', label: 'Search', choices: [{ value: 'icon', label: 'Icon' }, { value: 'bar', label: 'Search bar' }] },
+  { type: 'choice', key: 'startColor', label: 'Windows logo colour', menu: true, choices: [
+    { value: 'blue', label: 'Windows blue' },
+    { value: 'accent', label: 'Accent colour', hint: 'Follows Settings > Appearance' },
+    { value: 'text', label: 'Same as text', hint: 'White on a dark dock, dark on a light one' },
+    { value: 'classic', label: 'Classic four colours' },
+    { value: 'custom', label: 'Custom…' }] },
+  ...(settings.startColor === 'custom' ? [{ type: 'color' as const, key: 'startCustom', label: 'Logo colour' }] : []),
 ]} />
 <label>Icons shown {settings.maxIcons ? settings.maxIcons : 'all'}
   <input type="range" class="slider" min="0" max="20" step="1" value={settings.maxIcons ?? 0} style:--fill="{((settings.maxIcons ?? 0) / 20) * 100}%"

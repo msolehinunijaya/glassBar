@@ -4,15 +4,21 @@
   import { Copy, Trash2 } from '@lucide/svelte';
   import { profile, store, update } from '../lib/config.svelte';
   import { events, ipc, type Config } from '../lib/ipc';
+  import { ALERT_DEFAULTS, type DockAlertsCfg } from './dockAlert';
+  /** The two sides of the dock, named for the edge it is on: screen-edge side, windows side. */
+  const GAP_SIDES = { bottom: ['below', 'above'], top: ['above', 'below'], left: ['left of', 'right of'], right: ['right of', 'left of'] } as const;
   import Updates from './Updates.svelte';
   import LocationSettings from './LocationSettings.svelte';
   import WidgetManager from './widgets/WidgetManager.svelte';
   import About from './About.svelte';
   import AppearanceSettings from './AppearanceSettings.svelte';
 
-  const sections = ['Bar', 'Appearance', 'Widgets', 'Location', 'Notifications', 'Sounds', 'Profiles', 'Startup', 'Updates', 'Backup', 'About'] as const;
+  const sections = ['Bar', 'Appearance', 'Widgets', 'Location', 'Notifications', 'Dock alerts', 'Sounds', 'Profiles', 'Startup', 'Updates', 'Backup', 'About'] as const;
   import { SOURCE_WIDGET } from '../lib/notify';
-  const BANNER_SOURCES = [...Object.entries(SOURCE_WIDGET).map(([k, v]) => [k, v.label] as const), ['update', 'Updates'] as const];
+  // Prayer time, Pomodoro and Timer are told by the dock itself (Settings > Dock alerts), not
+  // by banners: not listed here (Rust: alerts::DOCK_SOURCES).
+  const DOCK_SOURCES = ['solat', 'pomodoro', 'timer'];
+  const BANNER_SOURCES = [...Object.entries(SOURCE_WIDGET).filter(([k]) => !DOCK_SOURCES.includes(k)).map(([k, v]) => [k, v.label] as const), ['update', 'Updates'] as const];
   type Section = (typeof sections)[number];
   const asSection = (s: string | null) => sections.find((x) => x === s);
   // Opened on a section (e.g. from a widget's location label): ?section=… or, when already open, an event.
@@ -23,6 +29,9 @@
 
   const c = $derived(store.config!);
   const bar = $derived(profile().bar);
+  const sides = $derived(GAP_SIDES[bar.edge]);
+  const outer = $derived(bar.gap ?? 6);
+  const inner = $derived(bar.gapInner ?? outer);
   const set = (f: (c: Config) => void) => update(f);
   const setBar = (f: (b: Config['profiles'][string]['bar']) => void) => set((c) => f(c.profiles[c.activeProfile].bar));
 
@@ -98,10 +107,15 @@
         <div class="field"><span>Length {Math.round(bar.length * 100)}%</span>
           <input type="range" min="0.2" max="1" step="0.01" value={bar.length} onchange={(e) => setBar((b) => (b.length = +e.currentTarget.value))} />
         </div>
-        <div class="field"><span>Space from the edge {bar.gap ?? 6}px</span>
-          <input type="range" min="0" max="48" step="1" value={bar.gap ?? 6} onchange={(e) => setBar((b) => (b.gap = +e.currentTarget.value))} />
+        <div class="field"><span>Space {sides[0]} the dock {outer}px</span>
+          <input type="range" min="0" max="48" step="1" value={outer} aria-label="Space between the dock and the screen edge"
+                 onchange={(e) => setBar((b) => { b.gapInner = inner; b.gap = +e.currentTarget.value; })} />
         </div>
-        <p class="hint">Gap between the dock and the screen edge it sits on, in any position.</p>
+        <div class="field"><span>Space {sides[1]} the dock {inner}px</span>
+          <input type="range" min="0" max="48" step="1" value={inner} aria-label="Space between the dock and your windows"
+                 onchange={(e) => setBar((b) => (b.gapInner = +e.currentTarget.value))} />
+        </div>
+        <p class="hint">The first is towards the screen edge, the second towards your windows (with "Reserve screen space" on, maximised windows stop there). They follow the dock to any edge.</p>
         <label class="field"><span>Auto-hide</span>
           <input type="checkbox" checked={bar.autoHide} onchange={(e) => setBar((b) => { b.autoHide = e.currentTarget.checked; b.floating = null; })} />
         </label>
@@ -188,6 +202,49 @@
         {/if}
       </div>
 
+    {:else if section === 'Dock alerts'}
+      {@const da = { ...ALERT_DEFAULTS, ...(c.dockAlerts ?? {}) }}
+      {@const setDa = (p: Partial<DockAlertsCfg>) => set((c) => (c.dockAlerts = { ...da, ...p }))}
+      <p class="hint">For a moment the whole dock shows one thing, then goes back to your widgets. Hover to keep it, click to dismiss. Not over full-screen apps, except prayer time. No notification.</p>
+      <div class="group">
+        {#each [
+          ['charger', 'Charger', 'The charge level when you plug the charger in or unplug it.'],
+          ['volume', 'Volume', 'When the volume changes outside GlassBar: keyboard keys, Windows or another app.'],
+          ['brightness', 'Brightness', "When the built-in screen's brightness changes outside GlassBar. External monitors don't report it. If Windows changes it by itself (auto brightness), you'll see that too."],
+          ['prayer', 'Prayer time', 'The prayer name and time when it begins (Waktu Solat widget, with its alerts on).'],
+          ['pomodoro', 'Pomodoro', 'When a focus session ends (break time) and when a break ends (back to focus), with Start / Pause / Skip.'],
+          ['timer', 'Timer', "When a timer runs out, with +1 min and +5 min."],
+          ['water', 'Water reminder', 'Time to drink, with buttons to log a cup or snooze (Water widget, with reminders on).'],
+        ] as const as [k, label, hint] (k)}
+          <div class="field"><span>{label}</span>
+            <span class="row"><button class="btn ghost" onclick={() => ipc.dockAlertTest(k)}>Test</button>
+            {#if k === 'charger'}
+              <input type="checkbox" aria-label={label} checked={c.chargerFlash} onchange={(e) => set((c) => (c.chargerFlash = e.currentTarget.checked))} />
+            {:else}
+              <input type="checkbox" aria-label={label} checked={da[k]} onchange={(e) => setDa({ [k]: e.currentTarget.checked })} />
+            {/if}</span>
+          </div>
+          <p class="hint">{hint}</p>
+        {/each}
+      </div>
+      <div class="group">
+        <label class="field"><span>Hide Windows' own volume and brightness pop-up</span>
+          <input type="checkbox" checked={da.hideWindowsOsd} disabled={!da.volume && !da.brightness} onchange={(e) => setDa({ hideWindowsOsd: e.currentTarget.checked })} />
+        </label>
+        <p class="hint">So only GlassBar's shows, not both. Works while the Volume or Brightness alert above is on; Windows' pop-up comes back when you close GlassBar. Right after GlassBar starts, the very first one may still flash once. It also hides Windows' media pop-up (play/pause keys).</p>
+        <label class="field"><span>Show when the dock is hidden</span>
+          <input type="checkbox" checked={da.reveal} onchange={(e) => setDa({ reveal: e.currentTarget.checked })} />
+        </label>
+        <p class="hint">With auto-hide on, the dock slides out for the alert and away again after.</p>
+        <div class="field"><span>How long</span>
+          <div class="seg">
+            {#each [['short', 'Short'], ['normal', 'Normal'], ['long', 'Long']] as const as [v, label] (v)}
+              <button class:sel={da.length === v} onclick={() => setDa({ length: v })}>{label}</button>
+            {/each}
+          </div>
+        </div>
+      </div>
+
     {:else if section === 'Sounds'}
       <div class="group">
         <label class="field"><span>Charger sounds (plugged in / unplugged)</span>
@@ -258,10 +315,13 @@
   .brand { font-weight: 600; font-size: 16px; padding: 0 10px 14px; }
   nav button { text-align: left; padding: 8px 12px; border-radius: calc(10px * var(--rs)); }
   nav button:hover { background: var(--pill); }
-  nav .sel { background: var(--accent); color: #fff; }
+  nav .sel { background: var(--accent); color: var(--on-accent); }
   main { flex: 1; overflow: auto; padding: 18px 28px 40px; }
   /* Used by widget panels in every window too. */
-  :global(.btn) { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: calc(9px * var(--rs)); background: var(--accent); color: #fff; }
+  :global(.btn) { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: calc(9px * var(--rs)); background: var(--accent); color: var(--on-accent); }
+  .btn.ghost { background: var(--pill); color: var(--fg); padding: 5px 12px; }
+  .btn.ghost:hover { background: var(--pill-hover); }
+  .row { display: inline-flex; align-items: center; gap: 10px; }
   :global(.btn:disabled) { opacity: 0.5; }
   /* Shared by every section component (Location, About, widget manager…). */
   .settings :global {
@@ -276,17 +336,17 @@
     .hint { font-size: 12px; color: var(--fg-dim); margin: -4px 0 6px; }
     .seg { display: flex; gap: 2px; padding: 3px; border-radius: calc(10px * var(--rs)); background: var(--pill); }
     .seg button { padding: 5px 12px; border-radius: calc(8px * var(--rs)); text-transform: capitalize; }
-    .seg .sel { background: var(--accent); color: #fff; }
+    .seg .sel { background: var(--accent); color: var(--on-accent); }
     select, input:not([type]), textarea, .grow { padding: 6px 10px; border-radius: calc(8px * var(--rs)); border: 1px solid var(--line-soft); background: var(--settings-bg); }
     textarea { width: 100%; font-family: Consolas, monospace; font-size: 12px; resize: vertical; }
     /* Choice buttons (Notifications): plain, the chosen one in the accent colour. */
     .segs { display: inline-flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
     .segs .btn { background: var(--pill); color: var(--fg); padding: 6px 10px; font-size: 12px; }
-    .segs .btn.on { background: var(--accent); color: #fff; }
+    .segs .btn.on { background: var(--accent); color: var(--on-accent); }
     .wrow { display: flex; align-items: center; gap: 8px; padding: 6px 0; }
     .wrow b { flex: 1; font-weight: 500; }
     .grow { flex: 1; }
-    .wico { display: grid; place-items: center; width: 28px; height: 28px; border-radius: calc(8px * var(--rs)); background: var(--accent); color: #fff; flex: none; }
+    .wico { display: grid; place-items: center; width: 28px; height: 28px; border-radius: calc(8px * var(--rs)); background: var(--accent); color: var(--on-accent); flex: none; }
     .wform { padding: 4px 0 12px 36px; display: flex; flex-direction: column; gap: 8px; }
     .wform label { display: flex; align-items: center; gap: 8px; }
     .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }

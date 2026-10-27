@@ -12,9 +12,11 @@ use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, Webview
 
 /// Space between the bar and the screen edge, logical px.
 
-/// Window rect and reserved AppBar strip for a docked bar, all in physical px.
-pub fn place(mon: Rect, edge: Edge, length: f64, thick: i32, gap: i32) -> (Rect, Rect) {
-    let strip = thick + 2 * gap;
+/// Window rect and reserved AppBar strip for a docked bar, all in physical px. `gap` is the
+/// space between the bar and its screen edge; `inner` the space on its other side, between
+/// the bar and the apps' windows (it only widens the reserved strip).
+pub fn place(mon: Rect, edge: Edge, length: f64, thick: i32, gap: i32, inner: i32) -> (Rect, Rect) {
+    let strip = thick + gap + inner;
     let along = |total: i32| (total as f64 * length).round() as i32;
     match edge {
         Edge::Top | Edge::Bottom => {
@@ -97,8 +99,8 @@ fn bar_rect(app: &AppHandle, bar: &crate::config::BarCfg, length: f64) -> Option
     let mon = bar_monitor(app, bar.monitor)?;
     let s = mon.scale_factor();
     let thick = (bar.thickness() * s).round() as i32;
-    let gap = (bar.gap.clamp(0.0, 48.0) * s).round() as i32;
-    let (mut r, strip) = place(monitor_rect(&mon), bar.edge, length, thick, gap);
+    let px = |v: f64| (v.clamp(0.0, 48.0) * s).round() as i32;
+    let (mut r, strip) = place(monitor_rect(&mon), bar.edge, length, thick, px(bar.gap), px(bar.gap_inner.unwrap_or(bar.gap)));
     if let Some(p) = bar.floating { r.x = p.x; r.y = p.y; }
     Some((r, strip))
 }
@@ -240,6 +242,7 @@ pub fn apply_later(app: &AppHandle, after_s: &[u64]) {
 
 /// Undo everything that outlives the process: reserved space and hidden taskbar.
 pub fn cleanup(_app: &AppHandle) {
+    shell().windows_osd_restore();
     crate::platform::tray().stop();
     shell().appbar_remove();
     shell().set_taskbar(TaskbarMode::Show);
@@ -322,6 +325,100 @@ pub fn bar_drag(app: AppHandle, on: bool) { app.state::<AppState>().dragging.sto
 #[tauri::command]
 pub fn mouse_down() -> bool { shell().mouse_down() }
 
+#[tauri::command]
+pub fn menu_open() -> bool { shell().menu_open() }
+
+/// Windows' own volume / brightness pop-up is hidden while the setting is on and GlassBar
+/// shows at least one of those alerts itself -- never leaving the user with neither.
+pub fn osd_wanted(a: &crate::config::DockAlerts) -> bool { a.hide_windows_osd && (a.volume || a.brightness) }
+pub fn sync_osd(app: &AppHandle) {
+    let on = osd_wanted(&app.state::<AppState>().config.lock().unwrap().dock_alerts);
+    shell().windows_osd(on);
+}
+
+/// Close GlassBar from the dock's right-click menu: the same clean exit as the tray's Quit
+/// (the reserved screen space and the Windows taskbar are given back).
+#[tauri::command]
+pub fn app_quit(app: AppHandle) { cleanup(&app); app.exit(0); }
+
+// ---- Dock alerts (app/dockAlert.ts draws them) ----
+
+/// A full-screen app (game, slideshow, video) is in front: dock alerts stay out of its way.
+static FULLSCREEN: AtomicBool = AtomicBool::new(false);
+pub fn set_fullscreen(on: bool) { FULLSCREEN.store(on, Ordering::Relaxed); }
+
+/// Pure: may a dock alert of this kind show now? Prayer time still shows over a full-screen app.
+pub fn alert_allowed(kind: &str, fullscreen: bool) -> bool { !fullscreen || kind == "prayer" }
+
+/// An alert is about to show for `ms`. False = don't (a full-screen app). Otherwise an
+/// auto-hidden dock slides out for it (when that setting is on) and stays out until then;
+/// the auto-hide loop slides it back once the pointer isn't on it.
+#[tauri::command]
+pub fn dock_alert_begin(app: AppHandle, kind: String, ms: u64) -> bool {
+    let fullscreen = FULLSCREEN.load(Ordering::Relaxed);
+    if !alert_allowed(&kind, fullscreen) { return false; }
+    // Over a full-screen app the dock is not on top (main.rs): for prayer time, come out
+    // above it for the alert; dock_alert_end puts it back.
+    if fullscreen {
+        if let Some(w) = app.get_webview_window("bar") { let _ = w.set_always_on_top(true); shell().raise_top(&w); }
+    }
+    if app.state::<AppState>().config.lock().unwrap().dock_alerts.reveal {
+        let until = crate::db::now_ms() as u64 + ms.min(20_000);
+        HOLD_UNTIL.fetch_max(until, Ordering::Relaxed);
+        ALERT_HOLD.store(until, Ordering::Relaxed);
+        reveal(&app, true);
+    }
+    true
+}
+
+/// The hold the last dock alert set, so ending it never cuts a notification jump's short.
+static ALERT_HOLD: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+/// The alert is gone: let an auto-hidden dock slide away again.
+#[tauri::command]
+pub fn dock_alert_end(app: AppHandle) {
+    if FULLSCREEN.load(Ordering::Relaxed) {
+        if let Some(w) = app.get_webview_window("bar") { let _ = w.set_always_on_top(false); }
+    }
+    let mine = ALERT_HOLD.swap(0, Ordering::Relaxed);
+    if mine != 0 { let _ = HOLD_UNTIL.compare_exchange(mine, 0, Ordering::Relaxed, Ordering::Relaxed); }
+}
+
+/// Settings › Dock alerts › Test: a sample of that kind (the charger with the real battery).
+/// Async: reading the brightness over DDC/CI is slow and must not block the main thread.
+#[tauri::command]
+pub async fn dock_alert_test(app: AppHandle, kind: String) {
+    let prayer = kind == "prayer";
+    let Ok(Some(mut p)) = crate::widgets::blocking(move || sample_alert(&kind)).await else { return };
+    p["test"] = serde_json::Value::Bool(true); // shown even with that kind switched off
+    if prayer {
+        // The real moment plays the adzan first; the test does too (the short one).
+        let s = app.state::<AppState>().config.lock().unwrap().widget_settings("solat");
+        let sound = crate::widgets::blocking(move || crate::widgets::solat::solat_sound(&s).map(|mut v| { v["short"] = true.into(); crate::widgets::solat::sound_payload(&v) })).await.ok().flatten();
+        if let Some(sound) = sound { let _ = app.emit_to("bar", "sound:play", sound); }
+    }
+    let _ = app.emit_to("bar", "dock:alert", p);
+}
+
+fn sample_alert(kind: &str) -> Option<serde_json::Value> {
+    Some(match kind {
+        "charger" => {
+            let b = crate::platform::power().battery();
+            serde_json::json!({ "kind": "charger", "plugged": b.map(|b| b.on_ac).unwrap_or(true), "percent": b.map(|b| b.percent), "secsLeft": b.and_then(|b| b.secs_left) })
+        }
+        "volume" => {
+            let a = crate::platform::audio().state().ok();
+            serde_json::json!({ "kind": "volume", "percent": a.as_ref().map(|a| (a.volume * 100.0).round()).unwrap_or(50.0), "muted": a.is_some_and(|a| a.muted) })
+        }
+        "brightness" => serde_json::json!({ "kind": "brightness", "percent": crate::platform::display().brightness().unwrap_or(70) }),
+        "prayer" => serde_json::json!({ "kind": "prayer", "name": "Zohor", "at": crate::db::now_ms() }),
+        "water" => serde_json::json!({ "kind": "water", "total": 750, "goal": 2000, "cup": 250, "test": true }),
+        "pomodoro" => serde_json::json!({ "kind": "pomodoro", "done": "focus", "body": "Your break has started.", "auto": true }),
+        "timer" => serde_json::json!({ "kind": "timer", "id": null, "label": "Tea is ready" }),
+        _ => return None,
+    })
+}
+
 /// Native blur only when it's on and Windows' Transparency effects are on; otherwise the
 /// page draws the glass tint itself (else the bar is solid black in any theme).
 fn glass_native(wanted: bool) -> bool { wanted && shell().transparency_effects() }
@@ -355,6 +452,24 @@ pub fn popup_fit(app: AppHandle, height: f64) {
     // Round up: at 125 % scaling, rounding to the nearest pixel could leave the window a
     // fraction too short, so a scrollbar came and went and the panel jiggled.
     let h = ((height * p.scale).ceil() as i32).clamp(60, p.mon.h * 85 / 100);
+    set_rect(&win, popup_rect(p.bar, p.anchor, p.width, h, p.edge, p.mon, p.gap));
+}
+
+/// A panel that needs a different width while open (the music panel with lyrics beside it):
+/// keep its side, height and anchor, change only the width.
+#[tauri::command]
+pub fn popup_width(app: AppHandle, width: f64) {
+    let p = {
+        let st = app.state::<AppState>();
+        let mut g = st.popup.lock().unwrap();
+        let Some(pl) = g.place.as_mut() else { return };
+        let w = ((width * pl.scale).round() as i32).clamp(200, pl.mon.w * 9 / 10);
+        if pl.width == w { return; }
+        pl.width = w;
+        *pl
+    };
+    let Some(win) = app.get_webview_window("popup") else { return };
+    let h = win.outer_size().map(|s| s.height as i32).unwrap_or(400);
     set_rect(&win, popup_rect(p.bar, p.anchor, p.width, h, p.edge, p.mon, p.gap));
 }
 
@@ -393,6 +508,8 @@ pub fn popup_hidden(app: &AppHandle) {
 #[tauri::command]
 pub fn popup_open(app: AppHandle, instance: String, x: f64, y: f64, w: f64, h: f64, width: f64, height: f64, focus: Option<bool>) -> Result<(), String> {
     let focus = focus.unwrap_or(true);
+    // A hover panel whose timer ran out while a context menu is up: the user is busy with the menu.
+    if !focus && shell().menu_open() { return Ok(()); }
     let st = app.state::<AppState>();
     {
         // Clicking the open widget again: the popup already hid on blur, so this click means "close".
@@ -456,22 +573,60 @@ pub fn popup_reveal(app: AppHandle) {
 #[tauri::command]
 pub fn popup_hide(app: AppHandle) { popup_hidden(&app) }
 
+/// Is the pointer over the open hover panel or the widget that opened it? `None` when no
+/// hover panel is open.
+fn pointer_on_hover_panel(app: &AppHandle) -> Option<bool> {
+    // The screenshot card opens unfocused too, but it is not a hover panel: it times out itself.
+    let st = app.state::<AppState>();
+    let anchor = {
+        let p = st.popup.lock().unwrap();
+        if !p.hover || p.instance.as_deref() == Some(FEEDBACK) { return None; }
+        p.place.as_ref().map(|pl| pl.anchor)
+    };
+    let win = app.get_webview_window("popup")?;
+    if !win.is_visible().unwrap_or(false) { return None; }
+    let Some((x, y)) = shell().cursor_pos() else { return Some(true) }; // can't tell: leave it open
+    let over_panel = match (win.outer_position(), win.outer_size()) {
+        (Ok(p), Ok(s)) => crate::autohide::contains(Rect { x: p.x, y: p.y, w: s.width as i32, h: s.height as i32 }, x, y, 2),
+        _ => false,
+    };
+    Some(over_panel || anchor.is_some_and(|a| crate::autohide::contains(a, x, y, 2)))
+}
+
 /// The pointer left a hover panel or its button: close it, unless the pointer is in fact
 /// still over one of them. Stray "left" events (a tooltip or a window appearing under the
 /// pointer) used to close a hover panel just as it opened.
 #[tauri::command]
 pub fn popup_leave_close(app: AppHandle) {
-    let st = app.state::<AppState>();
-    let anchor = { let p = st.popup.lock().unwrap(); if !p.hover { return; } p.place.as_ref().map(|pl| pl.anchor) };
-    if let (Some((x, y)), Some(win)) = (shell().cursor_pos(), app.get_webview_window("popup")) {
-        let over_panel = match (win.outer_position(), win.outer_size()) {
-            (Ok(p), Ok(s)) => crate::autohide::contains(Rect { x: p.x, y: p.y, w: s.width as i32, h: s.height as i32 }, x, y, 2),
-            _ => false,
-        };
-        let over_button = anchor.is_some_and(|a| crate::autohide::contains(a, x, y, 2));
-        if over_panel || over_button { return; }
-    }
-    popup_hidden(&app);
+    if pointer_on_hover_panel(&app) == Some(false) { popup_hidden(&app); }
+}
+
+/// Close a hover panel now, wherever the pointer is (a right-click on the dock). Panels
+/// opened by a click are left alone.
+#[tauri::command]
+pub fn popup_hover_hide(app: AppHandle) {
+    if pointer_on_hover_panel(&app).is_some() { popup_hidden(&app); }
+}
+
+/// Safety net for hover panels: the page closes them on pointer-leave, but a leave can be
+/// lost (a native menu runs its own loop and swallows it), which left a panel open for good.
+/// Here the real cursor decides: away from the panel and its widget for 300 ms = close.
+/// Not while a mouse button is held (dragging a slider out) or a menu is open.
+pub fn watch_hover_panel(app: &AppHandle) {
+    let app = app.clone();
+    std::thread::spawn(move || {
+        let mut away = 0u64;
+        loop {
+            std::thread::sleep(Duration::from_millis(100));
+            match pointer_on_hover_panel(&app) {
+                Some(false) if !shell().mouse_down() && !shell().menu_open() => {
+                    away += 100;
+                    if away >= 300 { away = 0; popup_hidden(&app); }
+                }
+                _ => away = 0,
+            }
+        }
+    });
 }
 
 // ---- Notification banners ----
@@ -665,27 +820,57 @@ mod tests {
     const MON: Rect = Rect { x: 0, y: 0, w: 1920, h: 1080 };
 
     #[test]
+    fn windows_popup_is_hidden_only_while_glassbar_shows_volume_or_brightness() {
+        let d = crate::config::DockAlerts::default();
+        assert!(osd_wanted(&d));
+        assert!(!osd_wanted(&crate::config::DockAlerts { volume: false, brightness: false, ..d.clone() }), "never neither");
+        assert!(osd_wanted(&crate::config::DockAlerts { volume: false, ..d.clone() }));
+        assert!(!osd_wanted(&crate::config::DockAlerts { hide_windows_osd: false, ..d }));
+    }
+
+    #[test]
+    fn dock_alerts_stay_out_of_full_screen_apps_except_prayer_time() {
+        assert!(alert_allowed("volume", false));
+        assert!(!alert_allowed("volume", true));
+        assert!(!alert_allowed("charger", true));
+        assert!(alert_allowed("prayer", true));
+    }
+
+    #[test]
     fn bottom_bar_is_centered_and_reserves_full_strip() {
-        let (win, res) = place(MON, Edge::Bottom, 0.5, 48, 6);
+        let (win, res) = place(MON, Edge::Bottom, 0.5, 48, 6, 6);
         assert_eq!(win, Rect { x: 480, y: 1080 - 6 - 48, w: 960, h: 48 });
         assert_eq!(res, Rect { x: 0, y: 1080 - 60, w: 1920, h: 60 });
     }
 
     #[test]
+    fn the_two_gaps_are_set_apart_on_every_edge() {
+        // 4 px from the screen edge, 20 px towards the windows.
+        let (win, res) = place(MON, Edge::Bottom, 0.5, 48, 4, 20);
+        assert_eq!((win.y, res), (1080 - 4 - 48, Rect { x: 0, y: 1080 - 72, w: 1920, h: 72 }));
+        let (win, res) = place(MON, Edge::Top, 0.5, 48, 4, 20);
+        assert_eq!((win.y, res), (4, Rect { x: 0, y: 0, w: 1920, h: 72 }));
+        let (win, res) = place(MON, Edge::Left, 0.5, 48, 4, 20);
+        assert_eq!((win.x, res), (4, Rect { x: 0, y: 0, w: 72, h: 1080 }));
+        let (win, res) = place(MON, Edge::Right, 0.5, 48, 4, 20);
+        assert_eq!((win.x, res), (1920 - 4 - 48, Rect { x: 1920 - 72, y: 0, w: 72, h: 1080 }));
+    }
+
+    #[test]
     fn hidden_bar_leaves_a_sliver_on_its_edge() {
-        let (win, _) = place(MON, Edge::Bottom, 0.5, 48, 6);
+        let (win, _) = place(MON, Edge::Bottom, 0.5, 48, 6, 6);
         assert_eq!(hidden_rect(win, Edge::Bottom, MON, 3), Rect { y: 1080 - 3, ..win });
-        let (win, _) = place(MON, Edge::Top, 0.5, 48, 6);
+        let (win, _) = place(MON, Edge::Top, 0.5, 48, 6, 6);
         assert_eq!(hidden_rect(win, Edge::Top, MON, 3), Rect { y: 3 - 48, ..win });
-        let (win, _) = place(MON, Edge::Left, 0.5, 48, 6);
+        let (win, _) = place(MON, Edge::Left, 0.5, 48, 6, 6);
         assert_eq!(hidden_rect(win, Edge::Left, MON, 3), Rect { x: 3 - 48, ..win });
-        let (win, _) = place(MON, Edge::Right, 0.5, 48, 6);
+        let (win, _) = place(MON, Edge::Right, 0.5, 48, 6, 6);
         assert_eq!(hidden_rect(win, Edge::Right, MON, 3), Rect { x: 1920 - 3, ..win });
     }
 
     #[test]
     fn left_bar_is_vertical() {
-        let (win, res) = place(MON, Edge::Left, 1.0, 48, 6);
+        let (win, res) = place(MON, Edge::Left, 1.0, 48, 6, 6);
         assert_eq!(win, Rect { x: 6, y: 0, w: 48, h: 1080 });
         assert_eq!(res, Rect { x: 0, y: 0, w: 60, h: 1080 });
     }
@@ -693,10 +878,10 @@ mod tests {
     #[test]
     fn second_monitor_offsets_apply() {
         let m2 = Rect { x: 1920, y: -200, w: 2560, h: 1440 };
-        let (win, res) = place(m2, Edge::Top, 0.5, 36, 6);
+        let (win, res) = place(m2, Edge::Top, 0.5, 36, 6, 6);
         assert_eq!(win, Rect { x: 1920 + 640, y: -194, w: 1280, h: 36 });
         assert_eq!(res, Rect { x: 1920, y: -200, w: 2560, h: 48 });
-        let (win, _) = place(m2, Edge::Right, 0.5, 36, 6);
+        let (win, _) = place(m2, Edge::Right, 0.5, 36, 6, 6);
         assert_eq!(win, Rect { x: 1920 + 2560 - 42, y: -200 + 360, w: 36, h: 720 });
     }
 

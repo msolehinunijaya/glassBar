@@ -1,10 +1,21 @@
 <script lang="ts">
   import OptionsPopover from '../../lib/OptionsPopover.svelte';
   import type { SettingsProps } from '../types';
-  import type { QuickSettings } from './index';
+  import { TILES, type QuickSettings, type TileKey } from './index';
 
   let { settings, save }: SettingsProps<QuickSettings> = $props();
+  // Edit tiles: a box per tile, ticked = shown. Stored as the hidden ones, so a tile added
+  // later shows up by default.
+  const shown = $derived(Object.fromEntries(TILES.map(([k]) => [k, !(settings.hiddenTiles ?? []).includes(k)])));
+  const saveTiles = (p: Record<string, unknown>) => {
+    const next = { ...shown, ...p };
+    save({ hiddenTiles: TILES.map(([k]) => k).filter((k) => !next[k]) as TileKey[] });
+  };
 </script>
+
+<OptionsPopover title="Edit tiles" values={shown} save={saveTiles} options={[
+  { type: 'checks', label: 'Show', min: 1, items: TILES.map(([key, label]) => ({ key, label })) },
+]} />
 
 <OptionsPopover title="Quick settings sections" values={settings} save={(p) => save(p as Partial<QuickSettings>)} options={[
   { type: 'toggle', key: 'showLanguage', label: 'Keyboard language' },

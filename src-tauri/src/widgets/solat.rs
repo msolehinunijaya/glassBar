@@ -208,6 +208,15 @@ pub fn due_items(app: &AppHandle) -> Vec<Due> {
         .collect()
 }
 
+/// The dock alert for a prayer that has just begun: its name comes from the occurrence key
+/// ("solat:<date>:<zone>:<name>"). None for a missed one (GlassBar was off or asleep) and
+/// under Do Not Disturb, which also keeps banners and sounds quiet.
+pub fn prayer_alert(key: &str, at: i64, missed: bool, dnd: bool) -> Option<Value> {
+    if missed || dnd { return None; }
+    let name = key.strip_prefix("solat:")?.rsplit(':').next().filter(|n| !n.is_empty())?;
+    Some(serde_json::json!({ "kind": "prayer", "name": name, "at": at }))
+}
+
 /// The prayer-time sound from the widget settings: "short" (default) or "full" adzan,
 /// or "chime" (None = the normal alert chime). The user's own file replaces the built-in
 /// recording and follows short/full too.
@@ -316,6 +325,14 @@ mod tests {
         assert_eq!(d.times.iter().map(|(n, _)| n.as_str()).collect::<Vec<_>>(),
                    ["Imsak", "Subuh", "Syuruk", "Zohor", "Asar", "Maghrib", "Isyak"]);
         assert_eq!(d.hijri.as_deref(), Some("1448-05-12"));
+    }
+
+    #[test]
+    fn prayer_alert_names_the_prayer_and_stays_quiet_when_it_should() {
+        assert_eq!(prayer_alert("solat:2026-10-27:WLY01:Zohor", 5, false, false), Some(serde_json::json!({ "kind": "prayer", "name": "Zohor", "at": 5 })));
+        assert_eq!(prayer_alert("solat:2026-10-27:WLY01:Zohor", 5, true, false), None, "missed while off");
+        assert_eq!(prayer_alert("solat:2026-10-27:WLY01:Zohor", 5, false, true), None, "Do Not Disturb");
+        assert_eq!(prayer_alert("todo:1:5", 5, false, false), None);
     }
 
     #[test]

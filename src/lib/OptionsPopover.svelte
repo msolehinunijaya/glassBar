@@ -100,7 +100,7 @@
   select { min-width: 0; max-width: 68%; height: 32px; padding: 0 10px; border-radius: var(--r-inner); border: 1px solid var(--border); background: var(--bg-2); color: inherit;
            font: inherit; font-size: 12px; cursor: pointer; text-overflow: ellipsis; }
   select:hover { background: var(--pill-hover); }
-  .seg .sel { background: var(--accent); color: #fff; }
+  .seg .sel { background: var(--accent); color: var(--on-accent); }
   .checks { display: flex; gap: 10px; font-size: 12px; }
   .checks label { display: flex; align-items: center; gap: 4px; }
   .checks .locked { opacity: 0.6; }

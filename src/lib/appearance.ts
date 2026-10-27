@@ -54,6 +54,16 @@ export function luminance(hex: string) {
 }
 export const rgb = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(', ');
 
+/** Near-black used for text on light fills. */
+export const INK = '#1c1c1e';
+/** Contrast of '#rrggbb' against white (1..21). */
+const onWhite = (hex: string) => 1.05 / (luminance(hex) + 0.05);
+/** Text and icons on an accent fill: white while white reads on it (3:1, bold UI text and
+ *  icons), otherwise near-black -- a white or yellow accent made white labels vanish. */
+export const onAccent = (accent: string): string => (onWhite(accent) >= 3 ? '#fff' : INK);
+/** The accent drawn on a white surface (Liquid's "on" tiles): itself if it shows there. */
+export const accentInk = (accent: string): string => (onWhite(accent) >= 3 ? accent : INK);
+
 // Readability floors. Without blur a see-through surface puts text straight on the
 // wallpaper, so it must stay mostly solid; cards must stay visible as buttons.
 export const FLOOR = { dock: 0.45, panel: 0.7, card: 0.3, high: 0.85 };
