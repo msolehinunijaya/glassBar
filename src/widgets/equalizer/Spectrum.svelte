@@ -14,7 +14,11 @@
 
   /** `len` is the length along the bar in px. `height` caps the thickness on a top/bottom
    *  dock (the Music pill wants a slim strip); left unset it fills its parent. */
-  let { settings: s, vertical = false, len, height }: { settings: EqSettings; vertical?: boolean; len: number; height?: number } = $props();
+  let { settings: s, vertical = false, len, height, onquiet }: {
+    settings: EqSettings; vertical?: boolean; len: number; height?: number;
+    /** Called when the spectrum goes quiet (nothing playing) or comes back. */
+    onquiet?: (quiet: boolean) => void;
+  } = $props();
   let canvas: HTMLCanvasElement;
   let src: number[] = [];
   let lastData = 0;
@@ -65,7 +69,7 @@
   $effect(() => {
     const ctx = canvas.getContext('2d')!;
     const st = { cur: [] as number[], peak: [] as number[], hold: [] as number[] };
-    let raf = 0, last = 0, quiet = true;
+    let raf = 0, last = 0, quiet = true, first = true;
     // Size and accent are read when they change / once a second, not every frame: reading them
     // forces the page to recalculate styles and layout.
     let w = canvas.clientWidth, h = canvas.clientHeight, accent = '', accentAt = -1e9;
@@ -90,7 +94,9 @@
         : Array(n).fill(0);
       if (s.flip) target.reverse();
       step(st, target, dt, now, s.fall * 0.5, s.peaks ? s.peakHold : 0);
+      const wasQuiet = quiet;
       quiet = !signal && st.cur.every((v) => v < 0.01) && st.peak.every((v) => v < 0.01);
+      if (quiet !== wasQuiet || first) { first = false; onquiet?.(quiet); }
 
       // Clear every pixel of the canvas. Cleared in CSS pixels, a length that isn't a whole
       // number of screen pixels (e.g. 150 px at 125 %) left the last column half-cleared, and
@@ -110,6 +116,8 @@
 <canvas bind:this={canvas} class:vertical style:--len="{len}px" style:--thick={height ? `${height}px` : '100%'}></canvas>
 
 <style>
-  canvas { display: block; width: var(--len); height: var(--thick); }
+  /* Length changes (shrinking when silent) slide instead of jumping. */
+  canvas { display: block; width: var(--len); height: var(--thick); transition: width 0.26s var(--spring, ease), height 0.26s var(--spring, ease); }
   canvas.vertical { width: 100%; height: var(--len); }
+  @media (prefers-reduced-motion: reduce) { canvas { transition: none; } }
 </style>
