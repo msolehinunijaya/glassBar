@@ -413,7 +413,8 @@ fn sample_alert(kind: &str) -> Option<serde_json::Value> {
         "brightness" => serde_json::json!({ "kind": "brightness", "percent": crate::platform::display().brightness().unwrap_or(70) }),
         "prayer" => serde_json::json!({ "kind": "prayer", "name": "Zohor", "at": crate::db::now_ms() }),
         "water" => serde_json::json!({ "kind": "water", "total": 750, "goal": 2000, "cup": 250, "test": true }),
-        "pomodoro" => serde_json::json!({ "kind": "pomodoro", "done": "focus", "body": "Your break has started." }),
+        "pomodoro" => serde_json::json!({ "kind": "pomodoro", "done": "focus", "body": "Your break has started.", "auto": true }),
+        "timer" => serde_json::json!({ "kind": "timer", "id": null, "label": "Tea is ready" }),
         _ => return None,
     })
 }

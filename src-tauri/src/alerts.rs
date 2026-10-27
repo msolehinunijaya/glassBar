@@ -17,8 +17,12 @@ pub struct Delivery { pub banner: bool, pub toast: bool, pub sound: bool }
 
 /// Missed alerts and Do Not Disturb: list entry only. Banners on: a banner (none for a
 /// muted widget), with the sound if enabled. Banners off: a Windows toast and the sound.
+/// Sources the dock itself announces (a full-dock alert, with their own sound): no banner
+/// and no Windows toast for them, and not in Settings > Notifications. Still in the list.
+pub const DOCK_SOURCES: [&str; 3] = ["solat", "pomodoro", "timer"];
+
 pub fn delivery(dnd: bool, missed: bool, b: &crate::config::Banners, source: &str) -> Delivery {
-    if missed || dnd { return Delivery { banner: false, toast: false, sound: false }; }
+    if missed || dnd || DOCK_SOURCES.contains(&source) { return Delivery { banner: false, toast: false, sound: false }; }
     if !b.show { return Delivery { banner: false, toast: true, sound: true }; }
     let banner = !b.muted.iter().any(|m| m == source);
     Delivery { banner, toast: false, sound: banner && b.sound }
@@ -98,18 +102,26 @@ mod tests {
     fn dnd_skips_banners_but_keeps_list_entries() {
         // (The list entry is always written; delivery only decides banner/toast/sound.)
         let b = Banners::default();
-        assert_eq!(delivery(true, false, &b, "timer"), Delivery { banner: false, toast: false, sound: false });
-        assert_eq!(delivery(false, true, &b, "timer"), Delivery { banner: false, toast: false, sound: false }, "missed while away");
+        assert_eq!(delivery(true, false, &b, "todo"), Delivery { banner: false, toast: false, sound: false });
+        assert_eq!(delivery(false, true, &b, "todo"), Delivery { banner: false, toast: false, sound: false }, "missed while away");
     }
 
     #[test]
     fn one_notification_one_banner_no_duplicate_toast() {
         let b = Banners::default();
-        assert_eq!(delivery(false, false, &b, "timer"), Delivery { banner: true, toast: false, sound: true });
+        assert_eq!(delivery(false, false, &b, "todo"), Delivery { banner: true, toast: false, sound: true });
         let off = Banners { show: false, ..Banners::default() };
-        assert_eq!(delivery(false, false, &off, "timer"), Delivery { banner: false, toast: true, sound: true });
+        assert_eq!(delivery(false, false, &off, "todo"), Delivery { banner: false, toast: true, sound: true });
         let quiet = Banners { muted: vec!["ipu".into()], sound: false, ..Banners::default() };
         assert_eq!(delivery(false, false, &quiet, "ipu"), Delivery { banner: false, toast: false, sound: false }, "muted widget: list only");
-        assert_eq!(delivery(false, false, &quiet, "timer"), Delivery { banner: true, toast: false, sound: false });
+        assert_eq!(delivery(false, false, &quiet, "todo"), Delivery { banner: true, toast: false, sound: false });
+    }
+
+    #[test]
+    fn prayer_pomodoro_and_timer_tell_the_dock_not_a_banner() {
+        let b = Banners::default();
+        for src in ["solat", "pomodoro", "timer"] {
+            assert_eq!(delivery(false, false, &b, src), Delivery { banner: false, toast: false, sound: false }, "{src}");
+        }
     }
 }

@@ -15,7 +15,10 @@
 
   const sections = ['Bar', 'Appearance', 'Widgets', 'Location', 'Notifications', 'Dock alerts', 'Sounds', 'Profiles', 'Startup', 'Updates', 'Backup', 'About'] as const;
   import { SOURCE_WIDGET } from '../lib/notify';
-  const BANNER_SOURCES = [...Object.entries(SOURCE_WIDGET).map(([k, v]) => [k, v.label] as const), ['update', 'Updates'] as const];
+  // Prayer time, Pomodoro and Timer are told by the dock itself (Settings > Dock alerts), not
+  // by banners: not listed here (Rust: alerts::DOCK_SOURCES).
+  const DOCK_SOURCES = ['solat', 'pomodoro', 'timer'];
+  const BANNER_SOURCES = [...Object.entries(SOURCE_WIDGET).filter(([k]) => !DOCK_SOURCES.includes(k)).map(([k, v]) => [k, v.label] as const), ['update', 'Updates'] as const];
   type Section = (typeof sections)[number];
   const asSection = (s: string | null) => sections.find((x) => x === s);
   // Opened on a section (e.g. from a widget's location label): ?section=… or, when already open, an event.
@@ -209,7 +212,8 @@
           ['volume', 'Volume', 'When the volume changes outside GlassBar: keyboard keys, Windows or another app.'],
           ['brightness', 'Brightness', "When the built-in screen's brightness changes outside GlassBar. External monitors don't report it. If Windows changes it by itself (auto brightness), you'll see that too."],
           ['prayer', 'Prayer time', 'The prayer name and time when it begins (Waktu Solat widget, with its alerts on).'],
-          ['pomodoro', 'Pomodoro', 'When a focus session ends (break time) and when a break ends (back to focus).'],
+          ['pomodoro', 'Pomodoro', 'When a focus session ends (break time) and when a break ends (back to focus), with Start / Pause / Skip.'],
+          ['timer', 'Timer', "When a timer runs out, with +1 min and +5 min."],
           ['water', 'Water reminder', 'Time to drink, with buttons to log a cup or snooze (Water widget, with reminders on).'],
         ] as const as [k, label, hint] (k)}
           <div class="field"><span>{label}</span>

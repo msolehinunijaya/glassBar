@@ -3,7 +3,7 @@
   import { flip } from 'svelte/animate';
   import { onMount } from 'svelte';
   import { adhan, setAdhanPlaying, stopAdhan } from '../lib/adhan.svelte';
-  import { Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Coffee, Droplet, Maximize2, MoonStar, Plus, Square, Target, PlugZap, Sun, Unplug, Volume2, VolumeX, X } from '@lucide/svelte';
+  import { Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Coffee, Droplet, Maximize2, MoonStar, Pause, Play, Plus, SkipForward, Square, Target, Timer as TimerIcon, PlugZap, Sun, Unplug, Volume2, VolumeX, X } from '@lucide/svelte';
   import { profile, store, update } from '../lib/config.svelte';
   import { events, ipc, type WidgetInst, type WidgetSize } from '../lib/ipc';
   import { FLASH } from './chargeFlash';
@@ -74,10 +74,17 @@
     leaving = false;
     ipc.dockAlertEnd().catch(() => {});
   }
-  /** Stay readable for `ms`, then leave. */
+  /** Stay readable for `ms`, then leave -- but never from under the pointer: while the mouse
+   *  is on the alert (also one that appeared under a still mouse) it waits, and goes a
+   *  moment after the mouse moves off. */
+  let flashEl = $state<HTMLElement>();
   function holdFor(ms: number) {
     clearAlertTimers();
-    alertTimers = [setTimeout(() => (leaving = true), ms), setTimeout(endAlert, ms + FLASH.exit)];
+    alertTimers = [setTimeout(function go() {
+      if (flashEl?.matches(':hover')) { alertTimers = [setTimeout(go, 400)]; return; }
+      leaving = true;
+      alertTimers = [setTimeout(endAlert, FLASH.exit)];
+    }, ms)];
   }
   async function showAlert(a: DockAlert) {
     // Mid-drag it would sit under the floating copy and look broken; the dock is busy anyway.
@@ -106,6 +113,9 @@
     if (alert?.kind === 'water' && !alert.test) ipc.waterSnooze(15).catch(() => {});
     dismissAlert();
   }
+
+  /** A button on an alert: do it, then the alert has done its job. */
+  function act(f: () => Promise<unknown>) { f().catch(() => {}); dismissAlert(); }
 
   // Hovering holds it; moving away gives it a short moment more. A click dismisses it.
   const pauseAlert = () => { if (alert && !leaving) clearAlertTimers(); };
@@ -498,13 +508,13 @@
     {#key alertSeq}
     <!-- Hovering holds it, a click dismisses it; buttons inside act without dismissing. -->
     <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
-    <div class="flash" class:out={leaving} role="status" aria-live="polite"
+    <div class="flash" class:out={leaving} bind:this={flashEl} role="status" aria-live="polite"
          style:--c={view.tone} style:--p={view.fill ?? 0}
          style:--f-enter="{FLASH.enter}ms" style:--f-fill="{FLASH.fill}ms" style:--f-exit="{FLASH.exit}ms"
          onpointerenter={pauseAlert} onpointerleave={resumeAlert} onpointerdown={(e) => e.stopPropagation()} onclick={dismissAlert}>
       {#if view.fill !== null}<div class="flash-fill"></div>{/if}
       <div class="flash-body">
-        {#if view.icon === 'plug'}<PlugZap size={16} />{:else if view.icon === 'unplug'}<Unplug size={16} />{:else if view.icon === 'volume'}<Volume2 size={16} />{:else if view.icon === 'mute'}<VolumeX size={16} />{:else if view.icon === 'sun'}<Sun size={16} />{:else if view.icon === 'water'}<Droplet size={16} />{:else if view.icon === 'break'}<Coffee size={16} />{:else if view.icon === 'focus'}<Target size={16} />{:else}<MoonStar size={16} />{/if}
+        {#if view.icon === 'plug'}<PlugZap size={16} />{:else if view.icon === 'unplug'}<Unplug size={16} />{:else if view.icon === 'volume'}<Volume2 size={16} />{:else if view.icon === 'mute'}<VolumeX size={16} />{:else if view.icon === 'sun'}<Sun size={16} />{:else if view.icon === 'water'}<Droplet size={16} />{:else if view.icon === 'break'}<Coffee size={16} />{:else if view.icon === 'focus'}<Target size={16} />{:else if view.icon === 'timer'}<TimerIcon size={16} />{:else}<MoonStar size={16} />{/if}
         <strong>{view.value}</strong>
         <span class="flash-label">{view.label}</span>
         {#if alert.kind === 'water' && !alert.reached}
@@ -512,6 +522,19 @@
             <Plus size={11} /><span>{fmtWater(alert.cup, alert.unit)}</span>
           </button>
           <button class="flash-act quiet" onclick={(e) => { e.stopPropagation(); later(); }} aria-label="Remind me in 15 minutes"><span>Later</span></button>
+        {/if}
+        {#if alert.kind === 'pomodoro'}
+          {#if alert.auto}
+            <button class="flash-act" onclick={(e) => { e.stopPropagation(); act(() => ipc.pomoPause()); }}><Pause size={11} /><span>Pause</span></button>
+          {:else}
+            <button class="flash-act" onclick={(e) => { e.stopPropagation(); act(() => ipc.pomoStart()); }}><Play size={11} /><span>{alert.done === 'focus' ? 'Start break' : 'Start focus'}</span></button>
+          {/if}
+          <button class="flash-act quiet" onclick={(e) => { e.stopPropagation(); act(() => ipc.pomoSkip()); }}><SkipForward size={11} /><span>Skip</span></button>
+        {/if}
+        {#if alert.kind === 'timer' && alert.id !== null}
+          {@const id = alert.id}
+          <button class="flash-act" onclick={(e) => { e.stopPropagation(); act(() => ipc.timerSnooze(id, 60_000)); }}><Plus size={11} /><span>1 min</span></button>
+          <button class="flash-act quiet" onclick={(e) => { e.stopPropagation(); act(() => ipc.timerSnooze(id, 300_000)); }}><span>+5 min</span></button>
         {/if}
         {#if alert.kind === 'prayer' && adhan.playing}
           <button class="flash-act" onclick={(e) => { e.stopPropagation(); stopAdhan(); }} aria-label="Stop the adhan">

@@ -77,3 +77,10 @@ describe('the Pomodoro alert', () => {
     expect(arrive('pomodoro', 'prayer')).toBe('show');
   });
 });
+
+describe('the timer alert', () => {
+  it("says time's up with the timer's name", () => {
+    expect(viewOf({ kind: 'timer', id: 3, label: 'Tea is ready' })).toMatchObject({ icon: 'timer', value: "Time's up", label: 'Tea is ready' });
+    expect(viewOf({ kind: 'timer', id: 3, label: '' }).label).toBe('Timer done');
+  });
+});

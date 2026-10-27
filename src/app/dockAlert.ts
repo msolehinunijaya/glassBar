@@ -14,18 +14,20 @@ export type DockAlert = { test?: boolean } & (
   /** A water reminder, or (`reached`) the day's goal just met. `test`: from Settings' Test button. */
   | { kind: 'water'; total: number; goal: number; cup: number; unit?: WaterUnit; reached?: boolean }
   /** A Pomodoro phase just ended: `done` is the one that finished; `body` what happens now. */
-  | { kind: 'pomodoro'; done: 'focus' | 'break'; body: string });
+  | { kind: 'pomodoro'; done: 'focus' | 'break'; body: string; auto?: boolean }
+  /** A timer ran out (`id` null for a Settings test). */
+  | { kind: 'timer'; id: number | null; label: string });
 export type AlertKind = DockAlert['kind'];
 export type AlertLength = 'short' | 'normal' | 'long';
 
 /** Settings › Dock alerts. The charger has its own older switch, `chargerFlash`. */
-export interface DockAlertsCfg { volume: boolean; brightness: boolean; prayer: boolean; water: boolean; pomodoro: boolean; reveal: boolean; length: AlertLength;
+export interface DockAlertsCfg { volume: boolean; brightness: boolean; prayer: boolean; water: boolean; pomodoro: boolean; timer: boolean; reveal: boolean; length: AlertLength;
   /** Hide Windows' own volume / brightness pop-up while GlassBar shows its own. */
   hideWindowsOsd: boolean }
-export const ALERT_DEFAULTS: DockAlertsCfg = { volume: true, brightness: true, prayer: true, water: true, pomodoro: true, reveal: true, length: 'normal', hideWindowsOsd: true };
+export const ALERT_DEFAULTS: DockAlertsCfg = { volume: true, brightness: true, prayer: true, water: true, pomodoro: true, timer: true, reveal: true, length: 'normal', hideWindowsOsd: true };
 
 /** Higher wins. Volume and brightness share a rank: the newer one is the one being changed. */
-const RANK: Record<AlertKind, number> = { prayer: 4, pomodoro: 3, water: 3, charger: 2, volume: 1, brightness: 1 };
+const RANK: Record<AlertKind, number> = { prayer: 4, pomodoro: 3, timer: 3, water: 3, charger: 2, volume: 1, brightness: 1 };
 
 /**
  * What a new alert does to the one on screen. The same kind updates in place (five presses of
@@ -43,12 +45,12 @@ const SCALE: Record<AlertLength, number> = { short: 0.6, normal: 1, long: 1.6 };
 /** How long it stays readable after it has arrived (the part hovering pauses), in ms. Volume
  *  and brightness count from the last change. The prayer alert has a button, so it waits. */
 export function holdMs(kind: AlertKind, length: AlertLength): number {
-  const base = kind === 'prayer' || kind === 'water' ? 8000 : kind === 'pomodoro' ? 5000 : kind === 'charger' ? FLASH.fill + FLASH.hold : 1200;
+  const base = kind === 'prayer' || kind === 'water' || kind === 'pomodoro' || kind === 'timer' ? 8000 : kind === 'charger' ? FLASH.fill + FLASH.hold : 1200;
   return Math.round(base * SCALE[length]);
 }
 
 export interface AlertView {
-  icon: 'plug' | 'unplug' | 'volume' | 'mute' | 'sun' | 'prayer' | 'water' | 'break' | 'focus';
+  icon: 'plug' | 'unplug' | 'volume' | 'mute' | 'sun' | 'prayer' | 'water' | 'break' | 'focus' | 'timer';
   /** The big text. */
   value: string;
   label: string;
@@ -82,6 +84,8 @@ export function viewOf(a: DockAlert, time = (ms: number) => new Date(ms).toLocal
       return a.done === 'focus'
         ? { icon: 'break', value: 'Focus done', label: a.body, tone: '#30d158', fill: null }
         : { icon: 'focus', value: 'Break over', label: a.body, tone: '#ff9f0a', fill: null };
+    case 'timer':
+      return { icon: 'timer', value: "Time's up", label: a.label || 'Timer done', tone: '#ff9f0a', fill: null };
     case 'water':
       return { icon: 'water', value: fmtWater(a.total, a.unit), tone: '#40c8e0', fill: progressOf(a.total, a.goal),
                label: a.reached ? `Goal of ${fmtWater(a.goal, a.unit)} reached today` : `Time to drink · goal ${fmtWater(a.goal, a.unit)}` };

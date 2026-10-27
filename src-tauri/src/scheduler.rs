@@ -69,17 +69,23 @@ fn handle(app: &AppHandle, d: &Due, missed: bool) {
         "house" => housekeeping(app),
         // A Dock alert only: no banner, no sound, nothing in the Notification Center.
         "water" => crate::widgets::water::remind(app, missed),
+        // Timer, Pomodoro and prayer time are told by the dock itself (a full-dock alert with
+        // its own sound), not by a banner: alerts::DOCK_SOURCES. Still in the list.
         "timer" => {
             let id = crate::widgets::focus::timer_id(&d.key);
             if let Some(id) = id { crate::widgets::focus::on_timer_due(app, id); }
-            crate::alerts::notify_full(app, d.source, &d.title, &d.body, missed, serde_json::json!({ "kind": "chime" }), serde_json::json!({ "timerId": id }));
+            let dnd = app.state::<crate::AppState>().config.lock().unwrap().dnd;
+            crate::alerts::notify_full(app, d.source, &d.title, &d.body, missed, serde_json::Value::Null, serde_json::json!({ "timerId": id }));
+            if !missed && !dnd { let _ = app.emit_to("bar", "sound:play", serde_json::json!({ "kind": "chime" })); }
+            if let Some(a) = crate::widgets::focus::timer_alert(id, &d.body, missed, dnd) { let _ = app.emit_to("bar", "dock:alert", a); }
         }
         "pomodoro" => {
             let (sound, data) = crate::widgets::focus::on_pomo_due(app);
-            crate::alerts::notify_full(app, d.source, &d.title, &d.body, missed, sound, data);
-            // And across the whole dock: focus done / break over (Settings > Dock alerts).
             let dnd = app.state::<crate::AppState>().config.lock().unwrap().dnd;
-            if let Some(a) = crate::widgets::focus::pomo_alert(&d.title, &d.body, missed, dnd) { let _ = app.emit_to("bar", "dock:alert", a); }
+            let auto = data["auto"].as_bool().unwrap_or(false);
+            crate::alerts::notify_full(app, d.source, &d.title, &d.body, missed, serde_json::Value::Null, data);
+            if !missed && !dnd && !sound.is_null() { let _ = app.emit_to("bar", "sound:play", sound); }
+            if let Some(a) = crate::widgets::focus::pomo_alert(&d.title, &d.body, missed, dnd, auto) { let _ = app.emit_to("bar", "dock:alert", a); }
         }
         "solat" => {
             // The adzan is the prayer widget's own sound setting, not a banner chime: it plays
