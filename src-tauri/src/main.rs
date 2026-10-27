@@ -2,6 +2,8 @@
 mod scheduler;
 mod updates;
 mod alerts;
+mod applog;
+mod health;
 mod autohide;
 mod backdrop;
 mod bar;
@@ -86,6 +88,7 @@ fn restore_taskbar(app: AppHandle) -> Result<(), String> {
 }
 
 fn main() {
+    health::wait_for_previous();
     // A crash must never leave the Windows taskbar hidden or space reserved.
     // Release builds have no console, so the message goes to panic.log.
     std::panic::set_hook(Box::new(|info| {
@@ -129,9 +132,15 @@ fn main() {
             let h = app.handle();
             let a = h.clone();
             platform::shell().init(&data_dir(), Box::new(move |e| match e {
-                SystemEvent::DisplayChanged | SystemEvent::ShellRestarted => bar::apply(&a),
+                SystemEvent::DisplayChanged => { applog::log("monitors changed"); bar::apply(&a) }
+                SystemEvent::ShellRestarted => { applog::log("Explorer (Windows taskbar) restarted"); bar::apply(&a) }
                 SystemEvent::PowerChanged => { let _ = a.emit("battery:changed", ()); widgets::sound::power_event(&a); }
-                SystemEvent::Resumed => widgets::location::poke(),
+                // After sleep, monitors and Explorer settle a little later: place the dock again then.
+                SystemEvent::Resumed => {
+                    applog::log("woke from sleep");
+                    widgets::location::poke();
+                    bar::apply_later(&a, &[3, 15]);
+                }
                 SystemEvent::Device(on) => widgets::sound::device_event(&a, on),
                 SystemEvent::Clipboard => widgets::clipboard::on_change(&a),
                 SystemEvent::WorkArea => bar::replace(&a),
@@ -170,6 +179,10 @@ fn main() {
             widgets::downloads::start(h.clone());
             widgets::aiusage::start(h.clone());
             updates::start(h.clone());
+            applog::log(format!("GlassBar {} started", env!("CARGO_PKG_VERSION")));
+            // Started with Windows: monitors and Explorer may still be settling. Place again soon.
+            bar::apply_later(h, &[3, 15]);
+            health::start(h.clone());
             Ok(())
         })
         .on_window_event(|w, e| match (w.label(), e) {
@@ -190,7 +203,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             get_config, save_config, export_config, import_config, apply_bar, restore_taskbar,
-            bar::popup_open, bar::popup_reveal, bar::popup_hide, bar::popup_leave_close, bar::banner_fit, bar::banner_hide, bar::jump_to, bar::open_settings_cmd, bar::set_edit_mode,
+            health::health_pong, bar::popup_open, bar::popup_reveal, bar::popup_hide, bar::popup_leave_close, bar::banner_fit, bar::banner_hide, bar::jump_to, bar::open_settings_cmd, bar::set_edit_mode,
             bar::bar_preview, bar::bar_drag, bar::mouse_down, bar::transparency_effects, bar::appearance_support, backdrop::wallpaper_behind, bar::bar_reveal, bar::popup_leave,
             bar::thumbs_show, bar::thumbs_clear,
             widgets::todo::todo_list, widgets::todo::todo_add, widgets::todo::todo_update,

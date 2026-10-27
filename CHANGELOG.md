@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.5 — 2026-10-27
+
+### Fixed
+- **A stuck dock repairs itself.** After sleep the dock could keep showing but stop reacting to clicks. GlassBar now checks every few seconds that the dock still answers; if not, it reloads it, and restarts itself if that doesn't help. Time asleep never counts.
+- The dock is placed again after waking from sleep and shortly after start-up, so it can't stay at the wrong edge.
+- The Equalizer settings panel opened empty when its colour was set to Solid.
+
+### New
+- A small diagnostics log (`%APPDATA%\GlassBar\glassbar.log`): start-ups, wake-ups, monitor changes, where the dock was placed and any self-repair. No personal data.
+
 ## 0.2.4 — 2026-10-26
 
 ### New
