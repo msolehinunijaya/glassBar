@@ -26,9 +26,16 @@
   const folderOf = (p: string) => p.slice(0, Math.max(p.lastIndexOf('\\'), p.lastIndexOf('/'))) || p;
 
   const pick = async () => {
+    // The shelf's contents are read *before* awaiting, not after. Opening the file dialog
+    // takes focus, which makes Rust close this panel (bar.rs popup_blurred -- it stays open
+    // only for hover panels), so by the time the dialog returns this component may already
+    // have been destroyed. `instance` is a plain string and updateWidgetSettings is
+    // module-level, so the save itself survives that; reading a $derived of a dead component
+    // would not.
+    const before = [...files];
     try {
       const picked = await ipc.shelfPick();
-      if (picked.length) save(add(files, picked));
+      if (picked.length) updateWidgetSettings(instance, { files: add(before, picked) });
     } catch { /* cancelled */ }
   };
 

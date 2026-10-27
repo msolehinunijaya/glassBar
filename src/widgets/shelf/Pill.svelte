@@ -5,7 +5,7 @@
   // survives a restart, travels with a config export, and never touches the files themselves.
   // Opening, revealing and the icons all reuse the Downloads widget's commands.
   import { Archive, Plus } from '@lucide/svelte';
-  import { getCurrentWebview } from '@tauri-apps/api/webview';
+  import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
   import { events, ipc } from '../../lib/ipc';
   import { updateWidgetSettings } from '../../lib/config.svelte';
   import { showMenu } from '../../lib/menu';
@@ -36,8 +36,12 @@
   // Files dragged in from Explorer. Tauri intercepts the drop, so the webview gets no HTML5
   // event: the position arrives in physical pixels and is hit-tested against this pill, which
   // is what keeps a drop meant for another widget out of the shelf.
+  //
+  // getCurrentWebviewWindow, not getCurrentWebview: for a webview that is a window's content,
+  // the runtime sends drag-drop as a synthesized *window* event, so a listener on the Webview
+  // target is never called -- silently, which is why dropping a file did nothing at all.
   $effect(() => {
-    const off = getCurrentWebview().onDragDropEvent((e) => {
+    const off = getCurrentWebviewWindow().onDragDropEvent((e) => {
       const d = e.payload;
       if (d.type === 'leave') { over = false; return; }
       if (!box) return;
