@@ -150,11 +150,27 @@ pub fn replace(app: &AppHandle) {
     if at != (r.x, r.y) { set_rect(&win, r); }
 }
 
+/// Is the bar slid away? Only an auto-hiding, docked bar that isn't slid in.
+pub fn is_away(auto_hide: bool, floating: bool, revealed: bool) -> bool { auto_hide && !floating && !revealed }
+
+fn away_now(app: &AppHandle, bar: &crate::config::BarCfg) -> bool {
+    is_away(bar.auto_hide, bar.floating.is_some(), app.state::<AppState>().revealed.load(Ordering::Relaxed))
+}
+
+/// The bar page asks on load (a reload or a start already hidden would otherwise miss it).
+#[tauri::command]
+pub fn bar_away(app: AppHandle) -> bool {
+    let bar = app.state::<AppState>().config.lock().unwrap().profile().bar.clone();
+    away_now(&app, &bar)
+}
+
 fn apply_now(app: &AppHandle) {
     SLIDE.fetch_add(1, Ordering::SeqCst);
     let cfg = app.state::<AppState>().config.lock().unwrap().clone();
     let Some(win) = app.get_webview_window("bar") else { return };
     let bar = &cfg.profile().bar;
+    // Turning auto-hide off (or floating on) while tucked away must bring animations back.
+    let _ = app.emit_to("bar", "bar:away", away_now(app, bar));
     // Style first: turning the window shadow on/off adds/removes Windows' frame, and the
     // size set below must be measured without it (else the first placement after a
     // start is a frame's worth too big: 16 px wider, 39 px taller).
@@ -267,6 +283,7 @@ pub fn reveal(app: &AppHandle, show: bool) {
     let cfg = app.state::<AppState>().config.lock().unwrap().profile().bar.clone();
     if !cfg.auto_hide || cfg.floating.is_some() { return; }
     if app.state::<AppState>().revealed.swap(show, Ordering::Relaxed) == show { return; }
+    let _ = app.emit_to("bar", "bar:away", !show); // animations pause while it's away
     let (Some(win), Some((r, _)), Some(mon)) = (app.get_webview_window("bar"), bar_rect(app, &cfg, cfg.length), bar_monitor(app, cfg.monitor)) else { return };
     let to = if show { r } else { hidden_rect(r, cfg.edge, monitor_rect(&mon), PEEK) };
     let from = win.outer_position().map(|p| (p.x, p.y)).unwrap_or((to.x, to.y));
@@ -499,6 +516,7 @@ pub fn popup_hidden(app: &AppHandle) {
     if let Some(p) = app.get_webview_window("popup") {
         let _ = p.hide();
         shell().hide_window(&p); // belt and braces: never leave an empty preview on screen
+        crate::perf::suspend::later(p);
     }
     app.state::<AppState>().popup.lock().unwrap().hidden_at = Some(Instant::now());
     let _ = app.emit("popup:hide", ());
@@ -508,6 +526,7 @@ pub fn popup_hidden(app: &AppHandle) {
 #[tauri::command]
 pub fn popup_open(app: AppHandle, instance: String, x: f64, y: f64, w: f64, h: f64, width: f64, height: f64, focus: Option<bool>) -> Result<(), String> {
     let focus = focus.unwrap_or(true);
+    if let Some(p) = app.get_webview_window("popup") { crate::perf::suspend::wake(&p); } // Low may have freed it
     // A hover panel whose timer ran out while a context menu is up: the user is busy with the menu.
     if !focus && shell().menu_open() { return Ok(()); }
     let st = app.state::<AppState>();
@@ -638,6 +657,7 @@ static HOLD_UNTIL: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::
 /// itself with `banner_fit`). Never takes focus from the app you're typing in.
 pub fn banner_push(app: &AppHandle, note: crate::alerts::Note) {
     let Some(win) = app.get_webview_window("banner") else { return };
+    crate::perf::suspend::wake(&win); // Low may have freed it; before the push so it arrives
     let _ = app.emit_to("banner", "banner:push", &note);
     if !win.is_visible().unwrap_or(false) {
         if let Some(r) = banner_rect(app, 340.0, 96.0) { set_rect(&win, r); }
@@ -685,7 +705,7 @@ pub fn banner_fit(app: AppHandle, width: f64, height: f64) {
 /// Nothing left to show.
 #[tauri::command]
 pub fn banner_hide(app: AppHandle) {
-    if let Some(w) = app.get_webview_window("banner") { let _ = w.hide(); }
+    if let Some(w) = app.get_webview_window("banner") { let _ = w.hide(); crate::perf::suspend::later(w); }
 }
 
 /// Go to the widget that sent a notification (banner click, or the Notification Center
@@ -818,6 +838,14 @@ fn on_menu(app: &AppHandle, id: &str) {
 mod tests {
     use super::*;
     const MON: Rect = Rect { x: 0, y: 0, w: 1920, h: 1080 };
+
+    #[test]
+    fn away_only_while_auto_hidden_and_tucked() {
+        assert!(is_away(true, false, false));
+        assert!(!is_away(true, false, true));   // slid in
+        assert!(!is_away(false, false, false)); // auto-hide turned off while tucked: back, not stuck away
+        assert!(!is_away(true, true, false));   // floating never hides
+    }
 
     #[test]
     fn windows_popup_is_hidden_only_while_glassbar_shows_volume_or_brightness() {

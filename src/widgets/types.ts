@@ -39,6 +39,9 @@ export interface WidgetManifest<S = any> {
   Pill: Component<PillProps<S>>;
   Popup?: { component: Component<PopupProps<S>>; width: number; height: number };
   SettingsForm?: Component<SettingsProps<S>>;
+  /** Settings › Performance: what this widget does differently in each mode, in a few words.
+   *  low/high = compared to Normal; normal = compared to High. No text = unchanged. */
+  perf?: Partial<Record<import('../lib/ipc').PerfMode, string>>;
 }
 
 export const defineWidget = <S>(m: WidgetManifest<S>) => m;

@@ -10,6 +10,7 @@ mod bar;
 mod config;
 mod db;
 mod net;
+mod perf;
 mod platform;
 mod widgets;
 
@@ -49,6 +50,7 @@ pub fn commit(app: &AppHandle, cfg: Config) -> Result<(), String> {
     widgets::ocr::register_hotkey(app);
     widgets::quick::sync_tray(app);
     sync_autostart(app, &cfg);
+    perf::refresh(app);
     let _ = app.emit("config:changed", &cfg);
     if moved { widgets::location::poke(); }
     Ok(())
@@ -179,6 +181,7 @@ fn main() {
             widgets::location::start(h.clone());
             widgets::ipu::start(h.clone());
             widgets::sysmon::start(h.clone());
+            perf::start(h.clone());
             widgets::screentime::start(h.clone());
             widgets::downloads::start(h.clone());
             updates::start(h.clone());
@@ -227,6 +230,7 @@ fn main() {
             widgets::location::location_status, widgets::location::location_clear, widgets::location::location_open_map, widgets::location::location_search, widgets::weather::weather_get,
             widgets::solat::solat_days, widgets::solat::solat_zones, widgets::solat::solat_test_sound,
             widgets::ipu::ipu_get,
+            perf::perf_history, perf::perf_state, perf::perf_watch, bar::bar_away,
             widgets::sysmon::sysmon_history, widgets::sysmon::battery_get, widgets::sysmon::disks_list,
             widgets::sysmon::power_get, widgets::sysmon::power_set_mode, widgets::sysmon::power_use_balanced,
             widgets::screentime::screentime_today, widgets::screentime::screentime_week,

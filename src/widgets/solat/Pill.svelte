@@ -72,6 +72,7 @@
   .approaching { animation: soft 2.4s ease-in-out infinite; }
   @keyframes soft { 50% { box-shadow: inset 0 0 0 1px #ffb340, 0 0 10px rgba(255, 179, 64, 0.35); } }
   .reached { background: color-mix(in srgb, #30d158 30%, var(--pill)); animation: glow 1.1s ease-in-out infinite; }
+  :global(:root[data-perf='low']) .approaching, :global(:root[data-perf='low']) .reached { animation: none; }
   @keyframes glow { 50% { box-shadow: 0 0 0 2px #30d158, 0 0 16px rgba(48, 209, 88, 0.7); background: color-mix(in srgb, #30d158 55%, var(--pill)); } }
   .now { font-size: 10.5px; }
   .ok { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #30d158; color: #fff; transition: transform 0.3s var(--spring); }

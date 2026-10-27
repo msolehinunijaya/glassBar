@@ -82,18 +82,23 @@ pub async fn power_use_balanced() -> crate::platform::Res<()> {
 }
 
 pub fn start(app: AppHandle) {
-    // System monitor: every 2 s while placed.
+    // System monitor while placed: every 2 s (10 s in Low, 1 s in High performance mode).
     let a = app.clone();
     std::thread::spawn(move || {
         use sysinfo::{MemoryRefreshKind, Networks, System};
         let mut sys = System::new();
         let mut nets = Networks::new_with_refreshed_list();
-        let period = Duration::from_secs(2);
+        let mut last = std::time::Instant::now();
         loop {
-            let (on, gpu_on) = {
+            let period = Duration::from_secs(match crate::perf::effective() {
+                crate::config::PerfMode::Low => 10,
+                crate::config::PerfMode::Normal => 2,
+                crate::config::PerfMode::High => 1,
+            });
+            let (on, gpu_on, temp_on) = {
                 let cfg = a.state::<crate::AppState>().config.lock().unwrap().clone();
-                (cfg.uses("sysmon"), cfg.widget_settings("sysmon")["gpu"] == true)
-                // (temperature is cheap: one counter read per sample)
+                let w = cfg.widget_settings("sysmon");
+                (cfg.uses("sysmon"), w["gpu"] == true, w["temp"] != false) // temp defaults to on; settings hold only changes
             };
             if !on {
                 HIST.lock().unwrap().clear();
@@ -103,15 +108,18 @@ pub fn start(app: AppHandle) {
             sys.refresh_cpu_usage();
             sys.refresh_memory_specifics(MemoryRefreshKind::nothing().with_ram());
             nets.refresh(true);
+            // Per second over the real time since the last sample (the period follows the mode).
+            let secs = last.elapsed().as_secs_f64().max(0.001);
+            last = std::time::Instant::now();
             let (rx, tx) = nets.iter().fold((0, 0), |(r, t), (_, n)| (r + n.received(), t + n.transmitted()));
             let s = Sample {
                 cpu: sys.global_cpu_usage(),
                 mem: if sys.total_memory() > 0 { sys.used_memory() as f32 * 100.0 / sys.total_memory() as f32 } else { 0.0 },
                 gpu: if gpu_on { crate::platform::gpu().usage() } else { None },
-                rx_bps: rx / period.as_secs(),
-                tx_bps: tx / period.as_secs(),
+                rx_bps: (rx as f64 / secs) as u64,
+                tx_bps: (tx as f64 / secs) as u64,
                 at: crate::db::now_ms(),
-                cpu_temp: crate::platform::gpu().cpu_temp_c(),
+                cpu_temp: if temp_on { crate::platform::gpu().cpu_temp_c() } else { None },
             };
             {
                 let mut h = HIST.lock().unwrap();

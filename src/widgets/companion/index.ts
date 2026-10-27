@@ -17,4 +17,5 @@ export default defineWidget<CompanionSettings>({
   defaults: COMPANION_DEFAULTS,
   Pill,
   Popup: { component: Popup, width: 360, height: 420 },
+  perf: { low: 'No idle motion', normal: 'Sways a few times, then rests', high: 'Keeps moving while the mood lasts' },
 });

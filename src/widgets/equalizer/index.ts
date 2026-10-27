@@ -19,4 +19,5 @@ export default defineWidget<EqSettings>({
   Pill,
   Popup: { component: Popup, width: 360, height: 620 },
   SettingsForm,
+  perf: { low: 'Up to 15 fps, line when silent', normal: 'Up to 30 fps', high: 'Your frame rate (up to 60 fps)' },
 });

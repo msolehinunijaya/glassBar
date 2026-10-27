@@ -1515,7 +1515,7 @@ dependencies = [
 
 [[package]]
 name = "glassbar"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -1536,6 +1536,7 @@ dependencies = [
  "tauri-plugin-process",
  "tauri-plugin-single-instance",
  "tauri-plugin-updater",
+ "webview2-com",
  "window-vibrancy 0.6.0",
  "windows 0.62.2",
  "windows-collections 0.3.2",

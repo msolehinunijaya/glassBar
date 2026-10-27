@@ -2,6 +2,7 @@ import './styles/glass.css';
 import { mount } from 'svelte';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { initConfig } from './lib/config.svelte';
+import { initPerf } from './lib/perf.svelte';
 import './lib/liquid';
 import Bar from './app/Bar.svelte';
 import Popup from './app/Popup.svelte';
@@ -17,5 +18,6 @@ addEventListener('contextmenu', (e) => {
   if (!(e.target as HTMLElement).closest('input, textarea')) e.preventDefault();
 });
 await initConfig();
+await initPerf();
 const Root = label === 'popup' ? Popup : label === 'settings' ? Settings : label === 'snap' ? Snap : label === 'banner' ? Banner : Bar;
 mount(Root, { target: document.getElementById('app')! });

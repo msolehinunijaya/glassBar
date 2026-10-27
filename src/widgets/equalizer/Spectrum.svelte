@@ -7,6 +7,8 @@
   import { listen } from '@tauri-apps/api/event';
   import { ipc, type Battery } from '../../lib/ipc';
   import { live } from '../../lib/live.svelte';
+  import { fpsCap } from '../../lib/perf';
+  import { barAway, perf } from '../../lib/perf.svelte';
   import { liveMedia } from '../music/media.svelte';
   import { paint } from './draw';
   import { palette, resample, step } from './eq';
@@ -23,10 +25,15 @@
   let src: number[] = [];
   let lastData = 0;
   let album: [string, string] | null = null;
+  /** Restarts the draw loop at once when sound comes back (it naps while quiet). */
+  let wake = () => {};
 
   const bat = live<Battery | null>('battery', ipc.batteryGet, null);
   const media = liveMedia();
   const paused = () => s.batterySaver && !!bat.v && !bat.v.onAc;
+  // Low: the idle look is a still line. Away (auto-hidden bar, not High): no drawing at all.
+  const look = $derived(perf.mode === 'low' && s.idle === 'dots' ? { ...s, idle: 'line' as const } : s);
+  const away = () => barAway.v && perf.mode !== 'high';
 
   // The bands arrive on a local live stream: Tauri events wait behind a right-click menu (it
   // holds GlassBar's main thread), which froze the bars until the menu closed. Open while
@@ -35,7 +42,12 @@
     let es: EventSource | null = null;
     let url: string | null | undefined;
     const want = () => document.visibilityState === 'visible' && !paused();
-    const take = (b: ArrayLike<number>) => { src = Array.from(b, (v) => v / 255); lastData = performance.now(); };
+    // All-zero bands (an app holding a silent stream open) are not sound: counting them kept
+    // the bars drawing at full fps on silence.
+    const take = (b: ArrayLike<number>) => {
+      src = Array.from(b, (v) => v / 255);
+      if (src.some((v) => v > 0)) { lastData = performance.now(); wake(); }
+    };
     const sync = async () => {
       if (url === undefined) url = await ipc.audioSpectrumStream().catch(() => null);
       if (!url) { if (want()) ipc.audioSpectrum(); return; } // fallback: keep the event lease alive
@@ -69,16 +81,20 @@
   $effect(() => {
     const ctx = canvas.getContext('2d')!;
     const st = { cur: [] as number[], peak: [] as number[], hold: [] as number[] };
-    let raf = 0, last = 0, quiet = true, first = true;
+    let raf = 0, nap = 0, last = 0, quiet = true, first = true;
     // Size and accent are read when they change / once a second, not every frame: reading them
     // forces the page to recalculate styles and layout.
     let w = canvas.clientWidth, h = canvas.clientHeight, accent = '', accentAt = -1e9;
     const ro = new ResizeObserver(() => { w = canvas.clientWidth; h = canvas.clientHeight; });
     ro.observe(canvas);
 
+    // Quiet: nap between redraws instead of waking every display frame. Breathing dots redraw
+    // at ~15 fps; a still look (line / hidden) once a second, enough to follow size and colour.
     const frame = (now: number) => {
-      raf = requestAnimationFrame(frame);
-      if (now - last < (quiet ? 66 : 1000 / +s.fps - 2)) return; // idle redraws at ~15 fps
+      const L = look;
+      if (quiet || away()) nap = setTimeout(() => { nap = 0; raf = requestAnimationFrame(frame); }, !away() && L.idle === 'dots' && L.idleOpacity > 0 ? 66 : 1000);
+      else raf = requestAnimationFrame(frame);
+      if (away() || now - last < (quiet ? 60 : 1000 / fpsCap(perf.mode, +s.fps) - 2)) return;
       const dt = last ? Math.min(100, now - last) : 16;
       last = now;
 
@@ -106,11 +122,14 @@
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       if (vertical) { ctx.translate(w, 0); ctx.rotate(Math.PI / 2); } // draw along the length, bars grow right
       if (now - accentAt > 1000) { accent = getComputedStyle(canvas).getPropertyValue('--accent').trim(); accentAt = now; }
-      paint(ctx, s, { cur: st.cur, peak: st.peak, quiet, now }, vertical ? h : w, vertical ? w : h, accent, album);
+      paint(ctx, L, { cur: st.cur, peak: st.peak, quiet, now }, vertical ? h : w, vertical ? w : h, accent, album);
     };
+    wake = () => { if (nap && !away()) { clearTimeout(nap); nap = 0; raf = requestAnimationFrame(frame); } };
     raf = requestAnimationFrame(frame);
-    return () => { cancelAnimationFrame(raf); ro.disconnect(); };
+    return () => { cancelAnimationFrame(raf); clearTimeout(nap); wake = () => {}; ro.disconnect(); };
   });
+  // Back from away: draw again at once instead of after the nap.
+  $effect(() => { if (!barAway.v) wake(); });
 </script>
 
 <canvas bind:this={canvas} class:vertical style:--len="{len}px" style:--thick={height ? `${height}px` : '100%'}></canvas>

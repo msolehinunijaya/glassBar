@@ -122,6 +122,7 @@
   .lnote.busy { animation: breathe 1.4s ease-in-out infinite; }
   @keyframes breathe { 50% { opacity: 0.45; } }
   @media (prefers-reduced-motion: reduce) { .lnote.busy { animation: none; } }
+  :global(:root[data-perf='low']) .lnote.busy, :global(:root[data-perf='low']) .progress.ending { animation: none; }
   .music { position: relative; overflow: hidden; padding: 0 6px; gap: 8px; }
   .music > :not(.progress) { position: relative; z-index: 1; }
   /* progress: scaleX keeps it on the compositor; 1 s linear matches the 1 s tick */

@@ -101,6 +101,9 @@
     clip-path: inset(0 calc(100% - var(--k)) 0 0);
     transition: clip-path 1s linear;
   }
+  /* Low: no karaoke wipe, and the instrumental dots stay still. */
+  :global(:root[data-perf='low']) .wipe { display: none; }
+  :global(:root[data-perf='low']) .dots i { animation: none; }
   .lyr.left .wipe { justify-content: flex-end; clip-path: inset(0 0 0 calc(100% - var(--k))); }
   /* Instrumental: three dots breathing in turn. */
   .dots { gap: 4px; }

@@ -41,7 +41,15 @@ export interface Config {
   /** Settings › Dock alerts (see app/dockAlert.ts). */
   dockAlerts: import('../app/dockAlert').DockAlertsCfg;
   banners: Banners;
+  /** Settings › Performance: the chosen mode; with `auto` GlassBar picks Normal or Low itself. */
+  performance: { mode: PerfMode; auto: boolean };
 }
+export type PerfMode = 'low' | 'normal' | 'high';
+/** One reading of GlassBar's own process tree: private RAM (MB), % of the whole CPU, 3D GPU %
+ *  (null without GPU counters), and bytes GlassBar downloaded since start. */
+export interface PerfSample { at: number; ramMb: number; cpu: number; gpu: number | null; netBytes: number }
+/** The mode in force; `reason` is Auto's why, only while Auto is on. */
+export interface PerfState { mode: PerfMode; auto: boolean; reason: string | null }
 /** A real charger plug/unplug. `percent` is null on a PC with no battery. */
 export interface ChargerFlip { plugged: boolean; percent: number | null; secsLeft: number | null }
 /** One timed lyric line. `text` is empty for a gap between verses. */
@@ -242,6 +250,12 @@ export const ipc = {
   // battery + system monitor
   batteryGet: () => invoke<Battery | null>('battery_get'),
   sysmonHistory: () => invoke<Sample[]>('sysmon_history'),
+  perfHistory: () => invoke<PerfSample[]>('perf_history'),
+  perfState: () => invoke<PerfState>('perf_state'),
+  /** The Performance page is open: sample every second (a lease; call every 2 s). */
+  perfWatch: () => invoke<void>('perf_watch'),
+  /** Is the auto-hidden bar slid away right now? */
+  barAway: () => invoke<boolean>('bar_away'),
   disksList: () => invoke<DiskInfo[]>('disks_list'),
   powerGet: () => invoke<PowerInfo>('power_get'),
   powerSetMode: (mode: PowerMode) => invoke<void>('power_set_mode', { mode }),
@@ -372,6 +386,9 @@ export const events = {
   location: (cb: (s: LocationStatus) => void) => listen<LocationStatus>('location:status', (e) => cb(e.payload)),
   settingsSection: (cb: (s: string) => void) => listen<string>('settings:section', (e) => cb(e.payload)),
   sysmonSample: (cb: (s: Sample) => void) => listen<Sample>('sysmon:sample', (e) => cb(e.payload)),
+  perfSample: (cb: (s: PerfSample) => void) => listen<PerfSample>('perf:sample', (e) => cb(e.payload)),
+  /** The auto-hidden bar slid away (true) or back in (false). */
+  barAway: (cb: (away: boolean) => void) => listen<boolean>('bar:away', (e) => cb(e.payload)),
   soundPlay: (cb: (s: Sound) => void) => listen<Sound>('sound:play', (e) => cb(e.payload)),
   chargerFlip: (cb: (f: ChargerFlip) => void) => listen<ChargerFlip>('charger:flip', (e) => cb(e.payload)),
   waterChanged: (cb: (t: WaterToday) => void) => listen<WaterToday>('water:changed', (e) => cb(e.payload)),

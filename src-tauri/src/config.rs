@@ -225,7 +225,18 @@ pub struct Config {
     pub dock_alerts: DockAlerts,
     /// Pop-up banners next to the dock for GlassBar's own notifications.
     pub banners: Banners,
+    /// Settings › Performance: how light GlassBar runs (see perf/).
+    pub performance: Performance,
 }
+
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum PerfMode { Low, #[default] Normal, High }
+
+/// The chosen mode; with `auto` on, GlassBar picks Normal or Low itself.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
+#[serde(rename_all = "camelCase", default)]
+pub struct Performance { pub mode: PerfMode, pub auto: bool }
 
 /// show: banners on (else a Windows toast) · seconds: 3/5/8/10 · position: "auto" (next
 /// to the dock) or "corner" · on_click: "highlight" or "open" (also open the panel) ·
@@ -266,7 +277,8 @@ impl Default for Config {
                profiles: BTreeMap::from([("Default".into(), Profile::default())]),
                theme: Theme::default(), startup: Startup::default(),
                dnd: false, location: LocationCfg::default(), device_sounds: DeviceSounds::default(),
-               charger_flash: true, dock_alerts: DockAlerts::default(), banners: Banners::default() }
+               charger_flash: true, dock_alerts: DockAlerts::default(), banners: Banners::default(),
+               performance: Performance::default() }
     }
 }
 
@@ -505,6 +517,21 @@ pub fn import(text: &str) -> Result<Config, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn performance_defaults_to_normal_manual() {
+        let c: Config = serde_json::from_str(r#"{"version":11}"#).unwrap();
+        assert_eq!(c.performance, Performance { mode: PerfMode::Normal, auto: false });
+    }
+
+    #[test]
+    fn performance_round_trips_lowercase() {
+        let mut c = Config::default();
+        c.performance = Performance { mode: PerfMode::Low, auto: true };
+        let s = serde_json::to_string(&c).unwrap();
+        assert!(s.contains(r#""performance":{"mode":"low","auto":true}"#));
+        assert_eq!(serde_json::from_str::<Config>(&s).unwrap().performance, c.performance);
+    }
 
     fn tmp(name: &str) -> std::path::PathBuf {
         let d = std::env::temp_dir().join(format!("glassbar-test-{name}-{}", std::process::id()));

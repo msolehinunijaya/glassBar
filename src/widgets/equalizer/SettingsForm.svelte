@@ -91,7 +91,7 @@
     ['Idle & power', [
       { type: 'choice', key: 'idle', label: 'Nothing playing', choices: [{ value: 'dots', label: 'Dots' }, { value: 'line', label: 'Line' }, { value: 'hide', label: 'Hide' }] },
       { type: 'toggle', key: 'shrinkIdle', label: 'Shrink when silent', hint: 'After 2 s of silence it slides small (or away, with Hide) to save room, and back when sound plays' },
-      { type: 'choice', key: 'fps', label: 'Frame rate', choices: [{ value: '30', label: '30 fps' }, { value: '60', label: '60 fps' }] },
+      { type: 'choice', key: 'fps', label: 'Frame rate', choices: [{ value: '30', label: '30 fps' }, { value: '60', label: '60 fps', hint: 'Only in High performance mode' }] },
       { type: 'toggle', key: 'batterySaver', label: 'Pause on battery', hint: 'Stops listening while unplugged' },
     ]],
   ]);

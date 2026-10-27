@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.5.0 — 2026-10-28
+
+### New
+- **Settings › Performance:** see what GlassBar itself uses — RAM, CPU, GPU and data downloaded — counting its WebView2 helpers too, with a graph of the last hour for each.
+- **Performance modes: Low, Normal and High.** Each card says what it does, and the page lists what the chosen mode changes in every widget.
+  - **Low:** the lightest. Animations stop unless they show something, the Equalizer draws at 15 fps, System monitor checks every 10 s, and a popup or banner hidden for 30 s gives its memory back (it opens a moment slower).
+  - **Normal** (the default): smooth where it counts, calm when idle — the Equalizer up to 30 fps, the battery wave only while charging.
+  - **High:** everything at full smoothness, including 60 fps and animations while the dock is auto-hidden.
+- **Auto:** drops to Low while your PC is short on memory or CPU, or battery saver is on, and goes back to Normal once it's calm. The page says why it chose.
+
+### Changed
+- Animations pause while the dock is auto-hidden (except in High).
+- GlassBar uses less CPU when idle: the music badge, liquid battery wave, Equalizer (when silent) and the Companion's sway no longer redraw the dock non-stop.
+- System monitor reads the temperature only when it's shown.
+
 ## 0.4.0 — 2026-10-27
 
 ### New
