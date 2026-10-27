@@ -182,5 +182,5 @@
   .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center; }
   .wd { font-size: 11px; padding: 3px 0; }
   .day { padding: 5px 0; border-radius: 50%; font-variant-numeric: tabular-nums; font-size: 12px; }
-  .today { background: var(--accent); color: #fff; font-weight: 600; }
+  .today { background: var(--accent); color: var(--on-accent); font-weight: 600; }
 </style>

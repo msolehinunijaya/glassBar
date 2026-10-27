@@ -80,9 +80,9 @@
   .tag { display: inline-block; margin-top: 4px; font-size: 10px; padding: 1px 6px; border-radius: calc(6px * var(--rs)); background: var(--track); }
   .seg { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 3px; border-radius: calc(10px * var(--rs)); background: var(--pill); margin-bottom: 10px; }
   .seg button { padding: 6px; border-radius: calc(8px * var(--rs)); font-size: 12px; }
-  .seg .sel { background: var(--accent); color: #fff; }
+  .seg .sel { background: var(--accent); color: var(--on-accent); }
   .win { padding: 14px; font-size: 12px; line-height: 1.5; }
   .win p { margin: 0 0 10px; }
-  .open { display: flex; align-items: center; gap: 6px; justify-content: center; width: 100%; padding: 9px; border-radius: calc(10px * var(--rs)); background: var(--accent); color: #fff; font-size: 12px; margin-bottom: 6px; }
+  .open { display: flex; align-items: center; gap: 6px; justify-content: center; width: 100%; padding: 9px; border-radius: calc(10px * var(--rs)); background: var(--accent); color: var(--on-accent); font-size: 12px; margin-bottom: 6px; }
   .empty { text-align: center; padding: 40px 0; }
 </style>

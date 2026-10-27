@@ -5,6 +5,10 @@
 
 :root {
   --accent: #0a84ff;
+  /* Text/icons on an accent fill, and the accent drawn on white: set by lib/theme.ts from
+     the accent's brightness, so a white or yellow accent stays readable. */
+  --on-accent: #fff;
+  --accent-ink: #0a84ff;
   --blur: 24px;
   --tint-alpha: 0.45;
   /* Appearance multipliers, set by lib/theme.ts from Settings › Appearance (1 = normal).
@@ -181,7 +185,7 @@ input[type='range'].slider::-webkit-slider-thumb {
   border: 1px solid var(--line-soft); text-align: left;
   transition: background 0.2s var(--ease), transform 0.3s var(--spring);
 }
-.tile.on { background: var(--accent); color: #fff; }
+.tile.on { background: var(--accent); color: var(--on-accent); }
 .tile:active { transform: scale(0.96); }
 .tile:disabled { opacity: 0.45; }
 
@@ -244,7 +248,7 @@ input.switch { appearance: none; -webkit-appearance: none; flex: none; width: 34
 input.switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3); transition: translate 0.25s var(--spring); }
 input.switch:checked { background: var(--accent); }
-input.switch:checked::after { translate: 14px 0; }
+input.switch:checked::after { translate: 14px 0; background: var(--on-accent); }
 input.switch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 input.switch:disabled { opacity: 0.4; }
 @media (prefers-reduced-motion: reduce) { input.switch, input.switch::after { transition: none; } }
@@ -309,10 +313,12 @@ input.switch:disabled { opacity: 0.4; }
 :root[data-preset='liquid'] :is(.pill, .tile, .glass):active { transform: scale(0.97); transition-duration: 0.12s; }
 /* Toggle on: a solid white tile with the icon in the accent colour. */
 :root[data-preset='liquid'] .tile.on {
-  background: #fff; color: var(--accent); text-shadow: none; border-color: #fff;
+  background: #fff; color: var(--accent-ink); text-shadow: none; border-color: #fff;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
 }
 :root[data-preset='liquid'] .tile.on :is(span, .state) { color: #1c1c1e; }
+/* The chevron beside an "on" split tile sits on the same white. */
+:root[data-preset='liquid'] .tilewrap:has(.tile.on) .more { color: #1c1c1e; }
 /* Slider: a 6 px glass track, a bright fill with a soft glow, the knob only while dragging. */
 :root[data-preset='liquid'] input[type='range'].slider::-webkit-slider-runnable-track {
   height: 6px; margin: 10px 0;

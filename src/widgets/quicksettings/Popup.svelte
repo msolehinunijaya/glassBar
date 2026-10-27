@@ -139,10 +139,12 @@
   .tilewrap .tile { padding-right: 34px; }
   .more { position: absolute; top: 0; right: 0; bottom: 0; width: 30px; display: grid; place-items: center; border-radius: 0 14px 14px 0; opacity: 0.75; }
   .more:hover { opacity: 1; background: var(--pill-hover); }
+  /* The chevron sits on the tile: on an "on" tile it takes the tile's text colour. */
+  .tilewrap:has(.tile.on) .more { color: var(--on-accent); }
   .tile .state { font-size: 10px; font-weight: 400; opacity: 0.75; }
   .seg { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; padding: 3px; border-radius: calc(12px * var(--rs)); background: var(--pill); }
   .seg button { padding: 7px 2px; border-radius: calc(9px * var(--rs)); font-size: 11px; }
-  .seg .sel { background: var(--accent); color: #fff; }
+  .seg .sel { background: var(--accent); color: var(--on-accent); }
   .seg button:disabled { opacity: 0.35; cursor: default; }
   .note { font-size: 11px; margin: 6px 2px 0; }
   .small { font-size: 12px; }

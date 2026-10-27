@@ -141,7 +141,7 @@
   .ctl:hover:not(:disabled) { background: var(--pill-hover); }
   .ctl:active:not(:disabled) { transform: scale(0.85); }
   .ctl:disabled { opacity: 0.35; }
-  .ctl.main { width: 28px; height: 28px; background: var(--accent); color: #fff; box-shadow: 0 2px 6px color-mix(in srgb, var(--accent) 45%, transparent); }
+  .ctl.main { width: 28px; height: 28px; background: var(--accent); color: var(--on-accent); box-shadow: 0 2px 6px color-mix(in srgb, var(--accent) 45%, transparent); }
   .ctl.main:hover:not(:disabled) { background: var(--accent); transform: scale(1.08); }
   .line { position: absolute; left: 10px; right: 10px; bottom: 3px; height: 2px; border-radius: calc(1px * var(--rs)); background: var(--track); overflow: hidden; }
   .line span { display: block; height: 100%; background: var(--accent); transform-origin: left; transition: transform 1s linear; }

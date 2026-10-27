@@ -115,7 +115,7 @@
   .search input { flex: 1; border: none; background: transparent; color: inherit; padding: 8px 0; font: inherit; font-size: 12px; outline: none; }
   .filters { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0; }
   .filters button { padding: 4px 9px; border-radius: 999px; background: var(--pill); font-size: 11px; }
-  .filters .sel { background: var(--accent); color: #fff; }
+  .filters .sel { background: var(--accent); color: var(--on-accent); }
   .list { display: flex; flex-direction: column; gap: 3px; }
   .row { display: flex; align-items: center; gap: 4px; padding: 3px; border-radius: calc(10px * var(--rs)); transition: background 0.15s; }
   .row:hover { background: var(--pill-hover); }

@@ -115,7 +115,7 @@
      There is no global .btn -- each panel styles its own. */
   .empty .btn {
     padding: 0 16px; height: 36px; font-size: 12px; font-weight: 500; cursor: pointer;
-    border-radius: var(--r-inner); background: var(--accent); color: #fff;
+    border-radius: var(--r-inner); background: var(--accent); color: var(--on-accent);
     transition: filter 0.2s var(--ease), transform 0.2s var(--spring);
   }
   .empty .btn:hover { filter: brightness(1.08); }

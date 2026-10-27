@@ -197,7 +197,7 @@
   .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 4px; }
   .chip { padding: 4px 10px; border-radius: 999px; font-size: 12px; background: var(--pill); }
   .chip span { color: var(--fg-dim); margin-left: 2px; font-variant-numeric: tabular-nums; }
-  .chip.sel { background: var(--accent); color: #fff; }
+  .chip.sel { background: var(--accent); color: var(--on-accent); }
   .chip.sel span { color: rgba(255, 255, 255, 0.8); }
   .count { font-weight: 400; font-size: 12px; color: var(--fg-dim); margin-left: 6px; }
   h3 { font-size: 12px; font-weight: 600; color: var(--fg-dim); margin: 14px 0 6px; }

@@ -87,11 +87,11 @@
   .style { margin-top: 10px; }
   .seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; padding: 3px; border-radius: calc(12px * var(--rs)); background: var(--pill); }
   .seg button { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 2px; border-radius: calc(9px * var(--rs)); font-size: 11px; }
-  .seg .sel { background: var(--accent); color: #fff; }
+  .seg .sel { background: var(--accent); color: var(--on-accent); }
   .seg button:not(:disabled):hover:not(.sel) { background: var(--pill-hover); }
   .seg.off { opacity: 0.45; }
   .plan { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; padding: 10px 12px; }
-  .plan .btn { align-self: flex-start; padding: 6px 12px; border-radius: calc(10px * var(--rs)); background: var(--accent); color: #fff; font-size: 12px; }
+  .plan .btn { align-self: flex-start; padding: 6px 12px; border-radius: calc(10px * var(--rs)); background: var(--accent); color: var(--on-accent); font-size: 12px; }
   .saver { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding: 10px 12px; }
   .col { flex: 1; display: flex; flex-direction: column; }
   .small { font-size: 11px; }

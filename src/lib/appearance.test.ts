@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Theme } from './ipc';
-import { applySnapshot, changed, FLOOR, luminance, tintFor, presetDefaults, resolve, snapshot, STYLES, THEMES, windowRadius } from './appearance';
+import { accentInk, INK, onAccent, applySnapshot, changed, FLOOR, luminance, tintFor, presetDefaults, resolve, snapshot, STYLES, THEMES, windowRadius } from './appearance';
 
 const theme = (p: Partial<Theme> = {}): Theme => ({
   ...THEMES.system.set, ...STYLES.glassbar.set, preset: 'system', style: 'glassbar', accent: '#0A84FF', saved: {}, ...p,
@@ -57,5 +57,18 @@ describe('appearance', () => {
     const copy = theme();
     applySnapshot(copy, snapshot(t));
     expect({ ...copy, saved: {} }).toEqual({ ...t, saved: {} });
+  });
+});
+
+describe('accent contrast', () => {
+  it('keeps white labels on dark accents', () => {
+    for (const a of ['#0A84FF', '#000000', '#6E3FD8']) expect(onAccent(a)).toBe('#fff');
+  });
+  it('turns labels dark on light accents (white, yellow, light grey)', () => {
+    for (const a of ['#FFFFFF', '#FFD60A', '#C8C8C8']) expect(onAccent(a)).toBe(INK);
+  });
+  it('draws the accent on white only where it shows', () => {
+    expect(accentInk('#0A84FF')).toBe('#0A84FF');
+    expect(accentInk('#FFFFFF')).toBe(INK);
   });
 });

@@ -53,7 +53,7 @@
   .btn.plain { background: var(--pill); color: var(--fg); }
   .rel { padding: 12px 16px 6px; gap: 2px; }
   h3 { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
-  .now { font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 999px; background: var(--accent); color: #fff; }
+  .now { font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 999px; background: var(--accent); color: var(--on-accent); }
   .date { margin-left: auto; font-size: 12px; font-weight: 400; color: var(--fg-dim); }
   h4 { margin: 10px 0 2px; font-size: 13px; font-weight: 600; color: var(--fg-dim); }
   ul { margin: 0 0 6px; padding-left: 18px; line-height: 1.55; max-width: 72ch; }

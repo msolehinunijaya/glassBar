@@ -1,7 +1,7 @@
 // Appearance settings -> data attributes + CSS variables on <html>, in every window.
 // The tokens are defined in styles/glass.css; the presets and guards in appearance.ts.
 import { events, ipc, type Theme } from './ipc';
-import { resolve, rgb, windowRadius, type Behind } from './appearance';
+import { accentInk, onAccent, resolve, rgb, windowRadius, type Behind } from './appearance';
 
 const dark = matchMedia('(prefers-color-scheme: dark)');
 let current: Theme | null = null;
@@ -30,6 +30,8 @@ export function applyTheme(t: Theme) {
   ipc.transparencyEffects().then((on) => { if (on !== transparency) { transparency = on; if (current) applyTheme(current); } }).catch(() => {});
   const set = (k: string, v: string | null) => (v === null ? root.style.removeProperty(k) : root.style.setProperty(k, v));
   set('--accent', t.accent);
+  set('--on-accent', onAccent(t.accent));
+  set('--accent-ink', accentInk(t.accent));
   set('--blur', `${t.blur}px`);
   // The dock window shows the dock opacity; panels, banners and previews the panel one.
   set('--tint-alpha', String(d.window === 'bar' ? r.dock : r.panel));

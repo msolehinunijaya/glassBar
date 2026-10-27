@@ -264,10 +264,10 @@
   .brand { font-weight: 600; font-size: 16px; padding: 0 10px 14px; }
   nav button { text-align: left; padding: 8px 12px; border-radius: calc(10px * var(--rs)); }
   nav button:hover { background: var(--pill); }
-  nav .sel { background: var(--accent); color: #fff; }
+  nav .sel { background: var(--accent); color: var(--on-accent); }
   main { flex: 1; overflow: auto; padding: 18px 28px 40px; }
   /* Used by widget panels in every window too. */
-  :global(.btn) { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: calc(9px * var(--rs)); background: var(--accent); color: #fff; }
+  :global(.btn) { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: calc(9px * var(--rs)); background: var(--accent); color: var(--on-accent); }
   :global(.btn:disabled) { opacity: 0.5; }
   /* Shared by every section component (Location, About, widget manager…). */
   .settings :global {
@@ -282,17 +282,17 @@
     .hint { font-size: 12px; color: var(--fg-dim); margin: -4px 0 6px; }
     .seg { display: flex; gap: 2px; padding: 3px; border-radius: calc(10px * var(--rs)); background: var(--pill); }
     .seg button { padding: 5px 12px; border-radius: calc(8px * var(--rs)); text-transform: capitalize; }
-    .seg .sel { background: var(--accent); color: #fff; }
+    .seg .sel { background: var(--accent); color: var(--on-accent); }
     select, input:not([type]), textarea, .grow { padding: 6px 10px; border-radius: calc(8px * var(--rs)); border: 1px solid var(--line-soft); background: var(--settings-bg); }
     textarea { width: 100%; font-family: Consolas, monospace; font-size: 12px; resize: vertical; }
     /* Choice buttons (Notifications): plain, the chosen one in the accent colour. */
     .segs { display: inline-flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
     .segs .btn { background: var(--pill); color: var(--fg); padding: 6px 10px; font-size: 12px; }
-    .segs .btn.on { background: var(--accent); color: #fff; }
+    .segs .btn.on { background: var(--accent); color: var(--on-accent); }
     .wrow { display: flex; align-items: center; gap: 8px; padding: 6px 0; }
     .wrow b { flex: 1; font-weight: 500; }
     .grow { flex: 1; }
-    .wico { display: grid; place-items: center; width: 28px; height: 28px; border-radius: calc(8px * var(--rs)); background: var(--accent); color: #fff; flex: none; }
+    .wico { display: grid; place-items: center; width: 28px; height: 28px; border-radius: calc(8px * var(--rs)); background: var(--accent); color: var(--on-accent); flex: none; }
     .wform { padding: 4px 0 12px 36px; display: flex; flex-direction: column; gap: 8px; }
     .wform label { display: flex; align-items: center; gap: 8px; }
     .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }

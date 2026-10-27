@@ -85,7 +85,7 @@
 <style>
   .seg { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 3px; border-radius: calc(12px * var(--rs)); background: var(--pill); margin-bottom: 12px; }
   .seg button { padding: 7px; border-radius: calc(9px * var(--rs)); }
-  .seg .sel { background: var(--accent); color: #fff; }
+  .seg .sel { background: var(--accent); color: var(--on-accent); }
   .presets { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
   .presets .tile { align-items: center; padding: 10px 0; font-size: 12px; }
   .custom { display: flex; gap: 6px; margin-top: 8px; padding: 6px; }
@@ -101,7 +101,7 @@
   .huge { font-size: 44px; font-weight: 600; font-variant-numeric: tabular-nums; }
   .huge small { font-size: 22px; opacity: 0.6; }
   .controls { display: flex; align-items: center; gap: 22px; }
-  .play { width: 56px; height: 56px; background: var(--accent); color: #fff; }
+  .play { width: 56px; height: 56px; background: var(--accent); color: var(--on-accent); }
   .laps { width: 100%; }
   .lap { display: flex; justify-content: space-between; padding: 6px 4px; border-bottom: 1px solid var(--line-soft); font-variant-numeric: tabular-nums; }
   .err { color: #ff453a; font-size: 12px; }

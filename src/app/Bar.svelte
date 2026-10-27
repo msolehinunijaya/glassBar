@@ -582,11 +582,11 @@
     z-index: 2;
   }
   .remove { top: -3px; left: -3px; background: #ff453a; }
-  .resize { bottom: -3px; right: -3px; background: var(--accent); }
+  .resize { bottom: -3px; right: -3px; background: var(--accent); color: var(--on-accent); }
 
   .edit-tools { display: flex; gap: 2px; align-items: center; }
   .vertical .edit-tools { flex-direction: column; }
-  .done { background: var(--accent); color: #fff; }
+  .done { background: var(--accent); color: var(--on-accent); }
 
   .handle { flex: none; width: 6px; cursor: ew-resize; border-radius: calc(3px * var(--rs)); }
   .vertical .handle { width: auto; height: 6px; cursor: ns-resize; }

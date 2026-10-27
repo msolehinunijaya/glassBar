@@ -74,7 +74,7 @@
   .favs { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
   .fav, .chip { display: inline-flex; align-items: center; gap: 4px; padding: 5px 10px; border-radius: calc(12px * var(--rs)); background: var(--pill); font-size: 11px; }
   .fav.on { color: #ffcc00; }
-  .chip.sel { background: var(--accent); color: #fff; }
+  .chip.sel { background: var(--accent); color: var(--on-accent); }
   .small { font-size: 11px; }
   .meta { line-height: 1.5; margin: 0; }
   .err { color: #ff453a; }

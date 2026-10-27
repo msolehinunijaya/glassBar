@@ -33,7 +33,7 @@
   }
   .row:hover { background: var(--pill-hover); }
   .row:active { transform: scale(0.97); }
-  .ico { display: grid; place-items: center; width: 32px; height: 32px; border-radius: calc(10px * var(--rs)); background: var(--accent); color: #fff; flex: none; }
+  .ico { display: grid; place-items: center; width: 32px; height: 32px; border-radius: calc(10px * var(--rs)); background: var(--accent); color: var(--on-accent); flex: none; }
   .text { display: flex; flex-direction: column; flex: 1; min-width: 0; font-size: 12px; }
   .text b { font-weight: 500; font-size: 13px; }
 </style>

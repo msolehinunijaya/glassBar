@@ -274,7 +274,7 @@
   .app:active { transform: scale(0.88); }
   .app.active { background: var(--pill-hover); }
   img { display: block; }
-  .fallback { display: grid; place-items: center; border-radius: calc(8px * var(--rs)); background: var(--accent); color: #fff; font-weight: 600; }
+  .fallback { display: grid; place-items: center; border-radius: calc(8px * var(--rs)); background: var(--accent); color: var(--on-accent); font-weight: 600; }
   .title { max-width: 140px; font-size: 12px; }
   .dots { position: absolute; bottom: 1px; left: 50%; transform: translateX(-50%); display: flex; gap: 2px; }
   .dots i { width: 4px; height: 4px; border-radius: calc(2px * var(--rs)); background: var(--fg-dim); }
