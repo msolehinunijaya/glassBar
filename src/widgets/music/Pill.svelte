@@ -9,7 +9,7 @@
   import type { PillProps } from '../types';
   import { lyricsOf, showLyrics, type MusicSettings } from './settings';
   import { liveMedia, positionAt, toggle } from './media.svelte';
-  import { slide } from 'svelte/transition';
+  import { fade, slide } from 'svelte/transition';
   import { cubicOut } from 'svelte/easing';
   import { currentIndex, inGap, lineAt, lineProgress } from './lyrics';
   import { liveLyrics } from './lyrics.svelte';
@@ -30,6 +30,10 @@
   const lpos = $derived(media.m ? positionAt(media.m, lt.now) : 0);
   const lyricIdx = $derived(currentIndex(lyrics.lines, lpos));
   const lyricShown = $derived(lyricsOn && lyrics.lines.length > 0);
+  // With lyrics on, the lyric part is there for every song: the line, or a quiet note that
+  // this song has none (or that they can't be fetched right now) -- never just nothing.
+  const lyricPart = $derived(lyricsOn && !!media.m?.title && lyrics.status !== 'idle');
+  const NOTE = { loading: 'Looking for lyrics…', none: 'Lyrics not available', offline: 'Lyrics not available right now', found: '', idle: '' } as const;
   // Hovering the widget opens its panel (art, controls, volume) without a click; with lyrics
   // it opens wide enough to show them beside the player.
   const hp = hoverPanel();
@@ -82,11 +86,15 @@
   {/if}
 </div>
 {/if}
-{#if lyricShown}
+{#if lyricPart}
   <!-- The lyric part. A click goes on to the dock slot, which opens the panel with the lyrics. -->
-  <div class="pill lyrseg" transition:slide={{ axis: 'x', duration: 260, easing: cubicOut }}>
-    <LyricLine text={lineAt(lyrics.lines, lyricIdx)} idx={lyricIdx} progress={lineProgress(lyrics.lines, lyricIdx, lpos, media.m?.durationMs ?? 0)}
-               gap={inGap(lyrics.lines, lyricIdx, media.m?.durationMs ?? 0)} side={lyr.side} opts={lyr} />
+  <div class="pill lyrseg" class:note={!lyricShown} transition:slide={{ axis: 'x', duration: 260, easing: cubicOut }}>
+    {#if lyricShown}
+      <LyricLine text={lineAt(lyrics.lines, lyricIdx)} idx={lyricIdx} progress={lineProgress(lyrics.lines, lyricIdx, lpos, media.m?.durationMs ?? 0)}
+                 gap={inGap(lyrics.lines, lyricIdx, media.m?.durationMs ?? 0)} side={lyr.side} opts={lyr} />
+    {:else}
+      {#key lyrics.status}<span class="lnote" class:busy={lyrics.status === 'loading'} in:fade={{ duration: 200 }}>{NOTE[lyrics.status]}</span>{/key}
+    {/if}
   </div>
 {/if}
 </div>
@@ -103,6 +111,10 @@
     border-top-right-radius: var(--radius-pill); border-bottom-right-radius: var(--radius-pill); }
   .mwrap > :global(.pill:only-child) { border-radius: var(--radius-pill); }
   .lyrseg { padding: 0 12px; overflow: hidden; }
+  .lnote { font-size: 11.5px; color: var(--fg-dim); white-space: nowrap; font-style: italic; }
+  .lnote.busy { animation: breathe 1.4s ease-in-out infinite; }
+  @keyframes breathe { 50% { opacity: 0.45; } }
+  @media (prefers-reduced-motion: reduce) { .lnote.busy { animation: none; } }
   .music { position: relative; overflow: hidden; padding: 0 6px; gap: 8px; }
   .music > :not(.progress) { position: relative; z-index: 1; }
   /* progress: scaleX keeps it on the compositor; 1 s linear matches the 1 s tick */

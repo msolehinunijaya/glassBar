@@ -44,5 +44,12 @@ export function liveLyrics(media: { m: MediaInfo | null }, on: () => boolean, lo
   return {
     get v() { return got; },
     get lines() { return got?.lines ?? []; },
+    /** 'idle' nothing to look up · 'loading' asked, no answer yet · 'found' · 'none' this song
+     *  has no synced lyrics · 'offline' LRCLIB couldn't be reached (asking again shortly). */
+    get status(): 'idle' | 'loading' | 'found' | 'none' | 'offline' {
+      if (!want) return 'idle';
+      if (!got) return 'loading';
+      return got.lines.length ? 'found' : got.source === 'offline' ? 'offline' : 'none';
+    },
   };
 }

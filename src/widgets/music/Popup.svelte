@@ -159,7 +159,10 @@
     </div>
   {/if}
   </div>
-  {#if showList}<LyricsList lines={lyrics.lines} {media} {pos} source={lyrics.v?.source ?? 'lrclib'} />{/if}
+  {#if showList}<LyricsList lines={lyrics.lines} {media} {pos} source={lyrics.v?.source ?? 'lrclib'} />
+  {:else if lyr.on && lyrics.status !== 'idle'}
+    <p class="lnote" class:busy={lyrics.status === 'loading'}>{lyrics.status === 'loading' ? 'Looking for lyrics…' : lyrics.status === 'offline' ? 'Lyrics not available right now — trying again shortly' : 'Lyrics not available for this song'}</p>
+  {/if}
   </div>
 {:else}
   <div class="empty dim"><Music size={36} /><p>Nothing is playing.<br />Start music in Spotify, a browser, or any media app.</p></div>
@@ -183,6 +186,9 @@
   .lyrtoggle:active { transform: scale(0.95); }
   .lyrtoggle.on { background: var(--accent); color: var(--on-accent); border-color: transparent; }
   .lyrtoggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .lnote { margin: 12px 0 0; font-size: 11.5px; text-align: center; color: var(--fg-dim); font-style: italic; }
+  .lnote.busy { animation: breathe 1.4s ease-in-out infinite; }
+  @keyframes breathe { 50% { opacity: 0.45; } }
   .gear { position: absolute; top: 10px; right: 10px; z-index: 2; }
   .gear.on { color: var(--accent); }
   .optwrap { margin: 28px 0 8px; }

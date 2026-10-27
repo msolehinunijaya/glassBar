@@ -12,7 +12,7 @@
 //! song isn't looked up again on every play. A network failure is never cached, or one moment
 //! offline would hide lyrics until tomorrow.
 use crate::db::{kv_get, kv_set, now_ms, Db};
-use crate::net::{enc, get_json};
+use crate::net::enc;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::path::PathBuf;
@@ -183,6 +183,26 @@ fn synced_of(v: &Value) -> Option<Vec<LyricLine>> {
 /// Only a 404 means absent. A 429, a 5xx, or a captive portal replying with HTML all mean we
 /// couldn't ask -- and must never be cached as a miss, or one bad minute would hide a song's
 /// lyrics until tomorrow.
+/// Worth asking again in a moment: LRCLIB overloaded (5xx), rate-limited (429), or the
+/// network hiccuped. Not a 404 (the song isn't there) and not a malformed reply.
+fn retryable(err: &str) -> bool {
+    err.starts_with("HTTP 5") || err.starts_with("HTTP 429") || err.starts_with("network:")
+}
+
+/// LRCLIB answers 503 to a good share of requests at busy times (2 of 3 identical requests
+/// while testing): try three times, 0.4 s and 1.2 s apart, before giving up on this ask.
+fn get_json(url: &str) -> Result<Value, String> {
+    let mut last = String::new();
+    for wait_ms in [0, 400, 1200] {
+        if wait_ms > 0 { std::thread::sleep(std::time::Duration::from_millis(wait_ms)); }
+        match crate::net::get_json(url) {
+            Err(e) if retryable(&e) => last = e,
+            r => return r,
+        }
+    }
+    Err(last)
+}
+
 fn is_absent(err: &str) -> bool {
     err.starts_with("HTTP 404")
 }
@@ -389,6 +409,15 @@ mod tests {
     }
 
     #[test]
+    fn busy_and_flaky_answers_are_asked_again_but_not_a_missing_song() {
+        assert!(retryable("HTTP 503 Service Unavailable"));
+        assert!(retryable("HTTP 429 Too Many Requests"));
+        assert!(retryable("network: timed out"));
+        assert!(!retryable("HTTP 404 Not Found"));
+        assert!(!retryable("bad response: expected value"));
+    }
+
+    #[test]
     fn only_a_404_counts_as_the_track_being_absent() {
         // Anything else means we couldn't ask, and must not be remembered as "no lyrics".
         assert!(is_absent("HTTP 404 Not Found"));
@@ -473,4 +502,15 @@ fn lrclib_live() {
         let n = match fetch(a, t, "", d) { Ok(Found::Lines(l)) => format!("{} lines", l.len()), Ok(Found::Absent) => "absent".into(), Ok(Found::NoMatch) => "no match".into(), Err(e) => e };
         println!("{a} - {t}: {n}");
     }
+}
+
+/// What is playing and what the lookup finds for it (network, read only):
+/// `cargo test -- --ignored playing_now --nocapture`.
+#[cfg(test)]
+#[test]
+#[ignore]
+fn playing_now() {
+    let Ok(Some(m)) = crate::platform::media().info() else { println!("NOTHING PLAYING"); return };
+    let r = match fetch(&m.artist, &m.title, &m.album, m.duration_ms / 1000) { Ok(Found::Lines(l)) => format!("{} lines", l.len()), Ok(Found::Absent) => "absent".into(), Ok(Found::NoMatch) => "no match (other lengths only)".into(), Err(e) => e };
+    println!("PLAYING app={} | artist={} | title={} | album={} | dur={}s | pos={} | playing={} => {r}", m.app, m.artist, m.title, m.album, m.duration_ms / 1000, m.position_ms, m.playing);
 }
