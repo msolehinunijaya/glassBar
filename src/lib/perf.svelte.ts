@@ -16,6 +16,8 @@ export async function initPerf() {
   await load();
   events.changed('perf', load).catch(() => {});
   if (root.dataset.window === 'bar') {
-    events.barAway((away) => { barAway.v = away; if (away) root.dataset.away = ''; else delete root.dataset.away; }).catch(() => {});
+    const setAway = (away: boolean) => { barAway.v = away; if (away) root.dataset.away = ''; else delete root.dataset.away; };
+    events.barAway(setAway).catch(() => {});
+    ipc.barAway().then(setAway).catch(() => {}); // already away at load (start hidden, page reload)
   }
 }

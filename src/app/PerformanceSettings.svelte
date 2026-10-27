@@ -7,9 +7,8 @@
   import { events, ipc, type PerfMode, type PerfSample } from '../lib/ipc';
   import { perf } from '../lib/perf.svelte';
   import { widgets } from '../widgets/registry';
-  import { APP_ROWS, MODE_CARDS, changeList, fmtBytes, fmtPct, netLastHour } from './perfPage';
+  import { APP_ROWS, MODE_CARDS, changeList, fmtBytes, fmtPct, netLastHour, timeSeries, type Metric } from './perfPage';
 
-  type Metric = 'ram' | 'cpu' | 'gpu' | 'net';
   let samples = $state<PerfSample[]>([]);
   let metric = $state<Metric>('ram');
   let graphW = $state(520);
@@ -24,12 +23,8 @@
   });
 
   const last = $derived(samples.at(-1));
-  const series = $derived.by(() => {
-    if (metric === 'ram') return samples.map((s) => s.ramMb);
-    if (metric === 'cpu') return samples.map((s) => s.cpu);
-    if (metric === 'gpu') return samples.map((s) => s.gpu ?? 0);
-    return samples.map((s, i) => (i ? Math.max(0, s.netBytes - samples[i - 1].netBytes) : 0));
-  });
+  // One point per 30 s, so the hour is spaced by time whatever the sampling rate was.
+  const series = $derived(timeSeries(samples, metric, 30_000));
   const floor: Record<Metric, number> = { ram: 50, cpu: 5, gpu: 5, net: 1024 };
   const max = $derived(Math.max(floor[metric], ...series) * 1.2);
   const changes = $derived(changeList(perf.mode, [...APP_ROWS, ...Object.values(widgets).map((m) => ({ name: m.name, perf: m.perf }))]));

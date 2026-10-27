@@ -29,16 +29,29 @@ fn with<R>(label: &str, f: impl FnOnce(&mut u64, &mut bool) -> R) -> R {
     f(&mut e.1, &mut e.2)
 }
 
+/// A hide: start a new generation (cancels older timers). Returns it.
+fn arm(label: &str) -> u64 { with(label, |g, _| { *g += 1; *g }) }
+
+/// On the main thread, right before suspending: still that hide, and not woken since?
+/// Marks it suspended if so. Running here, in order with `wake`, closes the gap where a
+/// show slipped in between the timer and the queued suspend (a blank popup).
+fn claim(label: &str, gen: u64) -> bool {
+    with(label, |g, asleep| { let ok = *g == gen && !*asleep; if ok { *asleep = true; } ok })
+}
+
+/// A show: cancel pending timers. True if the window was suspended and needs resuming.
+fn disarm(label: &str) -> bool { with(label, |g, asleep| { *g += 1; std::mem::replace(asleep, false) }) }
+
 /// The window was just hidden: free it in 30 s if it is still hidden and the mode is Low.
 pub fn later(win: WebviewWindow) {
-    let gen = with(win.label(), |g, _| { *g += 1; *g });
+    let gen = arm(win.label());
     if crate::perf::effective() != PerfMode::Low { return; } // hover panels hide often: no idle timers
     std::thread::spawn(move || {
         std::thread::sleep(AFTER);
-        if crate::perf::effective() != PerfMode::Low || win.is_visible().unwrap_or(true) { return; }
-        let go = with(win.label(), |g, asleep| { let go = *g == gen && !*asleep; if go { *asleep = true; } go });
-        if !go { return; }
-        let _ = win.with_webview(|wv| unsafe {
+        if crate::perf::effective() != PerfMode::Low { return; }
+        let w = win.clone();
+        let _ = win.with_webview(move |wv| unsafe {
+            if w.is_visible().unwrap_or(true) || !claim(w.label(), gen) { return; }
             let c = wv.controller();
             let _ = c.SetIsVisible(false); // suspending needs an invisible WebView
             if let Ok(core) = c.CoreWebView2() {
@@ -56,8 +69,7 @@ pub fn later(win: WebviewWindow) {
 /// About to hand the window something or show it: undo `later` first. Cheap when it wasn't
 /// freed. Runs on the main thread ahead of the emit/show that follows, so content arrives.
 pub fn wake(win: &WebviewWindow) {
-    let was = with(win.label(), |g, asleep| { *g += 1; std::mem::replace(asleep, false) });
-    if !was { return; }
+    if !disarm(win.label()) { return; }
     let _ = win.with_webview(|wv| unsafe {
         let c = wv.controller();
         if let Ok(core) = c.CoreWebView2() {
@@ -68,4 +80,33 @@ pub fn wake(win: &WebviewWindow) {
         }
         let _ = c.SetIsVisible(true);
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_wake_before_the_queued_suspend_cancels_it() {
+        // The timer queued a suspend; popup_open's wake ran first on the main thread.
+        let g = arm("t1");
+        assert!(!disarm("t1")); // it wasn't suspended yet
+        assert!(!claim("t1", g)); // so the queued suspend must not run now
+    }
+
+    #[test]
+    fn suspend_then_wake() {
+        let g = arm("t2");
+        assert!(claim("t2", g));
+        assert!(disarm("t2")); // was suspended: resume it
+        assert!(!disarm("t2"));
+    }
+
+    #[test]
+    fn a_newer_hide_cancels_the_older_timer() {
+        let g1 = arm("t3");
+        let g2 = arm("t3");
+        assert!(!claim("t3", g1));
+        assert!(claim("t3", g2));
+    }
 }

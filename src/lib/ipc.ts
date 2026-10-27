@@ -254,6 +254,8 @@ export const ipc = {
   perfState: () => invoke<PerfState>('perf_state'),
   /** The Performance page is open: sample every second (a lease; call every 2 s). */
   perfWatch: () => invoke<void>('perf_watch'),
+  /** Is the auto-hidden bar slid away right now? */
+  barAway: () => invoke<boolean>('bar_away'),
   disksList: () => invoke<DiskInfo[]>('disks_list'),
   powerGet: () => invoke<PowerInfo>('power_get'),
   powerSetMode: (mode: PowerMode) => invoke<void>('power_set_mode', { mode }),

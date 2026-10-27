@@ -150,11 +150,27 @@ pub fn replace(app: &AppHandle) {
     if at != (r.x, r.y) { set_rect(&win, r); }
 }
 
+/// Is the bar slid away? Only an auto-hiding, docked bar that isn't slid in.
+pub fn is_away(auto_hide: bool, floating: bool, revealed: bool) -> bool { auto_hide && !floating && !revealed }
+
+fn away_now(app: &AppHandle, bar: &crate::config::BarCfg) -> bool {
+    is_away(bar.auto_hide, bar.floating.is_some(), app.state::<AppState>().revealed.load(Ordering::Relaxed))
+}
+
+/// The bar page asks on load (a reload or a start already hidden would otherwise miss it).
+#[tauri::command]
+pub fn bar_away(app: AppHandle) -> bool {
+    let bar = app.state::<AppState>().config.lock().unwrap().profile().bar.clone();
+    away_now(&app, &bar)
+}
+
 fn apply_now(app: &AppHandle) {
     SLIDE.fetch_add(1, Ordering::SeqCst);
     let cfg = app.state::<AppState>().config.lock().unwrap().clone();
     let Some(win) = app.get_webview_window("bar") else { return };
     let bar = &cfg.profile().bar;
+    // Turning auto-hide off (or floating on) while tucked away must bring animations back.
+    let _ = app.emit_to("bar", "bar:away", away_now(app, bar));
     // Style first: turning the window shadow on/off adds/removes Windows' frame, and the
     // size set below must be measured without it (else the first placement after a
     // start is a frame's worth too big: 16 px wider, 39 px taller).
@@ -822,6 +838,14 @@ fn on_menu(app: &AppHandle, id: &str) {
 mod tests {
     use super::*;
     const MON: Rect = Rect { x: 0, y: 0, w: 1920, h: 1080 };
+
+    #[test]
+    fn away_only_while_auto_hidden_and_tucked() {
+        assert!(is_away(true, false, false));
+        assert!(!is_away(true, false, true));   // slid in
+        assert!(!is_away(false, false, false)); // auto-hide turned off while tucked: back, not stuck away
+        assert!(!is_away(true, true, false));   // floating never hides
+    }
 
     #[test]
     fn windows_popup_is_hidden_only_while_glassbar_shows_volume_or_brightness() {
