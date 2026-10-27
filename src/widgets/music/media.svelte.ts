@@ -12,7 +12,9 @@ export function liveMedia() {
 
 /** Current position: the player reports it rarely, so extrapolate while playing. */
 export function positionAt(m: MediaInfo, now = Date.now()) {
-  const p = m.playing && m.updatedAtMs > 0 ? m.positionMs + (now - m.updatedAtMs) : m.positionMs;
+  // Never before the reported position: a clock read a moment before the report came in
+  // (the panel ticks every 0.5 s) used to put a just-clicked lyric line's start behind us.
+  const p = m.playing && m.updatedAtMs > 0 ? m.positionMs + Math.max(0, now - m.updatedAtMs) : m.positionMs;
   return Math.max(0, Math.min(p, m.durationMs || p));
 }
 

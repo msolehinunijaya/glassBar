@@ -14,7 +14,14 @@
   const rows = $derived(lines.map((l, i) => ({ ...l, i })).filter((l) => l.text.trim()));
   const now = $derived(currentIndex(lines, pos));
   /** The row being sung: the last one at or before the current line. */
-  const cur = $derived(rows.reduce((at, r, k) => (r.i <= now ? k : at), -1));
+  const sung = $derived(rows.reduce((at, r, k) => (r.i <= now ? k : at), -1));
+  // A clicked row is "now" straight away, until the song's position catches up with it
+  // (or 2 s pass): no flash of the old line, no scroll back to it first.
+  let jumped = $state<number | null>(null);
+  let jumpTimer: ReturnType<typeof setTimeout>;
+  $effect(() => { if (jumped !== null && sung === jumped) jumped = null; });
+  $effect(() => () => clearTimeout(jumpTimer));
+  const cur = $derived(jumped ?? sung);
   // Some apps (and live streams) can't seek: then lines aren't buttons.
   const canSeek = $derived(!!media.m && media.m.durationMs > 0);
 
@@ -49,9 +56,16 @@
   function seek(k: number) {
     const r = rows[k];
     if (!r || !canSeek || !media.m) return;
-    media.m = { ...media.m, positionMs: r.atMs, updatedAtMs: Date.now() };
-    ipc.mediaSeek(r.atMs);
-    backToNow();
+    // A hair past the line's start, so the position lands inside it, not on the boundary.
+    const at = r.atMs + 30;
+    jumped = k;
+    clearTimeout(jumpTimer);
+    jumpTimer = setTimeout(() => (jumped = null), 2000);
+    clearTimeout(resume);
+    following = true;
+    focusRow = -1;
+    media.m = { ...media.m, positionMs: at, updatedAtMs: Date.now() };
+    ipc.mediaSeek(at);
   }
   function key(e: KeyboardEvent) {
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
