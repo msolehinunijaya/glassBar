@@ -144,6 +144,8 @@ export const ipc = {
   popupReveal: () => invoke<void>('popup_reveal'),
   healthPong: (seq: number) => invoke<void>('health_pong', { seq }),
   popupLeaveClose: () => invoke<void>('popup_leave_close'),
+  /** Close a hover-opened panel now (a right-click on the dock); click-opened ones stay. */
+  popupHoverHide: () => invoke<void>('popup_hover_hide'),
   bannerFit: (width: number, height: number) => invoke<void>('banner_fit', { width, height }),
   bannerHide: () => invoke<void>('banner_hide'),
   jumpTo: (source: string, data: unknown) => invoke<void>('jump_to', { source, data }),

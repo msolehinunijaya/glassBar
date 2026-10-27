@@ -360,6 +360,7 @@
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="surface bar dock" class:vertical class:edit class:flashing={!!flash} onpointerdown={onBarDown} oncontextmenu={onContext}
+     oncontextmenucapture={() => ipc.popupHoverHide()}
      onpointerenter={onEnter} data-size={bar.size} data-side={bar.sideWidth ?? 'regular'}>
   <div class="handle start" onpointerdown={(e) => onHandleDown(e, -1)}></div>
 

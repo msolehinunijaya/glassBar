@@ -393,6 +393,8 @@ pub fn popup_hidden(app: &AppHandle) {
 #[tauri::command]
 pub fn popup_open(app: AppHandle, instance: String, x: f64, y: f64, w: f64, h: f64, width: f64, height: f64, focus: Option<bool>) -> Result<(), String> {
     let focus = focus.unwrap_or(true);
+    // A hover panel whose timer ran out while a context menu is up: the user is busy with the menu.
+    if !focus && shell().menu_open() { return Ok(()); }
     let st = app.state::<AppState>();
     {
         // Clicking the open widget again: the popup already hid on blur, so this click means "close".
@@ -456,22 +458,60 @@ pub fn popup_reveal(app: AppHandle) {
 #[tauri::command]
 pub fn popup_hide(app: AppHandle) { popup_hidden(&app) }
 
+/// Is the pointer over the open hover panel or the widget that opened it? `None` when no
+/// hover panel is open.
+fn pointer_on_hover_panel(app: &AppHandle) -> Option<bool> {
+    // The screenshot card opens unfocused too, but it is not a hover panel: it times out itself.
+    let st = app.state::<AppState>();
+    let anchor = {
+        let p = st.popup.lock().unwrap();
+        if !p.hover || p.instance.as_deref() == Some(FEEDBACK) { return None; }
+        p.place.as_ref().map(|pl| pl.anchor)
+    };
+    let win = app.get_webview_window("popup")?;
+    if !win.is_visible().unwrap_or(false) { return None; }
+    let Some((x, y)) = shell().cursor_pos() else { return Some(true) }; // can't tell: leave it open
+    let over_panel = match (win.outer_position(), win.outer_size()) {
+        (Ok(p), Ok(s)) => crate::autohide::contains(Rect { x: p.x, y: p.y, w: s.width as i32, h: s.height as i32 }, x, y, 2),
+        _ => false,
+    };
+    Some(over_panel || anchor.is_some_and(|a| crate::autohide::contains(a, x, y, 2)))
+}
+
 /// The pointer left a hover panel or its button: close it, unless the pointer is in fact
 /// still over one of them. Stray "left" events (a tooltip or a window appearing under the
 /// pointer) used to close a hover panel just as it opened.
 #[tauri::command]
 pub fn popup_leave_close(app: AppHandle) {
-    let st = app.state::<AppState>();
-    let anchor = { let p = st.popup.lock().unwrap(); if !p.hover { return; } p.place.as_ref().map(|pl| pl.anchor) };
-    if let (Some((x, y)), Some(win)) = (shell().cursor_pos(), app.get_webview_window("popup")) {
-        let over_panel = match (win.outer_position(), win.outer_size()) {
-            (Ok(p), Ok(s)) => crate::autohide::contains(Rect { x: p.x, y: p.y, w: s.width as i32, h: s.height as i32 }, x, y, 2),
-            _ => false,
-        };
-        let over_button = anchor.is_some_and(|a| crate::autohide::contains(a, x, y, 2));
-        if over_panel || over_button { return; }
-    }
-    popup_hidden(&app);
+    if pointer_on_hover_panel(&app) == Some(false) { popup_hidden(&app); }
+}
+
+/// Close a hover panel now, wherever the pointer is (a right-click on the dock). Panels
+/// opened by a click are left alone.
+#[tauri::command]
+pub fn popup_hover_hide(app: AppHandle) {
+    if pointer_on_hover_panel(&app).is_some() { popup_hidden(&app); }
+}
+
+/// Safety net for hover panels: the page closes them on pointer-leave, but a leave can be
+/// lost (a native menu runs its own loop and swallows it), which left a panel open for good.
+/// Here the real cursor decides: away from the panel and its widget for 300 ms = close.
+/// Not while a mouse button is held (dragging a slider out) or a menu is open.
+pub fn watch_hover_panel(app: &AppHandle) {
+    let app = app.clone();
+    std::thread::spawn(move || {
+        let mut away = 0u64;
+        loop {
+            std::thread::sleep(Duration::from_millis(100));
+            match pointer_on_hover_panel(&app) {
+                Some(false) if !shell().mouse_down() && !shell().menu_open() => {
+                    away += 100;
+                    if away >= 300 { away = 0; popup_hidden(&app); }
+                }
+                _ => away = 0,
+            }
+        }
+    });
 }
 
 // ---- Notification banners ----
