@@ -12,8 +12,9 @@
   import WidgetManager from './widgets/WidgetManager.svelte';
   import About from './About.svelte';
   import AppearanceSettings from './AppearanceSettings.svelte';
+  import PerformanceSettings from './PerformanceSettings.svelte';
 
-  const sections = ['Bar', 'Appearance', 'Widgets', 'Location', 'Notifications', 'Dock alerts', 'Sounds', 'Profiles', 'Startup', 'Updates', 'Backup', 'About'] as const;
+  const sections = ['Bar', 'Appearance', 'Widgets', 'Performance', 'Location', 'Notifications', 'Dock alerts', 'Sounds', 'Profiles', 'Startup', 'Updates', 'Backup', 'About'] as const;
   import { SOURCE_WIDGET } from '../lib/notify';
   // Prayer time, Pomodoro and Timer are told by the dock itself (Settings > Dock alerts), not
   // by banners: not listed here (Rust: alerts::DOCK_SOURCES).
@@ -138,6 +139,9 @@
 
     {:else if section === 'Appearance'}
       <AppearanceSettings />
+
+    {:else if section === 'Performance'}
+      <PerformanceSettings />
 
     {:else if section === 'Widgets'}
       <WidgetManager />
