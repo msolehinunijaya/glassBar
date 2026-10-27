@@ -1,7 +1,8 @@
 <script lang="ts">
   import { availableMonitors, getCurrentWindow, primaryMonitor } from '@tauri-apps/api/window';
   import { flip } from 'svelte/animate';
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
+  import { adhan, setAdhanPlaying, stopAdhan } from '../lib/adhan.svelte';
   import { Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Droplet, Maximize2, MoonStar, Plus, Square, PlugZap, Sun, Unplug, Volume2, VolumeX, X } from '@lucide/svelte';
   import { profile, store, update } from '../lib/config.svelte';
   import { events, ipc, type WidgetInst, type WidgetSize } from '../lib/ipc';
@@ -10,7 +11,7 @@
   import { fmtWater } from '../widgets/water/units';
   import { hiddenCounts, insertIndex, snap } from '../lib/geometry';
   import { GALLERY, openPopup } from '../lib/popup';
-  import { chargerTone, chime, deviceTone, playAdzan, shutter, stopSound, tick } from '../lib/sound';
+  import { chargerTone, chime, deviceTone, playAdzan, shutter, tick } from '../lib/sound';
   // Bundled adzan: "Beautiful adhan" by Adam-synagda, Wikimedia Commons, CC0.
   import adhanUrl from '../assets/adhan.ogg?url';
   import { showMenu } from '../lib/menu';
@@ -59,8 +60,13 @@
   let alertTimers: ReturnType<typeof setTimeout>[] = [];
   const alertCfg = $derived({ ...ALERT_DEFAULTS, ...(store.config?.dockAlerts ?? {}) });
   const view = $derived(alert ? viewOf(alert) : null);
-  /** The adzan is playing: the prayer alert offers to stop it. */
-  let adhanOn = $state(false);
+  // While the adzan plays, the prayer alert stays on the dock (with Stop adhan); when it
+  // ends, the alert leaves a few seconds later.
+  $effect(() => {
+    const on = adhan.playing;
+    if (untrack(() => alert?.kind !== 'prayer' || leaving)) return;
+    if (on) clearAlertTimers(); else holdFor(4000);
+  });
 
   // The charger's switch is the older `chargerFlash`; the Companion also rides the charger
   // event, so the switch is checked here rather than in Rust.
@@ -89,7 +95,8 @@
     alert = a;
     leaving = false;
     if (how === 'show') alertSeq++;
-    holdFor((how === 'show' ? FLASH.enter : 0) + hold);
+    if (a.kind === 'prayer' && adhan.playing) clearAlertTimers(); // stays until the adzan ends
+    else holdFor((how === 'show' ? FLASH.enter : 0) + hold);
   }
   // Water: "+ cup" logs it, the fill rises to the new total, then the alert goes; "Later"
   // snoozes reminders for 15 minutes. A Settings test only pretends.
@@ -108,7 +115,7 @@
 
   // Hovering holds it; moving away gives it a short moment more. A click dismisses it.
   const pauseAlert = () => { if (alert && !leaving) clearAlertTimers(); };
-  const resumeAlert = () => { if (alert && !leaving) holdFor(1200); };
+  const resumeAlert = () => { if (alert && !leaving && !(alert.kind === 'prayer' && adhan.playing)) holdFor(1200); };
   function dismissAlert() {
     if (!alert || leaving) return;
     clearAlertTimers();
@@ -153,7 +160,7 @@
           }
         }, 450); // after the scroll settles
       }),
-      events.soundPlay((s) => (s.kind === 'azan' || s.kind === 'adhan' ? ((adhanOn = true), playAdzan(s.kind === 'azan' ? s.src : adhanUrl, !!s.short, !!s.pauseMusic, { pause: ipc.mediaPausePlaying, resume: ipc.mediaResume }, s.volume ?? 1, () => (adhanOn = false))) : s.kind === 'connect' || s.kind === 'disconnect' ? deviceTone(s.kind === 'connect', s.volume) : s.kind === 'plug' || s.kind === 'unplug' ? chargerTone(s.kind === 'plug', s.volume) : chime(s.volume))),
+      events.soundPlay((s) => (s.kind === 'azan' || s.kind === 'adhan' ? (setAdhanPlaying(true), playAdzan(s.kind === 'azan' ? s.src : adhanUrl, !!s.short, !!s.pauseMusic, { pause: ipc.mediaPausePlaying, resume: ipc.mediaResume }, s.volume ?? 1, () => setAdhanPlaying(false))) : s.kind === 'connect' || s.kind === 'disconnect' ? deviceTone(s.kind === 'connect', s.volume) : s.kind === 'plug' || s.kind === 'unplug' ? chargerTone(s.kind === 'plug', s.volume) : chime(s.volume))),
       events.chargerFlip((f) => showAlert({ kind: 'charger', ...f })),
       events.dockAlert(showAlert),
     ];
@@ -473,8 +480,8 @@
           </button>
           <button class="flash-act quiet" onclick={(e) => { e.stopPropagation(); later(); }} aria-label="Remind me in 15 minutes"><span>Later</span></button>
         {/if}
-        {#if alert.kind === 'prayer' && adhanOn}
-          <button class="flash-act" onclick={(e) => { e.stopPropagation(); stopSound(); }} aria-label="Stop the adhan">
+        {#if alert.kind === 'prayer' && adhan.playing}
+          <button class="flash-act" onclick={(e) => { e.stopPropagation(); stopAdhan(); }} aria-label="Stop the adhan">
             <Square size={10} fill="currentColor" /><span>Stop adhan</span>
           </button>
         {/if}

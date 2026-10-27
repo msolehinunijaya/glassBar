@@ -3,7 +3,8 @@
   // gentle pulse. When the time comes: a flashing glow and a ✓ button; clicking ✓ stops
   // the flashing and moves on to the next prayer. (The alert/azan sound is the existing
   // prayer alert, switchable in the widget settings.)
-  import { Check, Moon } from '@lucide/svelte';
+  import { Check, Moon, Square } from '@lucide/svelte';
+  import { adhan, stopAdhan } from '../../lib/adhan.svelte';
   import { updateWidgetSettings } from '../../lib/config.svelte';
   import { stopSound } from '../../lib/sound';
   import type { PillProps } from '../types';
@@ -29,7 +30,7 @@
   <Moon size={15} />
   {#if st?.phase === 'reached' && st.reached}
     <span class="stack"><span class="name">{st.reached.name}</span><span class="now">time now</span></span>
-    <button class="ok" onclick={ack} onpointerdown={(e) => e.stopPropagation()} aria-label="Acknowledge {st.reached.name}"><Check size={14} strokeWidth={3} /></button>
+    {#if !adhan.playing}<button class="ok" onclick={ack} onpointerdown={(e) => e.stopPropagation()} aria-label="Acknowledge {st.reached.name}"><Check size={14} strokeWidth={3} /></button>{/if}
   {:else if st}
     <!-- Stacked: name on top, countdown below (compact on the dock). -->
     <span class="stack">
@@ -38,6 +39,11 @@
     </span>
   {:else}
     <span class="dim">–</span>
+  {/if}
+  {#if adhan.playing}
+    <!-- The adzan is playing: stop it right here. -->
+    <button class="stop" onclick={(e) => { e.stopPropagation(); stopAdhan(); }} onpointerdown={(e) => e.stopPropagation()}
+            aria-label="Stop the adhan" title="Stop the adhan"><Square size={10} fill="currentColor" /></button>
   {/if}
 </div>
 
@@ -50,6 +56,15 @@
     transition: transform 1s linear, background 0.4s;
   }
   .solat { gap: 6px; padding: 0 10px 0 8px; }
+  .stop {
+    display: grid; place-items: center; width: 24px; height: 24px; flex: none; border-radius: 50%;
+    background: #ff453a; color: #fff; animation: pulse 1.6s ease-in-out infinite;
+    transition: transform 0.2s var(--spring, ease);
+  }
+  .stop:hover { transform: scale(1.1); }
+  .stop:active { transform: scale(0.9); }
+  @keyframes pulse { 50% { box-shadow: 0 0 0 4px rgba(255, 69, 58, 0.25); } }
+  @media (prefers-reduced-motion: reduce) { .stop { animation: none; } }
   .stack { display: flex; flex-direction: column; line-height: 1.15; }
   .name { font-weight: 600; font-size: 12px; }
   .t { font-variant-numeric: tabular-nums; font-size: 10.5px; color: var(--fg-dim); white-space: nowrap; }

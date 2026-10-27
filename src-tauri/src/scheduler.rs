@@ -78,16 +78,24 @@ fn handle(app: &AppHandle, d: &Due, missed: bool) {
             let (sound, data) = crate::widgets::focus::on_pomo_due(app);
             crate::alerts::notify_full(app, d.source, &d.title, &d.body, missed, sound, data);
         }
+        "solat" => {
+            // The adzan is the prayer widget's own sound setting, not a banner chime: it plays
+            // whether or not prayer banners are muted or their sound is off. Only Do Not Disturb
+            // (and a prayer missed while GlassBar was off) keeps it quiet.
+            let dnd = app.state::<crate::AppState>().config.lock().unwrap().dnd;
+            crate::alerts::notify_full(app, d.source, &d.title, &d.body, missed, serde_json::Value::Null, serde_json::json!({ "key": d.key }));
+            if !missed && !dnd {
+                let sound = d.sound.as_ref().map(crate::widgets::solat::sound_payload).unwrap_or(serde_json::json!({ "kind": "chime" }));
+                let _ = app.emit_to("bar", "sound:play", sound);
+            }
+            // After the sound, so the dock already knows the adzan is playing (Stop button).
+            if let Some(a) = crate::widgets::solat::prayer_alert(&d.key, d.at, missed, dnd) { let _ = app.emit_to("bar", "dock:alert", a); }
+        }
         _ => {
             let sound = d.sound.as_ref().map(crate::widgets::solat::sound_payload).unwrap_or(serde_json::json!({ "kind": "chime" }));
             // The occurrence key ("todo:<id>:<at>", "solat:<date>:<zone>:<name>") lets the
             // banner's buttons act on exactly this item.
             crate::alerts::notify_full(app, d.source, &d.title, &d.body, missed, sound, serde_json::json!({ "key": d.key }));
-            // After the sound, so the dock already knows the adhan is playing (Stop button).
-            if d.source == "solat" {
-                let dnd = app.state::<crate::AppState>().config.lock().unwrap().dnd;
-                if let Some(a) = crate::widgets::solat::prayer_alert(&d.key, d.at, missed, dnd) { let _ = app.emit_to("bar", "dock:alert", a); }
-            }
         }
     }
 }

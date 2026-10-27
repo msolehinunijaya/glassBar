@@ -374,8 +374,15 @@ pub fn dock_alert_end(app: AppHandle) {
 /// Async: reading the brightness over DDC/CI is slow and must not block the main thread.
 #[tauri::command]
 pub async fn dock_alert_test(app: AppHandle, kind: String) {
+    let prayer = kind == "prayer";
     let Ok(Some(mut p)) = crate::widgets::blocking(move || sample_alert(&kind)).await else { return };
     p["test"] = serde_json::Value::Bool(true); // shown even with that kind switched off
+    if prayer {
+        // The real moment plays the adzan first; the test does too (the short one).
+        let s = app.state::<AppState>().config.lock().unwrap().widget_settings("solat");
+        let sound = crate::widgets::blocking(move || crate::widgets::solat::solat_sound(&s).map(|mut v| { v["short"] = true.into(); crate::widgets::solat::sound_payload(&v) })).await.ok().flatten();
+        if let Some(sound) = sound { let _ = app.emit_to("bar", "sound:play", sound); }
+    }
     let _ = app.emit_to("bar", "dock:alert", p);
 }
 
