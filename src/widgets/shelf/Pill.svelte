@@ -5,6 +5,9 @@
   // survives a restart, travels with a config export, and never touches the files themselves.
   // Opening, revealing and the icons all reuse the Downloads widget's commands.
   import { Archive, Plus } from '@lucide/svelte';
+  import { cubicOut } from 'svelte/easing';
+  import { fade, slide } from 'svelte/transition';
+  import { reallyLeft } from '../../lib/hoverPanel';
   import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
   import { events, ipc } from '../../lib/ipc';
   import { updateWidgetSettings } from '../../lib/config.svelte';
@@ -12,7 +15,7 @@
   import FileIcon from '../downloads/FileIcon.svelte';
   import type { PillProps } from '../types';
   import type { ShelfSettings } from './index';
-  import { MAX, add, extOf, hits, nameOf, remove, removeAll } from './shelf';
+  import { MAX, add, extOf, hits, nameOf, remove, removeAll, shownCount } from './shelf';
 
   let { instance, settings, vertical }: PillProps<ShelfSettings> = $props();
   let box = $state<HTMLElement | undefined>();
@@ -21,6 +24,29 @@
   let missing = $state<Record<string, boolean>>({});
 
   const files = $derived(settings.files ?? []);
+
+  // Collapsed, the shelf shows its newest file and "+N". Hovering (350 ms) slides the rest out
+  // one after another; leaving folds them back 300 ms later. Never while a file is being
+  // dragged in or out, or while its menu is open -- that would pull the target away.
+  let unfolded = $state(false);
+  let busy = false; // a drag-out or the right-click menu
+  let openTimer: ReturnType<typeof setTimeout>, closeTimer: ReturnType<typeof setTimeout>;
+  const shown = $derived(files.slice(0, shownCount(files.length, unfolded || over, settings.collapse !== false)));
+  const hidden = $derived(files.length - shown.length);
+  function enter() { clearTimeout(closeTimer); clearTimeout(openTimer); openTimer = setTimeout(() => (unfolded = true), 350); }
+  function leave(e?: PointerEvent) {
+    if (e && !reallyLeft(e, box)) return;
+    clearTimeout(openTimer);
+    clearTimeout(closeTimer);
+    closeTimer = setTimeout(function fold() {
+      if (busy) { closeTimer = setTimeout(fold, 300); return; }
+      unfolded = false;
+    }, 300);
+  }
+  $effect(() => () => { clearTimeout(openTimer); clearTimeout(closeTimer); });
+  /** Items after the first arrive one after another. */
+  const inOf = (i: number) => ({ axis: 'x' as const, duration: 220, delay: Math.max(0, i - 1) * 35, easing: cubicOut });
+  const outOf = { axis: 'x' as const, duration: 160, easing: cubicOut };
   const save = (next: string[]) => updateWidgetSettings(instance, { files: next });
 
   // Which shelved files have been moved or deleted since. Never silently drop them: show them
@@ -77,7 +103,8 @@
     if (missing[path]) { e.preventDefault(); return; }
     e.preventDefault();
     dragAt = Date.now();
-    ipc.shelfDrag(instance, [path]).catch(() => {});
+    busy = true;
+    ipc.shelfDrag(instance, [path]).catch(() => {}).finally(() => (busy = false));
   }
   function open(e: Event, path: string) {
     e.stopPropagation();
@@ -91,6 +118,7 @@
     e.stopPropagation();
     // Everything but "take it off" needs the file to still be there.
     const here = !missing[path];
+    busy = true;
     showMenu([
       { text: 'Open', enabled: here, action: () => ipc.downloadsOpen(path).catch(() => {}) },
       { text: 'Show in folder', enabled: here, action: () => ipc.downloadsReveal(path).catch(() => {}) },
@@ -98,7 +126,7 @@
       '-',
       { text: 'Take off the shelf', action: () => save(remove(files, path)) },
       { text: 'Empty the shelf', action: () => save([]), enabled: files.length > 1 },
-    ]);
+    ]).finally(() => { busy = false; leave(); });
   };
 
   const stop = (e: Event) => e.stopPropagation();
@@ -107,9 +135,9 @@
 </script>
 
 {#if vertical}
-  <div class="side-stack" bind:this={box} class:over>
-    {#each files as f (f)}
-      <div class="side shelf-side" class:gone={missing[f]} title={nameOf(f)}>
+  <div class="side-stack" bind:this={box} class:over role="group" aria-label="File shelf" onpointerenter={enter} onpointerleave={leave}>
+    {#each shown as f, i (f)}
+      <div class="side shelf-side" class:gone={missing[f]} title={nameOf(f)} in:slide={{ ...inOf(i), axis: 'y' }} out:slide={{ ...outOf, axis: 'y' }}>
         <button type="button" class="grab" draggable={!missing[f]} disabled={missing[f]}
                 aria-label={missing[f] ? `${nameOf(f)} is no longer there` : `Open ${nameOf(f)}`}
                 ondragstart={(e) => startDrag(e, f)} onpointerdown={down}
@@ -118,16 +146,20 @@
         </button>
       </div>
     {/each}
+    {#if hidden}
+      <div class="side more" title="{hidden} more — hover to show" transition:fade={{ duration: 150 }}><span class="side-v">+{hidden}</span></div>
+    {/if}
     {#if !files.length}
       <div class="side" title="Drag files here to park them"><Archive size={18} class="dim" /></div>
     {/if}
   </div>
 {:else}
-  <div class="pill shelf" bind:this={box} class:over title={files.length ? `${files.length} of ${MAX} on the shelf` : 'Drag files here to park them'}>
-    {#each files as f (f)}
+  <div class="pill shelf" bind:this={box} class:over role="group" aria-label="File shelf" onpointerenter={enter} onpointerleave={leave}
+       title={files.length ? `${files.length} of ${MAX} on the shelf` : 'Drag files here to park them'}>
+    {#each shown as f, i (f)}
       <!-- A file that has been moved or deleted stays visible but does nothing when clicked or
            dragged, rather than failing silently (DESIGN_RULES section 7: dim it, don't hide it). -->
-      <button type="button" class="item" class:gone={missing[f]} draggable={!missing[f]} disabled={missing[f]}
+      <button type="button" class="item" class:gone={missing[f]} draggable={!missing[f]} disabled={missing[f]} in:slide={inOf(i)} out:slide={outOf}
               title={missing[f] ? `${nameOf(f)} — moved or deleted. Right-click to take it off the shelf.` : nameOf(f)}
               aria-label={missing[f] ? `${nameOf(f)} is no longer there` : `Open ${nameOf(f)}`}
               ondragstart={(e) => startDrag(e, f)} onpointerdown={down}
@@ -137,12 +169,16 @@
       </button>
     {/each}
 
+    {#if hidden}
+      <span class="count" aria-label="{hidden} more files" transition:fade={{ duration: 150 }}>+{hidden}</span>
+    {/if}
+
     {#if !files.length}
       <Archive size={16} class="dim" />
       <span class="hint dim">Drag files here</span>
     {/if}
 
-    {#if files.length < MAX}
+    {#if files.length < MAX && !hidden}
       <button class="addbtn" onpointerdown={down} onclick={addFile} aria-label="Add a file to the shelf" title="Add a file"><Plus size={13} /></button>
     {/if}
   </div>
@@ -170,6 +206,13 @@
     transition: background 0.2s var(--ease), color 0.2s var(--ease);
   }
   .addbtn:hover { background: var(--pill-hover); color: var(--fg); }
+  /* "+N": the files behind the newest one, while collapsed. */
+  .count {
+    display: grid; place-items: center; min-width: 22px; height: 18px; padding: 0 5px; flex: none;
+    border-radius: var(--r-chip); background: var(--bg-2, var(--pill-hover)); color: var(--fg-dim);
+    font-size: 10.5px; font-weight: 600; font-variant-numeric: tabular-nums;
+  }
+  .side.more { min-height: 28px; }
 
   /* A drag from outside is over the shelf. */
   .over { box-shadow: inset 0 0 0 2px var(--accent); }

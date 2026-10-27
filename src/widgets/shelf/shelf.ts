@@ -55,3 +55,7 @@ export function hits(rect: { left: number; top: number; right: number; bottom: n
   const cy = y / (dpr || 1);
   return cx >= rect.left && cx <= rect.right && cy >= rect.top && cy <= rect.bottom;
 }
+
+/** How many shelved files the dock shows: all of them, or -- collapsed -- only the newest
+ *  (the rest behind a "+N"), until the pointer opens it. */
+export const shownCount = (n: number, open: boolean, collapse: boolean): number => (!collapse || open || n <= 1 ? n : 1);

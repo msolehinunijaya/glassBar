@@ -9,6 +9,8 @@ export interface ShelfSettings {
   files: string[];
   /** Show the file names on the dock, not just the icons. */
   showNames: boolean;
+  /** At rest show only the newest file and "+N"; hovering opens the rest. */
+  collapse: boolean;
 }
 
 export default defineWidget<ShelfSettings>({
@@ -19,7 +21,7 @@ export default defineWidget<ShelfSettings>({
   icon: Archive,
   sizes: ['small', 'medium'],
   defaultSize: 'medium',
-  defaults: { files: [], showNames: false },
+  defaults: { files: [], showNames: false, collapse: true },
   Pill,
   Popup: { component: Popup, width: 360, height: 320 },
 });

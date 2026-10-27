@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MAX, add, extOf, hits, nameOf, remove, removeAll } from './shelf';
+import { MAX, add, extOf, hits, nameOf, remove, removeAll, shownCount } from './shelf';
 
 const P = (n: number) => `C:\\Users\\me\\file${n}.txt`;
 const five = [P(1), P(2), P(3), P(4), P(5)];
@@ -101,5 +101,19 @@ describe('hits', () => {
 
   it('survives a nonsense ratio rather than dropping everything', () => {
     expect(hits(box, 150, 25, 0)).toBe(true);
+  });
+});
+
+describe('shownCount', () => {
+  it('shows only the newest file while collapsed', () => {
+    expect(shownCount(4, false, true)).toBe(1);
+  });
+  it('shows every file when opened, or with collapsing off', () => {
+    expect(shownCount(4, true, true)).toBe(4);
+    expect(shownCount(4, false, false)).toBe(4);
+  });
+  it('has nothing to hide with one file or none', () => {
+    expect(shownCount(1, false, true)).toBe(1);
+    expect(shownCount(0, false, true)).toBe(0);
   });
 });

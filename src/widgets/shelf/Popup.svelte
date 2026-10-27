@@ -93,6 +93,7 @@
 
 <OptionsPopover title="Shelf" values={settings} save={(p) => updateWidgetSettings(instance, p)} options={[
   { type: 'toggle', key: 'showNames', label: 'Show file names on the dock', hint: 'Off: just the icon and its type' },
+  { type: 'toggle', key: 'collapse', label: 'Collapse to one file', hint: 'Shows the newest file and +N; hover to see the rest' },
 ]} />
 
 <style>
