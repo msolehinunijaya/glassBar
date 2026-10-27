@@ -8,6 +8,35 @@ export type MusicStyle = 'player' | 'classic' | 'mini' | 'custom';
 export type ArtShape = 'circle' | 'rounded' | 'square';
 /** none · the output level meter (cheap) · the real frequency spectrum (the Equalizer widget's). */
 export type MusicViz = 'none' | 'level' | 'spectrum';
+/** How each new lyric line arrives. */
+export type LyricAnim = 'fade' | 'slide-up' | 'slide-side' | 'typewriter' | 'karaoke' | 'none';
+
+/**
+ * The lyric line beside the music pill. Off by default, because turning it on asks lrclib.net
+ * for the track's lyrics. One line only: a dock pill is 36-60 px tall and already carries the
+ * title and a second line.
+ *
+ * There is no font *family* here on purpose -- DESIGN_RULES says one family, never mixed -- so
+ * the style options are size, weight, italic and capitals within the dock's own font.
+ */
+export interface LyricsSettings {
+  on: boolean;
+  side: 'left' | 'right';
+  /** Off: only a .lrc file on this PC, or what was already fetched. Nothing leaves the machine. */
+  lookup: boolean;
+  maxWidth: number;
+  /** Strings, because they come from choice buttons -- the same shape the Equalizer uses for
+   *  its frame rate and frequency range. Both stay on the type scale in DESIGN_RULES. */
+  size: '11' | '12' | '14' | '16';
+  weight: '400' | '500' | '600';
+  italic: boolean; caps: boolean;
+  anim: LyricAnim;
+}
+
+export const LYRICS_DEFAULTS: LyricsSettings = {
+  on: false, side: 'right', lookup: true, maxWidth: 220,
+  size: '12', weight: '500', italic: false, caps: false, anim: 'fade',
+};
 
 /** What the user turns on and off in the custom design. */
 export interface MusicParts {
@@ -30,6 +59,8 @@ export interface MusicSettings {
   /** Player only: the level visualizer and its width in px. */
   showViz: boolean; vizWidth: number;
   custom: MusicParts;
+  /** The lyric line, on the Player and Custom designs. */
+  lyrics: LyricsSettings;
 }
 
 /** Custom starts out looking like the Player design, so turning it on never shows a blank pill. */
@@ -44,8 +75,13 @@ export const CUSTOM_DEFAULTS: MusicParts = {
 
 export const MUSIC_DEFAULTS: MusicSettings = {
   style: 'player', showControls: true, showProgress: true, showViz: true, vizWidth: 64,
-  custom: CUSTOM_DEFAULTS,
+  custom: CUSTOM_DEFAULTS, lyrics: LYRICS_DEFAULTS,
 };
+
+/** `settingsOf()` merges one level deep, so the nested blocks are merged over their defaults
+ *  here by hand -- otherwise a setting added later would read as off, not as its default. */
+export const lyricsOf = (s: MusicSettings): LyricsSettings => ({ ...LYRICS_DEFAULTS, ...(s.lyrics ?? {}) });
+export const partsOf = (s: MusicSettings): MusicParts => ({ ...CUSTOM_DEFAULTS, ...(s.custom ?? {}) });
 
 /** Nothing that needs horizontal room survives a 56-96 px side dock (DESIGN_RULES §8). */
 const NARROW = { title: false, artist: false, album: false, appName: false,
@@ -61,7 +97,7 @@ const NARROW = { title: false, artist: false, album: false, appName: false,
  */
 export function layoutOf(s: MusicSettings, size: WidgetSize, vertical: boolean): MusicLayout {
   if (s.style === 'custom') {
-    const c: MusicLayout = { ...CUSTOM_DEFAULTS, ...(s.custom ?? {}), oneLine: false };
+    const c: MusicLayout = { ...partsOf(s), oneLine: false };
     return vertical ? { ...c, ...NARROW } : c;
   }
   const wide = size !== 'small' && !vertical;
@@ -76,6 +112,9 @@ export function layoutOf(s: MusicSettings, size: WidgetSize, vertical: boolean):
     oneLine: true,
   };
 }
+
+/** The lyric line needs horizontal room, so a side dock never shows it. */
+export const showLyrics = (s: MusicSettings, vertical: boolean): boolean => lyricsOf(s).on && !vertical;
 
 /** The art's corner radius, as a CSS length. */
 export const artRadius = (shape: ArtShape): string =>

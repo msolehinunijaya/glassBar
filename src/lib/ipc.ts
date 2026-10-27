@@ -40,6 +40,10 @@ export interface Config {
 }
 /** A real charger plug/unplug. `percent` is null on a PC with no battery. */
 export interface ChargerFlip { plugged: boolean; percent: number | null; secsLeft: number | null }
+/** One timed lyric line. `text` is empty for a gap between verses. */
+export interface LyricLine { atMs: number; text: string }
+/** Synced lyrics for a track. `lines` empty = this track has none. */
+export interface Lyrics { lines: LyricLine[]; source: 'local' | 'lrclib' | 'none'; fetchedAt: number }
 
 export interface Alert { id: number; source: string; title: string; body: string; at: number; missed: boolean; read: boolean; data: unknown }
 /** Pop-up banners: on/off, seconds shown, next to the dock or in the corner, what a click
@@ -238,6 +242,10 @@ export const ipc = {
   mediaInfo: () => invoke<MediaInfo | null>('media_info'),
   mediaControl: (action: 'toggle' | 'next' | 'prev') => invoke<void>('media_control', { action }),
   mediaSeek: (positionMs: number) => invoke<void>('media_seek', { positionMs }),
+  /** `lookup` false never touches the network: only a local .lrc or the cache is used. */
+  lyricsGet: (title: string, artist: string, album: string, durationMs: number, lookup: boolean) =>
+    invoke<Lyrics>('lyrics_get', { title, artist, album, durationMs, lookup }),
+  lyricsFolder: () => invoke<string>('lyrics_folder'),
   /** Pause all playing media; returns the paused apps' ids for `mediaResume`. */
   mediaPausePlaying: () => invoke<string[]>('media_pause_playing'),
   mediaResume: (ids: string[]) => invoke<void>('media_resume', { ids }),

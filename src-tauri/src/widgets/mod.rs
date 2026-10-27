@@ -7,6 +7,7 @@ pub mod focus;
 pub mod ipu;
 pub mod jumplist;
 pub mod location;
+pub mod lyrics;
 pub mod media;
 pub mod notes;
 pub mod ocr;

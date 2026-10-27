@@ -11,8 +11,11 @@
   import { EQ_DEFAULTS } from '../equalizer/settings';
   import Spectrum from '../equalizer/Spectrum.svelte';
   import { subText } from './label';
-  import { artRadius, layoutOf, type MusicSettings } from './settings';
+  import { artRadius, layoutOf, lyricsOf, showLyrics, type MusicSettings } from './settings';
   import { liveMedia, positionAt, toggle } from './media.svelte';
+  import { currentIndex, lineAt, lineProgress } from './lyrics';
+  import { liveLyrics } from './lyrics.svelte';
+  import LyricLine from './LyricLine.svelte';
   import Visualizer from './Visualizer.svelte';
 
   let { size, settings, vertical, onenter, onleave }: { size: WidgetSize; settings: MusicSettings; vertical: boolean; onenter?: (e: PointerEvent) => void; onleave?: () => void } = $props();
@@ -29,6 +32,15 @@
   const eq = $derived({ ...EQ_DEFAULTS, style: p.eqLook, bands: 20, peaks: false, glowSize: 4, reflection: false });
 
   const sub = $derived(subText(p, media.m, t.now));
+
+  // Lyrics: one line beside the pill, in step with the song. Rust answers from a local .lrc
+  // or its cache, and only reaches the network when the lookup is on.
+  const lyr = $derived(lyricsOf(settings));
+  const lyricsOn = $derived(showLyrics(settings, vertical));
+  const lyrics = liveLyrics(media, () => lyricsOn, () => lyr.lookup);
+  const lyricIdx = $derived(currentIndex(lyrics.lines, pos));
+  const lyricText = $derived(lineAt(lyrics.lines, lyricIdx));
+  const lyricProg = $derived(lineProgress(lyrics.lines, lyricIdx, pos, media.m?.durationMs ?? 0));
 
   // Volume: wheel over the speaker adjusts it, a click mutes. Follows Windows' own changes.
   let audio = $state<AudioState | null>(null);
@@ -93,6 +105,10 @@
             title={audio ? `Volume ${Math.round(audio.volume * 100)}% · scroll to change, click to mute` : 'Volume'} aria-label="Volume">
       <VolIcon size={14} />
     </button>
+  {/if}
+
+  {#if lyricsOn}
+    <LyricLine text={lyricText} progress={lyricProg} side={lyr.side} opts={lyr} />
   {/if}
 
   {#if p.progress && hasDur}

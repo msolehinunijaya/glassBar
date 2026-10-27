@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CUSTOM_DEFAULTS, MUSIC_DEFAULTS, artRadius, layoutOf, type MusicSettings } from './settings';
+import { CUSTOM_DEFAULTS, LYRICS_DEFAULTS, MUSIC_DEFAULTS, artRadius, layoutOf, lyricsOf, showLyrics, type MusicSettings } from './settings';
 
 const S = (o: Partial<MusicSettings> = {}): MusicSettings => ({ ...MUSIC_DEFAULTS, ...o });
 
@@ -83,6 +83,36 @@ describe('the custom design', () => {
     for (const k of ['art', 'title', 'artist', 'elapsed', 'duration', 'progress', 'prev', 'playPause', 'next', 'viz'] as const) {
       expect(custom[k]).toBe(player[k]);
     }
+  });
+});
+
+describe('the lyric line', () => {
+  it('is off until the user asks for it, because it makes a network call', () => {
+    expect(LYRICS_DEFAULTS.on).toBe(false);
+    expect(showLyrics(S(), false)).toBe(false);
+  });
+
+  it('sits on the right by default', () => {
+    expect(LYRICS_DEFAULTS.side).toBe('right');
+  });
+
+  it('never shows on a side dock, where there is no room for it', () => {
+    const on = S({ lyrics: { ...LYRICS_DEFAULTS, on: true } });
+    expect(showLyrics(on, false)).toBe(true);
+    expect(showLyrics(on, true)).toBe(false);
+  });
+
+  it('fills in options a config saved earlier never knew about', () => {
+    const partial = { on: true } as unknown as MusicSettings['lyrics'];
+    const l = lyricsOf(S({ lyrics: partial }));
+    expect(l.on).toBe(true);
+    expect(l.side).toBe(LYRICS_DEFAULTS.side);
+    expect(l.anim).toBe(LYRICS_DEFAULTS.anim);
+    expect(l.lookup).toBe(LYRICS_DEFAULTS.lookup);
+  });
+
+  it('survives a config with no lyrics block at all', () => {
+    expect(lyricsOf({ ...MUSIC_DEFAULTS, lyrics: undefined as unknown as MusicSettings['lyrics'] })).toEqual(LYRICS_DEFAULTS);
   });
 });
 

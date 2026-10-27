@@ -4,7 +4,7 @@
   import { events, type AudioState } from '../../lib/ipc';
   import { updateWidgetSettings } from '../../lib/config.svelte';
   import OptionsPopover from '../../lib/OptionsPopover.svelte';
-  import { CUSTOM_DEFAULTS, type MusicSettings } from './settings';
+  import { CUSTOM_DEFAULTS, LYRICS_DEFAULTS, type MusicSettings } from './settings';
   import { ipc } from '../../lib/ipc';
   import type { PopupProps } from '../types';
   import { fmt, liveMedia, positionAt, toggle } from './media.svelte';
@@ -16,6 +16,9 @@
   // over the defaults here, or saving one switch would wipe every part the user never touched.
   const custom = $derived({ ...CUSTOM_DEFAULTS, ...(settings.custom ?? {}) });
   const saveCustom = (p: Record<string, unknown>) => updateWidgetSettings(instance, { custom: { ...custom, ...p } });
+  const lyr = $derived({ ...LYRICS_DEFAULTS, ...(settings.lyrics ?? {}) });
+  const saveLyr = (p: Record<string, unknown>) => updateWidgetSettings(instance, { lyrics: { ...lyr, ...p } });
+  const openLyricsFolder = async () => { try { ipc.downloadsOpen(await ipc.lyricsFolder()); } catch { /* nothing to open */ } };
   const media = liveMedia();
   let now = $state(Date.now());
   $effect(() => { const t = setInterval(() => (now = Date.now()), 500); return () => clearInterval(t); });
@@ -76,6 +79,31 @@
       ]} />
       <p class="chint dim">On a left or right dock only the art and the buttons fit, so the text, the progress bar and the visualizer are left out there.</p>
     {/if}
+
+    {#if settings.style === 'player' || settings.style === 'custom'}
+      <OptionsPopover title="Lyrics" values={lyr} save={saveLyr} options={[
+        { type: 'toggle', key: 'on', label: 'Show the lyric line', hint: 'The line that is playing, beside the pill' },
+        { type: 'choice', key: 'side', label: 'Side', choices: [{ value: 'left', label: 'Left' }, { value: 'right', label: 'Right' }] },
+        { type: 'toggle', key: 'lookup', label: 'Look up lyrics online', hint: 'Sends the title, artist, album and length to lrclib.net' },
+        { type: 'range', key: 'maxWidth', label: 'Length', min: 100, max: 420, step: 10, unit: 'px' },
+        { type: 'choice', key: 'size', label: 'Text size', choices: [{ value: '11', label: '11' }, { value: '12', label: '12' }, { value: '14', label: '14' }, { value: '16', label: '16' }] },
+        { type: 'choice', key: 'weight', label: 'Weight', choices: [{ value: '400', label: 'Regular' }, { value: '500', label: 'Medium' }, { value: '600', label: 'Semibold' }] },
+        { type: 'checks', label: 'Style', items: [{ key: 'italic', label: 'Italic' }, { key: 'caps', label: 'CAPITALS' }] },
+        { type: 'choice', key: 'anim', label: 'Each line', menu: true, choices: [
+          { value: 'fade', label: 'Fades in' },
+          { value: 'slide-up', label: 'Slides up' },
+          { value: 'slide-side', label: 'Slides in from the side' },
+          { value: 'typewriter', label: 'Types itself out' },
+          { value: 'karaoke', label: 'Karaoke (fills as it is sung)' },
+          { value: 'none', label: 'Just appears' }] },
+      ]} />
+      <p class="chint dim">
+        Only lyrics with timings are used, so the line can follow the song. A <code>.lrc</code> file in GlassBar's
+        lyrics folder always wins, and is the only source with the lookup off.
+        <button class="btn lyrbtn" onclick={openLyricsFolder}>Open lyrics folder</button>
+        Name it <code>Artist - Title.lrc</code>. Not every song has lyrics; the line stays empty then.
+      </p>
+    {/if}
   </div>
 {/if}
 {#if media.m}
@@ -130,6 +158,8 @@
   .icon-btn:disabled { opacity: 0.35; }
   .empty { text-align: center; padding: 60px 10px; }
   .chint { font-size: 11px; line-height: 1.4; margin: 6px 2px 0; }
+  .chint code { font-size: 10.5px; padding: 0 3px; border-radius: calc(4px * var(--rs)); background: var(--pill); }
+  .lyrbtn { display: block; margin: 6px 0; }
   .vlen { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-top: 6px; }
   .vlen input { flex: 1; }
   .vizrow { display: flex; justify-content: center; margin: 10px 0 2px; }
