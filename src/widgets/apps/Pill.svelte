@@ -207,7 +207,7 @@
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="pill apps" class:vertical bind:this={row} onpointerenter={expand} onpointerleave={collapse}>
   {#if settings.startPlacement === 'inline'}
-    <StartButtons searchStyle={settings.searchStyle} />
+    <StartButtons searchStyle={settings.searchStyle} color={settings.startColor} custom={settings.startCustom} />
     <span class="sep"></span>
   {/if}
   {#each groups as g (g.key)}
@@ -252,7 +252,7 @@
   {#if groups.length === 0}<span class="dim">No apps</span>{/if}
   {#if settings.startPlacement === 'after'}
     <span class="sep"></span>
-    <StartButtons searchStyle={settings.searchStyle} />
+    <StartButtons searchStyle={settings.searchStyle} color={settings.startColor} custom={settings.startCustom} />
   {/if}
 </div>
 
