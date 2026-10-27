@@ -186,7 +186,8 @@
   .gear { position: absolute; top: 10px; right: 10px; z-index: 2; }
   .gear.on { color: var(--accent); }
   .optwrap { margin: 28px 0 8px; }
-  .art { width: 180px; height: 180px; margin: 4px auto 14px; border-radius: calc(18px * var(--rs)); overflow: hidden; display: grid; place-items: center; background: var(--pill); box-shadow: var(--shadow); }
+  /* Room above for the Lyrics switch and the gear, so they never sit on the cover. */
+  .art { width: 180px; height: 180px; margin: 34px auto 14px; border-radius: calc(18px * var(--rs)); overflow: hidden; display: grid; place-items: center; background: var(--pill); box-shadow: var(--shadow); }
   .art img { width: 100%; height: 100%; object-fit: cover; }
   .meta { display: flex; flex-direction: column; text-align: center; gap: 2px; }
   .meta b { font-size: 15px; font-weight: 600; }

@@ -280,6 +280,27 @@
     return () => { ro.disconnect(); scroller.removeEventListener('scroll', measure); cancelAnimationFrame(measureRaf); clearTimeout(revealTimer); };
   });
 
+  // ---- Dragging an app icon towards a folder that is off the visible part of the dock:
+  // holding it near either end scrolls the dock that way (faster the closer to the end). ----
+  $effect(() => {
+    let v = 0, raf = 0;
+    const step = () => {
+      if (!document.documentElement.dataset.appDrag || !v) { raf = 0; return; }
+      if (vertical) scroller.scrollTop += v; else scroller.scrollLeft += v;
+      raf = requestAnimationFrame(step);
+    };
+    const move = (e: PointerEvent) => {
+      if (!document.documentElement.dataset.appDrag) { v = 0; return; }
+      const r = scroller.getBoundingClientRect();
+      const [p, a, b] = vertical ? [e.clientY, r.top, r.bottom] : [e.clientX, r.left, r.right];
+      const zone = 56;
+      v = p < a + zone ? -Math.ceil((a + zone - p) / 4) : p > b - zone ? Math.ceil((p - (b - zone)) / 4) : 0;
+      if (v && !raf) raf = requestAnimationFrame(step);
+    };
+    addEventListener('pointermove', move);
+    return () => { removeEventListener('pointermove', move); cancelAnimationFrame(raf); };
+  });
+
   // ---- A widget that opens up under the pointer (the File Shelf, the launcher's +N, tray
   // icons) and now runs past the visible part of the dock: scroll so all of it shows, once it
   // has finished growing. Only the hovered one, so nothing else moves the dock by itself. ----
@@ -289,7 +310,8 @@
     if (dragId || edit) return;
     const slot = scroller.querySelector<HTMLElement>(':scope > .slot:hover');
     if (!slot) return;
-    const by = revealBy(slot.getBoundingClientRect(), scroller.getBoundingClientRect(), vertical, 14);
+    // 44 px: clear of the fade and the "› N" chip at the ends.
+    const by = revealBy(slot.getBoundingClientRect(), scroller.getBoundingClientRect(), vertical, 44);
     if (by) scroller.scrollBy({ [vertical ? 'top' : 'left']: by, behavior: 'smooth' });
   }
   function page(dir: -1 | 1) {
@@ -619,7 +641,7 @@
      declares its resting state and animates *from* somewhere else, so with motion turned off
      (which drops every animation) the flash still draws correctly — it appears instead of
      growing. Durations come from chargeFlash.ts, so the CSS and the timeouts can't drift. */
-  .flashing .slot, .flashing .empty { opacity: 0; pointer-events: none; }
+  .flashing .slot, .flashing .empty, .flashing .more { opacity: 0; pointer-events: none; }
   .flash {
     position: absolute; inset: 0; z-index: 4; cursor: default;
     display: grid; place-items: center;
