@@ -43,7 +43,7 @@ export const EQ_DEFAULTS: EqSettings = {
   barOpacity: 100, bgOpacity: 0, idleOpacity: 50,
   gain: 100, fall: 4, peaks: true, peakHold: 600, flip: false,
   lowHz: '30', highHz: '16000', tilt: 30, spacing: 'log',
-  idle: 'dots', fps: '60', batterySaver: true, shrinkIdle: true, full: false, myPresets: [],
+  idle: 'dots', fps: '60', batterySaver: true, shrinkIdle: true, full: true, myPresets: [],
 };
 
 /** Silence must last this long before the widget shrinks, so it doesn't pump between songs. */
