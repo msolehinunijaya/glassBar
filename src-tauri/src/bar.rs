@@ -267,6 +267,7 @@ pub fn reveal(app: &AppHandle, show: bool) {
     let cfg = app.state::<AppState>().config.lock().unwrap().profile().bar.clone();
     if !cfg.auto_hide || cfg.floating.is_some() { return; }
     if app.state::<AppState>().revealed.swap(show, Ordering::Relaxed) == show { return; }
+    let _ = app.emit_to("bar", "bar:away", !show); // animations pause while it's away
     let (Some(win), Some((r, _)), Some(mon)) = (app.get_webview_window("bar"), bar_rect(app, &cfg, cfg.length), bar_monitor(app, cfg.monitor)) else { return };
     let to = if show { r } else { hidden_rect(r, cfg.edge, monitor_rect(&mon), PEEK) };
     let from = win.outer_position().map(|p| (p.x, p.y)).unwrap_or((to.x, to.y));

@@ -96,6 +96,8 @@
 /* Motion: reduced = calm easing, no springy overshoot; off = no animation at all. */
 :root[data-motion='reduced'] { --spring: var(--ease); }
 :root[data-motion='off'] * { animation: none !important; transition: none !important; }
+/* Auto-hidden bar: nothing moves while it's tucked away (Low and Normal; see lib/perf.svelte.ts). */
+:root[data-away]:not([data-perf='high']) * { animation-play-state: paused !important; }
 
 /* Dock icon size (bar and the Settings preview). */
 .dock :is(svg.lucide-icon, img) { zoom: var(--icon-k); }

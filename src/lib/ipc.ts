@@ -385,6 +385,8 @@ export const events = {
   settingsSection: (cb: (s: string) => void) => listen<string>('settings:section', (e) => cb(e.payload)),
   sysmonSample: (cb: (s: Sample) => void) => listen<Sample>('sysmon:sample', (e) => cb(e.payload)),
   perfSample: (cb: (s: PerfSample) => void) => listen<PerfSample>('perf:sample', (e) => cb(e.payload)),
+  /** The auto-hidden bar slid away (true) or back in (false). */
+  barAway: (cb: (away: boolean) => void) => listen<boolean>('bar:away', (e) => cb(e.payload)),
   soundPlay: (cb: (s: Sound) => void) => listen<Sound>('sound:play', (e) => cb(e.payload)),
   chargerFlip: (cb: (f: ChargerFlip) => void) => listen<ChargerFlip>('charger:flip', (e) => cb(e.payload)),
   waterChanged: (cb: (t: WaterToday) => void) => listen<WaterToday>('water:changed', (e) => cb(e.payload)),
