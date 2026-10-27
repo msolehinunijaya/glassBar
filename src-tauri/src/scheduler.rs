@@ -5,7 +5,7 @@ use crate::db::{now_ms, Db};
 use std::collections::HashSet;
 use std::sync::{Condvar, Mutex};
 use std::time::Duration;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 
 /// Alerts later than this when we notice them are recorded as missed (no toast/sound).
 pub const MISSED_AFTER_MS: i64 = 15 * 60 * 1000;
@@ -80,6 +80,11 @@ fn handle(app: &AppHandle, d: &Due, missed: bool) {
             // The occurrence key ("todo:<id>:<at>", "solat:<date>:<zone>:<name>") lets the
             // banner's buttons act on exactly this item.
             crate::alerts::notify_full(app, d.source, &d.title, &d.body, missed, sound, serde_json::json!({ "key": d.key }));
+            // After the sound, so the dock already knows the adhan is playing (Stop button).
+            if d.source == "solat" {
+                let dnd = app.state::<crate::AppState>().config.lock().unwrap().dnd;
+                if let Some(a) = crate::widgets::solat::prayer_alert(&d.key, d.at, missed, dnd) { let _ = app.emit_to("bar", "dock:alert", a); }
+            }
         }
     }
 }

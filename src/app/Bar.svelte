@@ -2,14 +2,14 @@
   import { availableMonitors, getCurrentWindow, primaryMonitor } from '@tauri-apps/api/window';
   import { flip } from 'svelte/animate';
   import { onMount } from 'svelte';
-  import { Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Maximize2, MoonStar, Plus, PlugZap, Sun, Unplug, Volume2, VolumeX, X } from '@lucide/svelte';
+  import { Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Maximize2, MoonStar, Plus, Square, PlugZap, Sun, Unplug, Volume2, VolumeX, X } from '@lucide/svelte';
   import { profile, store, update } from '../lib/config.svelte';
   import { events, ipc, type WidgetInst, type WidgetSize } from '../lib/ipc';
   import { FLASH } from './chargeFlash';
   import { ALERT_DEFAULTS, arrive, holdMs, viewOf, type AlertKind, type DockAlert } from './dockAlert';
   import { hiddenCounts, insertIndex, snap } from '../lib/geometry';
   import { GALLERY, openPopup } from '../lib/popup';
-  import { chargerTone, chime, deviceTone, playAdzan, shutter, tick } from '../lib/sound';
+  import { chargerTone, chime, deviceTone, playAdzan, shutter, stopSound, tick } from '../lib/sound';
   // Bundled adzan: "Beautiful adhan" by Adam-synagda, Wikimedia Commons, CC0.
   import adhanUrl from '../assets/adhan.ogg?url';
   import { showMenu } from '../lib/menu';
@@ -58,6 +58,8 @@
   let alertTimers: ReturnType<typeof setTimeout>[] = [];
   const alertCfg = $derived({ ...ALERT_DEFAULTS, ...(store.config?.dockAlerts ?? {}) });
   const view = $derived(alert ? viewOf(alert) : null);
+  /** The adzan is playing: the prayer alert offers to stop it. */
+  let adhanOn = $state(false);
 
   // The charger's switch is the older `chargerFlash`; the Companion also rides the charger
   // event, so the switch is checked here rather than in Rust.
@@ -135,7 +137,7 @@
           }
         }, 450); // after the scroll settles
       }),
-      events.soundPlay((s) => (s.kind === 'azan' || s.kind === 'adhan' ? playAdzan(s.kind === 'azan' ? s.src : adhanUrl, !!s.short, !!s.pauseMusic, { pause: ipc.mediaPausePlaying, resume: ipc.mediaResume }, s.volume ?? 1) : s.kind === 'connect' || s.kind === 'disconnect' ? deviceTone(s.kind === 'connect', s.volume) : s.kind === 'plug' || s.kind === 'unplug' ? chargerTone(s.kind === 'plug', s.volume) : chime(s.volume))),
+      events.soundPlay((s) => (s.kind === 'azan' || s.kind === 'adhan' ? ((adhanOn = true), playAdzan(s.kind === 'azan' ? s.src : adhanUrl, !!s.short, !!s.pauseMusic, { pause: ipc.mediaPausePlaying, resume: ipc.mediaResume }, s.volume ?? 1, () => (adhanOn = false))) : s.kind === 'connect' || s.kind === 'disconnect' ? deviceTone(s.kind === 'connect', s.volume) : s.kind === 'plug' || s.kind === 'unplug' ? chargerTone(s.kind === 'plug', s.volume) : chime(s.volume))),
       events.chargerFlip((f) => showAlert({ kind: 'charger', ...f })),
       events.dockAlert(showAlert),
     ];
@@ -449,6 +451,11 @@
         {#if view.icon === 'plug'}<PlugZap size={16} />{:else if view.icon === 'unplug'}<Unplug size={16} />{:else if view.icon === 'volume'}<Volume2 size={16} />{:else if view.icon === 'mute'}<VolumeX size={16} />{:else if view.icon === 'sun'}<Sun size={16} />{:else}<MoonStar size={16} />{/if}
         <strong>{view.value}</strong>
         <span class="flash-label">{view.label}</span>
+        {#if alert.kind === 'prayer' && adhanOn}
+          <button class="flash-act" onclick={(e) => { e.stopPropagation(); stopSound(); }} aria-label="Stop the adhan">
+            <Square size={10} fill="currentColor" /><span>Stop adhan</span>
+          </button>
+        {/if}
       </div>
     </div>
     {/key}
@@ -600,12 +607,25 @@
   .flash-body :global(svg) { color: var(--c); flex: none; }
   .flash-body strong { font-size: 20px; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; }
   .flash-label { font-size: 11px; color: var(--fg-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* A button on the alert (Stop adhan): a quiet inset pill, so the value stays the hero. */
+  .flash-act {
+    display: inline-flex; align-items: center; gap: 6px; flex: none; height: 26px; padding: 0 10px; margin-left: 4px;
+    border-radius: var(--r-chip); background: var(--bg-2, var(--pill)); color: var(--fg); font-size: 11px; font-weight: 500;
+    border: 1px solid var(--line-soft); transition: background 0.2s var(--ease), transform 0.15s var(--ease);
+    animation: flash-in var(--f-enter) var(--ease);
+  }
+  .flash-act:hover { background: var(--pill-hover); }
+  .flash-act:active { transform: scale(0.96); }
+  .flash-act :global(svg) { color: inherit; }
   .bar[data-size='compact'] .flash-body strong { font-size: 16px; }
   .bar[data-size='compact'] .flash-label { font-size: 10px; }
   /* A side dock is 56-96 px wide: icon and number only, no label to cut off. The number also
      has to shrink, or "100%" is clipped in a slim column (DESIGN_RULES section 8). */
   .vertical .flash-body { flex-direction: column; gap: 2px; padding: 0 4px; }
   .vertical .flash-label { display: none; }
+  /* No room for words in a side column: the stop icon alone. */
+  .vertical .flash-act { margin: 2px 0 0; padding: 0; width: 26px; justify-content: center; }
+  .vertical .flash-act span { display: none; }
   .bar.vertical .flash-body strong { font-size: 16px; }
   .bar.vertical[data-side='slim'] .flash-body strong { font-size: 13px; }
 

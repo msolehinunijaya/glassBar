@@ -106,9 +106,10 @@ export function stopSound() {
   if (current) finish(current);
 }
 
-/** Play the adzan; with `pauseMusic`, pause other playing media first and resume it afterwards. */
-export function playAdzan(src: string, short: boolean, pauseMusic: boolean, media: { pause: () => Promise<string[]>; resume: (ids: string[]) => Promise<void> }, volume = 1) {
-  if (!pauseMusic) return playFile(src, short, undefined, volume);
+/** Play the adzan; with `pauseMusic`, pause other playing media first and resume it afterwards.
+ *  `onEnd` runs once when it ends, is stopped (stopSound) or is replaced. */
+export function playAdzan(src: string, short: boolean, pauseMusic: boolean, media: { pause: () => Promise<string[]>; resume: (ids: string[]) => Promise<void> }, volume = 1, onEnd?: () => void) {
+  if (!pauseMusic) return playFile(src, short, onEnd, volume);
   // Pause first, then play: our own adzan is a media session too and must not be caught by the pause.
-  void media.pause().catch(() => []).then((ids) => playFile(src, short, () => void (ids.length && media.resume(ids).catch(() => {})), volume));
+  void media.pause().catch(() => []).then((ids) => playFile(src, short, () => { if (ids.length) media.resume(ids).catch(() => {}); onEnd?.(); }, volume));
 }
