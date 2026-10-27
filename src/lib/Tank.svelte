@@ -43,7 +43,10 @@
 </div>
 
 <style>
-  .tank { position: absolute; inset: 0; z-index: 0; overflow: hidden; border-radius: inherit; pointer-events: none; }
+  /* A light wash of the liquid's colour over the whole box, top to bottom, edge to edge; the
+     deeper liquid below rises to the level. No plain space anywhere. */
+  .tank { position: absolute; inset: 0; z-index: 0; overflow: hidden; border-radius: inherit; pointer-events: none;
+          background: color-mix(in srgb, var(--c) 13%, transparent); transition: background 0.6s var(--ease); }
   .tank.fixed { inset: calc(-1 * var(--pad, 14px)); border-radius: var(--r-window, 16px); }
   .water {
     position: absolute; left: 0; right: 0; bottom: 0;
