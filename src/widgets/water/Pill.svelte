@@ -5,6 +5,7 @@
   import { fmtWater, progressOf } from './units';
   import { liveWater } from './live.svelte';
   import Drop from './Drop.svelte';
+  import Tank from './Tank.svelte';
 
   let { size, settings, vertical }: PillProps<WaterSettings> = $props();
   const w = liveWater(() => settings);
@@ -30,12 +31,15 @@
 </script>
 
 {#if vertical}
-  <div class="side" {title}>
+  <div class="side wside" {title}>
+    <Tank fill={p} />
     <Drop fill={p} size={20} />
     <span class="side-v">{Math.round(p * 100)}<small>%</small></span>
   </div>
 {:else}
+  <!-- The whole pill fills with water up to today's level. -->
   <div class="pill water" class:done={p >= 1} {title}>
+    <Tank fill={p} />
     <Drop fill={p} size={18} />
     {#if size !== 'small' && text}<span class="v">{text}</span>{/if}
     {#if added}
@@ -48,7 +52,9 @@
   .water { gap: 6px; padding: 0 10px 0 8px; }
   .v { font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
   .done .v { color: #40c8e0; }
-  .water { position: relative; overflow: visible; }
+  .water, .wside { position: relative; overflow: visible; }
+  /* Content above the water. */
+  .water > :global(:not(.tank)), .wside > :global(:not(.tank)) { position: relative; z-index: 1; }
   /* "+250 ml" rising out of the pill and fading. */
   .plus {
     position: absolute; left: 50%; top: 0; translate: -50% 0; pointer-events: none; white-space: nowrap;

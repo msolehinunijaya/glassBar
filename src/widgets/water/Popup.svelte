@@ -5,7 +5,7 @@
   import { ipc } from '../../lib/ipc';
   import { updateWidgetSettings } from '../../lib/config.svelte';
   import OptionsPopover from '../../lib/OptionsPopover.svelte';
-  import Drop from './Drop.svelte';
+  import Tank from './Tank.svelte';
   import type { PopupProps } from '../types';
   import { WATER_DEFAULTS, type WaterSettings } from './settings';
   import { fmtWater, progressOf } from './units';
@@ -43,6 +43,11 @@
   const save = (patch: Record<string, unknown>) => updateWidgetSettings(instance, patch);
 </script>
 
+<!-- The whole panel is the tank: it fills up from empty to today's level as the panel opens,
+     keeps moving gently while open, and rises with a roll when a drink is logged. -->
+{#if w.v}<Tank fill={p} fromEmpty live fixed />{/if}
+<div class="wbody">
+
 <button class="icon-btn gear" class:on={showOptions} onclick={() => (showOptions = !showOptions)} aria-label="Water options"><Settings2 size={16} /></button>
 
 {#if showOptions}
@@ -70,9 +75,6 @@
 
 {#if w.v}
   <div class="hero">
-    <!-- Fills up from empty as the panel opens, keeps moving while it is open, and rises
-         with a splash when a drink is logged. -->
-    <Drop fill={p} size={112} fromEmpty live />
     <span class="in">
       <b>{fmtWater(w.v.total, s.unit)}</b>
       <span class="dim">of {fmtWater(w.v.goal, s.unit)} · {Math.round(p * 100)}%</span>
@@ -116,15 +118,17 @@
 {:else}
   <p class="dim small skeleton">Loading…</p>
 {/if}
+</div>
 
 <style>
   .gear { position: absolute; top: 10px; right: 10px; z-index: 2; }
   .gear.on { color: var(--accent); }
   .opts { margin: 28px 0 8px; display: flex; flex-direction: column; gap: 8px; }
-  .hero { display: flex; flex-direction: column; align-items: center; gap: 6px; margin: 8px 0 12px; }
+  .wbody { position: relative; z-index: 1; }
+  .hero { display: flex; flex-direction: column; align-items: center; gap: 6px; margin: 40px 0 18px; }
   .in { display: flex; flex-direction: column; align-items: center; line-height: 1.2; }
-  .in b { font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
-  .in .dim { font-size: 11px; }
+  .in b { font-size: 34px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .in .dim { font-size: 12px; }
   .done { margin: 0; color: #40c8e0; font-size: 12px; font-weight: 600; animation: rise 0.3s var(--ease); }
   @keyframes rise { from { opacity: 0; transform: translateY(4px); } }
   .small { font-size: 11px; margin: 0; }
