@@ -284,17 +284,26 @@
     return () => { ro.disconnect(); scroller.removeEventListener('scroll', measure); cancelAnimationFrame(measureRaf); clearTimeout(revealTimer); };
   });
 
-  // ---- Dragging an app icon towards a folder that is off the visible part of the dock:
-  // holding it near either end scrolls the dock that way (faster the closer to the end). ----
+  // ---- Dragging past the visible part of the dock -- a widget being moved, or an app icon
+  // on its way to a folder: holding it near either end scrolls the dock that way (faster the
+  // closer to the end), and the drop spot keeps up with the scroll, so a widget can go all
+  // the way to either end in one move. ----
   $effect(() => {
     let v = 0, raf = 0;
+    let at: { x: number; y: number } | null = null;
+    const dragging = () => !!document.documentElement.dataset.appDrag || dragId !== null;
     const step = () => {
-      if (!document.documentElement.dataset.appDrag || !v) { raf = 0; return; }
+      if (!dragging() || !v) { raf = 0; return; }
+      const before = vertical ? scroller.scrollTop : scroller.scrollLeft;
       if (vertical) scroller.scrollTop += v; else scroller.scrollLeft += v;
-      raf = requestAnimationFrame(step);
+      const moved = (vertical ? scroller.scrollTop : scroller.scrollLeft) !== before;
+      raf = moved ? requestAnimationFrame(step) : 0; // at the very end: stop
+      // The pointer is still, but what's under it moved: let the drag work out its spot again.
+      if (moved && at) dispatchEvent(new PointerEvent('pointermove', { clientX: at.x, clientY: at.y, buttons: 1 }));
     };
     const move = (e: PointerEvent) => {
-      if (!document.documentElement.dataset.appDrag) { v = 0; return; }
+      at = { x: e.clientX, y: e.clientY };
+      if (!dragging()) { v = 0; return; }
       const r = scroller.getBoundingClientRect();
       const [p, a, b] = vertical ? [e.clientY, r.top, r.bottom] : [e.clientX, r.left, r.right];
       const zone = 56;
