@@ -11,7 +11,7 @@
 <script lang="ts">
   // Shared "options" panel for widget popups (Battery style, Music style, System Monitor items).
   // Every change is saved straight into the widget's settings, so it survives a restart.
-  import { toggleCheck } from './options';
+  import { optionId, toggleCheck } from './options';
 
   // Many or long choices don't fit as buttons in a narrow panel: show those as a dropdown.
   const asMenu = (o: Extract<Option, { type: 'choice' }>) =>
@@ -27,7 +27,7 @@
 
 <section class="opts">
   <h4>{title}</h4>
-  {#each options as o (o.label)}
+  {#each options as o (optionId(o))}
     {#if o.type === 'choice'}
       <div class="row">
         <span class="lbl dim">{o.label}</span>

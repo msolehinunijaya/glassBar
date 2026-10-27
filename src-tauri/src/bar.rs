@@ -184,6 +184,7 @@ fn apply_now(app: &AppHandle) {
         style();
     }
     if let Some((mut r, strip)) = bar_rect(app, bar, bar.length) {
+        log_place(bar.edge, r);
         *RESERVED_AT.lock().unwrap() = None;
         if bar.auto_hide && bar.floating.is_none() {
             // Auto-hide never reserves space: windows use the whole screen. Without the
@@ -216,6 +217,25 @@ fn apply_now(app: &AppHandle) {
         bar.native_taskbar
     };
     shell().set_taskbar(native);
+}
+
+/// Log where the dock goes (only when it changes).
+fn log_place(edge: Edge, r: Rect) {
+    static LAST: std::sync::Mutex<Option<(Edge, Rect)>> = std::sync::Mutex::new(None);
+    let mut last = LAST.lock().unwrap();
+    if *last != Some((edge, r)) {
+        *last = Some((edge, r));
+        crate::applog::log(format!("dock: {edge:?} edge at {},{} {}x{}", r.x, r.y, r.w, r.h));
+    }
+}
+
+/// Place the dock again after each delay (seconds), on a background thread.
+pub fn apply_later(app: &AppHandle, after_s: &[u64]) {
+    let (a, after) = (app.clone(), after_s.to_vec());
+    std::thread::spawn(move || {
+        let mut done = 0;
+        for s in after { std::thread::sleep(Duration::from_secs(s - done)); done = s; apply(&a); }
+    });
 }
 
 /// Undo everything that outlives the process: reserved space and hidden taskbar.

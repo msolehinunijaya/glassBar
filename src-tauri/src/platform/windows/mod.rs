@@ -147,6 +147,16 @@ impl Shell for WinShell {
         unsafe { FindWindowW(windows::core::w!("#32768"), windows::core::PCWSTR::null()).map(|h| IsWindowVisible(h).as_bool()).unwrap_or(false) }
     }
     fn set_taskbar(&self, mode: TaskbarMode) { appbar::set_taskbar(mode) }
+    fn wait_for_exit(&self, pid: u32, ms: u64) {
+        use windows::Win32::Foundation::CloseHandle;
+        use windows::Win32::System::Threading::{OpenProcess, WaitForSingleObject, PROCESS_SYNCHRONIZE};
+        unsafe {
+            if let Ok(h) = OpenProcess(PROCESS_SYNCHRONIZE, false, pid) {
+                let _ = WaitForSingleObject(h, ms as u32);
+                let _ = CloseHandle(h);
+            }
+        }
+    }
     fn set_starts_with_windows(&self, on: bool) { appbar::KEEP_ON_RESTART.store(on, std::sync::atomic::Ordering::Relaxed) }
     fn list_windows(&self) -> Vec<AppWindow> { windows_list::list() }
     fn watch_windows(&self, f: Box<dyn Fn() + Send>) { windows_list::watch(f) }

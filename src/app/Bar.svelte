@@ -44,6 +44,8 @@
 
   onMount(() => {
     const offs = [
+      // Self-check: answer the core's ping through the same path the buttons use.
+      events.healthPing((seq) => { ipc.healthPong(seq).catch(() => {}); }),
       events.editMode((on) => (edit = on)),
       win.onMoved(onMoved),
       // Alert sounds play here: the bar window is always alive.
