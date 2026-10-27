@@ -119,9 +119,10 @@
   /* small "now playing" badge on the art */
   /* bottom-left: the bottom-right corner carries the playing app's badge */
   .eq { position: absolute; left: 2px; bottom: 2px; display: flex; align-items: flex-end; gap: 1px; height: 8px; padding: 1px 2px; border-radius: calc(3px * var(--rs)); background: rgba(0,0,0,0.55); }
-  .eq i { width: 2px; background: #fff; border-radius: calc(1px * var(--rs)); animation: eq 0.9s ease-in-out infinite; }
+  /* scaleY, not height: animating height re-lays-out and repaints the whole bar every frame. */
+  .eq i { width: 2px; height: 7px; background: #fff; border-radius: calc(1px * var(--rs)); transform-origin: bottom; animation: eq 0.9s ease-in-out infinite; }
   .eq i:nth-child(2) { animation-delay: -0.3s; } .eq i:nth-child(3) { animation-delay: -0.6s; }
-  @keyframes eq { 0%, 100% { height: 2px; } 50% { height: 7px; } }
+  @keyframes eq { 0%, 100% { transform: scaleY(0.29); } 50% { transform: scaleY(1); } }
   .meta { display: flex; flex-direction: column; justify-content: center; min-width: 0; width: 120px; line-height: 1.2; }
   .ttl { font-size: 12px; font-weight: 600; }
   .sub { font-size: 10.5px; color: var(--fg-dim); font-variant-numeric: tabular-nums; }

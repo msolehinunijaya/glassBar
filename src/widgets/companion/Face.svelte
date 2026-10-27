@@ -98,6 +98,7 @@
   @keyframes bob { 50% { transform: translateY(-1.5px) scale(1.04); } }
   .shiver { animation: shiver 0.12s linear infinite; }
   @keyframes shiver { 25% { transform: translateX(1px) rotate(2deg); } 75% { transform: translateX(-1px) rotate(-2deg); } }
-  .sway { animation: sway 2.4s ease-in-out infinite; }
+  /* A few swings, then still: an endless sway kept the bar redrawing all the time it slept. */
+  .sway { animation: sway 2.4s ease-in-out 3; }
   @keyframes sway { 50% { transform: rotate(4deg); } }
 </style>

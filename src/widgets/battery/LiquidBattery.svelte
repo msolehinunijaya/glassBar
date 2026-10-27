@@ -1,7 +1,7 @@
 <script lang="ts">
   // Liquid battery: water level = charge %, a moving sine wave on top, colour by level
   // (green > 50, amber 20–50, red < 20), % centred, pulsing bolt and rising bubbles while charging.
-  // Everything animates with transforms, so it stays on the GPU compositor.
+  // The waves only move while charging: moving SVG groups repaints the whole bar every frame.
   import type { Battery } from '../../lib/ipc';
 
   let { b, height = 24 }: { b: Battery; height?: number } = $props();
@@ -43,8 +43,8 @@
   .liquid { position: relative; display: inline-grid; place-items: center; }
   .liquid > svg { display: block; overflow: visible; }
   .water { transition: transform 0.9s var(--ease); }
-  .wave { animation: wave 2.6s linear infinite; }
-  .wave.back { animation-duration: 3.8s; animation-direction: reverse; }
+  .charging .wave { animation: wave 2.6s linear infinite; }
+  .charging .wave.back { animation-duration: 3.8s; animation-direction: reverse; }
   @keyframes wave { from { transform: translateX(0); } to { transform: translateX(-24px); } }
   .pct {
     position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 1px;
