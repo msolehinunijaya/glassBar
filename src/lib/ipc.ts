@@ -41,7 +41,10 @@ export interface Config {
   /** Settings › Dock alerts (see app/dockAlert.ts). */
   dockAlerts: import('../app/dockAlert').DockAlertsCfg;
   banners: Banners;
+  /** Settings › Performance: the chosen mode; with `auto` GlassBar picks Normal or Low itself. */
+  performance: { mode: PerfMode; auto: boolean };
 }
+export type PerfMode = 'low' | 'normal' | 'high';
 /** A real charger plug/unplug. `percent` is null on a PC with no battery. */
 export interface ChargerFlip { plugged: boolean; percent: number | null; secsLeft: number | null }
 /** One timed lyric line. `text` is empty for a gap between verses. */
