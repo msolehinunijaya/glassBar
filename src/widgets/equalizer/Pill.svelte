@@ -8,7 +8,9 @@
   let { settings: s, vertical }: PillProps<EqSettings> = $props();
 </script>
 
-<div class="pill eq" class:vertical aria-label="Audio equalizer">
+<!-- The vertical layout comes from `.dock.vertical .pill` in glass.css; the canvas gets it
+     from the `vertical` prop. There is nothing left for a class on this div to do. -->
+<div class="pill eq" aria-label="Audio equalizer">
   <Spectrum settings={s} {vertical} len={s.length} />
 </div>
 
