@@ -58,7 +58,7 @@
   ```
 - Produces (TS, `src/lib/ipc.ts`): `export type PerfMode = 'low' | 'normal' | 'high';` and `Config.performance: { mode: PerfMode; auto: boolean }`.
 
-- [ ] **Step 1: Write the failing tests** in `config.rs`'s `mod tests`:
+- [x] **Step 1: Write the failing tests** in `config.rs`'s `mod tests`:
 
 ```rust
 #[test]
@@ -77,10 +77,10 @@ fn performance_round_trips_lowercase() {
 }
 ```
 
-- [ ] **Step 2: Run them, expect FAIL** (`Performance` not found): `cargo test --manifest-path src-tauri/Cargo.toml performance_`
-- [ ] **Step 3: Add `PerfMode`, `Performance`, the `performance` field and its default** as in Interfaces. No version bump: `#[serde(default)]` covers old files.
-- [ ] **Step 4: Run them, expect PASS.** Then add the TS types from Interfaces and run `npm run check`. Expect 0 errors.
-- [ ] **Step 5: Commit** `feat: performance mode in config (low / normal / high, auto)`
+- [x] **Step 2: Run them, expect FAIL** (`Performance` not found): `cargo test --manifest-path src-tauri/Cargo.toml performance_`
+- [x] **Step 3: Add `PerfMode`, `Performance`, the `performance` field and its default** as in Interfaces. No version bump: `#[serde(default)]` covers old files.
+- [x] **Step 4: Run them, expect PASS.** Then add the TS types from Interfaces and run `npm run check`. Expect 0 errors.
+- [x] **Step 5: Commit** `feat: performance mode in config (low / normal / high, auto)`
 
 ---
 
@@ -104,7 +104,7 @@ fn performance_round_trips_lowercase() {
   - `pub fn usage_for(pids: &[u32]) -> Option<f32>`: 3D utilisation summed over instances whose PID is in `pids`, clamped to 0..=100. `None` when PDH is unavailable.
 - Produces (`crate::net`): `pub fn bytes_received() -> u64`, the running total since start.
 
-- [ ] **Step 1: Write the failing tests** in `usage.rs` and `gpu.rs`:
+- [x] **Step 1: Write the failing tests** in `usage.rs` and `gpu.rs`:
 
 ```rust
 // usage.rs
@@ -131,19 +131,19 @@ fn pid_of_reads_engine_instance_names() {
 }
 ```
 
-- [ ] **Step 2: Run them, expect FAIL:** `cargo test --manifest-path src-tauri/Cargo.toml tree_ pid_of`
-- [ ] **Step 3: Implement `tree`** as a breadth-first walk with a visited set (so a cycle stops). **Implement `pid_of`.**
-- [ ] **Step 4: Run them, expect PASS.**
-- [ ] **Step 5: Implement `usage_for`** with its **own** `static` PDH query on the same counter path as `usage()`. Two callers collecting one query would break each other's rate deltas. Read item names (`szName`) from `PdhGetFormattedCounterArrayW`.
-- [ ] **Step 6: Implement `Meter::sample`:**
+- [x] **Step 2: Run them, expect FAIL:** `cargo test --manifest-path src-tauri/Cargo.toml tree_ pid_of`
+- [x] **Step 3: Implement `tree`** as a breadth-first walk with a visited set (so a cycle stops). **Implement `pid_of`.**
+- [x] **Step 4: Run them, expect PASS.**
+- [x] **Step 5: Implement `usage_for`** with its **own** `static` PDH query on the same counter path as `usage()`. Two callers collecting one query would break each other's rate deltas. Read item names (`szName`) from `PdhGetFormattedCounterArrayW`.
+- [x] **Step 6: Implement `Meter::sample`:**
   - Use `sysinfo::System` with `refresh_processes_specifics(ProcessesToUpdate::All, true, ProcessRefreshKind::nothing().with_cpu())`, plus `refresh_cpu_usage` and RAM refresh for `sys_*`.
   - Root = `std::process::id()`.
   - `cpu` = sum of tree `cpu_usage()` ÷ `sys.cpus().len()`. sysinfo reports % of one core.
   - `ram_mb` = sum of `private_bytes(pid)` ÷ 1 048 576, where `fn private_bytes(pid: u32) -> Option<u64>` uses `OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION)` + `K32GetProcessMemoryInfo` with `PROCESS_MEMORY_COUNTERS_EX.PrivateUsage`.
   - `gpu` = `usage_for(&tree)`.
-- [ ] **Step 7: Count network bytes in `net.rs`.** Add `static RX: AtomicU64`. Every function in `net.rs` that reads a response body reads `.bytes()`, adds `len` to `RX`, then parses with `serde_json::from_slice`. Error text stays the same. (There are no `reqwest` uses outside `net.rs`.)
-- [ ] **Step 8: Verify:** `cargo test --manifest-path src-tauri/Cargo.toml` and `cargo build --manifest-path src-tauri/Cargo.toml`. Both pass.
-- [ ] **Step 9: Commit** `feat: measure GlassBar's own process tree (private RAM, CPU, GPU, downloads)`
+- [x] **Step 7: Count network bytes in `net.rs`.** Add `static RX: AtomicU64`. Every function in `net.rs` that reads a response body reads `.bytes()`, adds `len` to `RX`, then parses with `serde_json::from_slice`. Error text stays the same. (There are no `reqwest` uses outside `net.rs`.)
+- [x] **Step 8: Verify:** `cargo test --manifest-path src-tauri/Cargo.toml` and `cargo build --manifest-path src-tauri/Cargo.toml`. Both pass.
+- [x] **Step 9: Commit** `feat: measure GlassBar's own process tree (private RAM, CPU, GPU, downloads)`
 
 ---
 
@@ -169,7 +169,7 @@ fn pid_of_reads_engine_instance_names() {
   - The reason is fixed at the moment of switching to Low and kept until the switch back.
   - Constants: `LOW_MEM = 85.0`, `LOW_CPU = 80.0`, `HOT_MS = 15_000`, `CALM_MEM = 75.0`, `CALM_CPU = 60.0`, `CALM_MS = 60_000`.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
 
 ```rust
 fn run(a: &mut Auto, l: Load, secs: u32) -> (PerfMode, String) { let mut r = a.step(&l, 0); for _ in 0..secs { r = a.step(&l, 1000); } r }
@@ -209,10 +209,10 @@ const CALM: Load = Load { mem_pct: 50.0, cpu_pct: 10.0, saver: false };
 }
 ```
 
-- [ ] **Step 2: Run them, expect FAIL:** `cargo test --manifest-path src-tauri/Cargo.toml perf::auto`
-- [ ] **Step 3: Implement `Auto::step`** to the constants above. A hot sample resets `calm_ms`, and a non-hot sample resets `hot_ms`.
-- [ ] **Step 4: Run them, expect PASS.**
-- [ ] **Step 5: Commit** `feat: Auto performance mode decision (to Low after 15 s busy, back after 60 s calm)`
+- [x] **Step 2: Run them, expect FAIL:** `cargo test --manifest-path src-tauri/Cargo.toml perf::auto`
+- [x] **Step 3: Implement `Auto::step`** to the constants above. A hot sample resets `calm_ms`, and a non-hot sample resets `hot_ms`.
+- [x] **Step 4: Run them, expect PASS.**
+- [x] **Step 5: Commit** `feat: Auto performance mode decision (to Low after 15 s busy, back after 60 s calm)`
 
 ---
 
@@ -248,7 +248,7 @@ const CALM: Load = Load { mem_pct: 50.0, cpu_pct: 10.0, saver: false };
   - `ipc.perfHistory(): Promise<PerfSample[]>`, `ipc.perfState(): Promise<PerfState>`, `ipc.perfWatch(): Promise<void>`
   - `events.perfSample(cb: (s: PerfSample) => void)`
 
-- [ ] **Step 1: Write the failing tests** in `perf/mod.rs`:
+- [x] **Step 1: Write the failing tests** in `perf/mod.rs`:
 
 ```rust
 #[test] fn fast_only_while_the_page_renews_its_lease() {
@@ -264,8 +264,8 @@ const CALM: Load = Load { mem_pct: 50.0, cpu_pct: 10.0, saver: false };
 }
 ```
 
-- [ ] **Step 2: Run them, expect FAIL.**
-- [ ] **Step 3: Implement.**
+- [x] **Step 2: Run them, expect FAIL.**
+- [x] **Step 3: Implement.**
   - State lives in statics: history `Mutex<VecDeque<PerfSample>>`, `STATE: Mutex<PerfState>`, `WATCHED: AtomicI64`, and an `Auto` inside the sampler thread.
   - The loop works like `sysmon::start`:
     1. Sample.
@@ -276,8 +276,8 @@ const CALM: Load = Load { mem_pct: 50.0, cpu_pct: 10.0, saver: false };
     6. Sleep `period_ms`.
   - `refresh` applies manual mode at once, without waiting for the next sample.
   - Turning Auto on starts from Normal (a fresh `Auto`).
-- [ ] **Step 4: Run them, expect PASS.** Then run `cargo build` and `npm run check`.
-- [ ] **Step 5: Commit** `feat: perf sampler with one-hour history and effective mode`
+- [x] **Step 4: Run them, expect PASS.** Then run `cargo build` and `npm run check`.
+- [x] **Step 5: Commit** `feat: perf sampler with one-hour history and effective mode`
 
 ---
 
@@ -297,7 +297,7 @@ const CALM: Load = Load { mem_pct: 50.0, cpu_pct: 10.0, saver: false };
   - `src/lib/perf.svelte.ts`: `export const perf = $state<PerfState>({ mode: 'normal', auto: false, reason: null })`, and `export async function initPerf(): Promise<void>`. That function loads the state, reloads it on `perf:changed`, and mirrors `perf.mode` to `document.documentElement.dataset.perf`. In the bar window it also sets or deletes `dataset.away` from `bar:away`.
   - CSS contract, used by later tasks: `:root[data-perf='low' | 'normal' | 'high']` and `:root[data-away]`.
 
-- [ ] **Step 1: Write the failing test** `src/lib/perf.test.ts`:
+- [x] **Step 1: Write the failing test** `src/lib/perf.test.ts`:
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -309,16 +309,16 @@ describe('fpsCap', () => {
 });
 ```
 
-- [ ] **Step 2: Run it, expect FAIL:** `npx vitest run src/lib/perf.test.ts`
-- [ ] **Step 3: Implement** `perf.ts`, `perf.svelte.ts`, the `initPerf()` call, the `bar:away` emit, and this CSS rule:
+- [x] **Step 2: Run it, expect FAIL:** `npx vitest run src/lib/perf.test.ts`
+- [x] **Step 3: Implement** `perf.ts`, `perf.svelte.ts`, the `initPerf()` call, the `bar:away` emit, and this CSS rule:
 
 ```css
 /* Auto-hidden bar: nothing moves while it's tucked away (Low and Normal). */
 :root[data-away]:not([data-perf='high']) * { animation-play-state: paused !important; }
 ```
 
-- [ ] **Step 4: Run it, expect PASS.** Then run `npm test` and `npm run check`.
-- [ ] **Step 5: Commit** `feat: performance mode on every window; pause animations while the bar is auto-hidden`
+- [x] **Step 4: Run it, expect PASS.** Then run `npm test` and `npm run check`.
+- [x] **Step 5: Commit** `feat: performance mode on every window; pause animations while the bar is auto-hidden`
 
 ---
 
@@ -340,7 +340,7 @@ describe('fpsCap', () => {
 
 Rules, from the spec table. CSS rules use `:global(:root[data-perf='…'])` inside the component's `<style>`:
 
-- [ ] **Step 1: Equalizer.**
+- [x] **Step 1: Equalizer.**
   - In `Spectrum.svelte`, the loud-frame interval becomes `1000 / fpsCap(perf.mode, +s.fps)`.
   - In Low, the idle look is treated as `'line'` both for the nap decision and for `paint`. Pass `paint` a derived settings object; don't mutate `s`.
   - While `document.documentElement.dataset.away` is set and the mode isn't High, nap 1000 ms without drawing.
@@ -349,14 +349,14 @@ Rules, from the spec table. CSS rules use `:global(:root[data-perf='…'])` insi
     - `low: 'Up to 15 fps, line when silent'`
     - `normal: 'Up to 30 fps'`
     - `high: 'Your frame rate (up to 60 fps)'`
-- [ ] **Step 2: Music.**
+- [x] **Step 2: Music.**
   - In `PlayerPill.svelte`, Low renders neither the Visualizer nor the Spectrum (treat `p.viz` as `'none'`). The Spectrum fps cap comes free from Step 1.
   - In Low, the `.eq i` badge bars and `Rhythm.svelte`'s bars have `animation: none`. The `.wipe` in `LyricLine.svelte` gets `display: none`.
   - Manifest `perf`:
     - `low: 'No visualizer, still playing badge, no karaoke wipe'`
     - `normal: 'Visualizer up to 30 fps'`
     - `high: 'Visualizer at your frame rate'`
-- [ ] **Step 3: Battery** (`LiquidBattery.svelte`, text on the `quicksettings` manifest).
+- [x] **Step 3: Battery** (`LiquidBattery.svelte`, text on the `quicksettings` manifest).
   - The wave animates when `.charging` and the mode isn't Low, or always in High.
   - In Low, the bubbles and bolt pulse don't animate either.
   - Fix the file's header comment to match.
@@ -364,18 +364,18 @@ Rules, from the spec table. CSS rules use `:global(:root[data-perf='…'])` insi
     - `low: 'Liquid battery stays still, even while charging'`
     - `normal: 'Liquid battery waves only while charging'`
     - `high: 'Liquid battery always waves'`
-- [ ] **Step 4: Companion** (`Face.svelte`).
+- [x] **Step 4: Companion** (`Face.svelte`).
   - In Low, `.bob`, `.shiver` and `.sway` get `animation: none`.
   - In High, `.sway` gets `animation-iteration-count: infinite`.
   - Manifest `perf`:
     - `low: 'No idle motion'`
     - `normal: 'Sways a few times, then rests'`
     - `high: 'Keeps moving while the mood lasts'`
-- [ ] **Step 5: Solat and Timer.**
+- [x] **Step 5: Solat and Timer.**
   - In Low, solat's `.approaching` and `.reached` have `animation: none`. Their static colours stay.
   - In Low, timer's `.sw.shimmer::after` has `animation: none`.
   - Manifest `perf.low`: solat `'Prayer-time glow stays still'`, timer `'No stopwatch shimmer'`.
-- [ ] **Step 6: System monitor (Rust).**
+- [x] **Step 6: System monitor (Rust).**
   - In `sysmon::start`, `period` comes from `crate::perf::effective()`: Low 10 s, Normal 2 s, High 1 s.
   - `rx_bps`/`tx_bps` divide by the real period.
   - `cpu_temp` is read only when `widget_settings("sysmon")["temp"] == true` (GPU is already gated by its setting).
@@ -383,8 +383,8 @@ Rules, from the spec table. CSS rules use `:global(:root[data-perf='…'])` insi
     - `low: 'Updates every 10 s'`
     - `normal: 'Updates every 2 s'`
     - `high: 'Updates every second'`
-- [ ] **Step 7: Verify:** `npm run check` (0 errors), `npm test`, `cargo test --manifest-path src-tauri/Cargo.toml`.
-- [ ] **Step 8: Commit** `feat: widgets follow the performance mode`
+- [x] **Step 7: Verify:** `npm run check` (0 errors), `npm test`, `cargo test --manifest-path src-tauri/Cargo.toml`.
+- [x] **Step 8: Commit** `feat: widgets follow the performance mode`
 
 ---
 
@@ -403,20 +403,20 @@ Rules, from the spec table. CSS rules use `:global(:root[data-perf='…'])` insi
   - `pub fn later(win: WebviewWindow)`: after **30 s** (my call: avoids suspending during quick re-opens), if `effective() == PerfMode::Low` and the window is still hidden, suspend it. A generation counter per label cancels the timer when the window is shown again.
   - `pub fn wake(win: &WebviewWindow)`: no-op unless it was suspended.
 
-- [ ] **Step 1: Implement `suspend`** in `win.with_webview`:
+- [x] **Step 1: Implement `suspend`** in `win.with_webview`:
   - Take `controller()`.
   - `SetIsVisible(false)`.
   - `CoreWebView2().cast::<ICoreWebView2_3>()?.TrySuspend(&TrySuspendCompletedHandler::create(Box::new(|_, _| Ok(()))))`.
   - `cast::<ICoreWebView2_19>()?.SetMemoryUsageTargetLevel(COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_LOW)`.
   - Errors are ignored: an older WebView2 simply isn't freed.
-- [ ] **Step 2: Implement `wake`:** `SetMemoryUsageTargetLevel(…NORMAL)`, then `Resume()`, then `SetIsVisible(true)`. Track "suspended" in a `Mutex<HashSet<String>>` keyed by label.
-- [ ] **Step 3: Wire up `bar.rs`** as listed under Files.
-- [ ] **Step 4: Verify:** `cargo build --manifest-path src-tauri/Cargo.toml` passes.
-- [ ] **Step 5: Manual check (Review Focus 5).** Set mode Low, open a widget popup, close it, and wait 40 s.
+- [x] **Step 2: Implement `wake`:** `SetMemoryUsageTargetLevel(…NORMAL)`, then `Resume()`, then `SetIsVisible(true)`. Track "suspended" in a `Mutex<HashSet<String>>` keyed by label.
+- [x] **Step 3: Wire up `bar.rs`** as listed under Files.
+- [x] **Step 4: Verify:** `cargo build --manifest-path src-tauri/Cargo.toml` passes.
+- [x] **Step 5: Manual check (Review Focus 5).** Set mode Low, open a widget popup, close it, and wait 40 s.
   - The popup's renderer drops to ~0% CPU and its private memory falls. Use `procs.ps1` from this session's scratchpad or Task Manager's "Details" tab with Command line.
   - Then open the same popup and a different one. Both show their content on the first try.
   - Trigger a banner (Settings › Notifications test) after 40 s hidden. It shows its text.
-- [ ] **Step 6: Commit** `feat: Low mode frees hidden popup and banner windows`
+- [x] **Step 6: Commit** `feat: Low mode frees hidden popup and banner windows`
 
 ---
 
@@ -441,7 +441,7 @@ Rules, from the spec table. CSS rules use `:global(:root[data-perf='…'])` insi
   - `export function fmtBytes(n: number): string`: `"340 KB"`, `"1.2 MB"`, `"1.3 GB"`. Base 1024, one decimal from MB up, KB rounded.
   - `export function fmtPct(v: number | null): string`: `"4.8%"`, or `"—"` for null.
 
-- [ ] **Step 1: Write the failing tests** `src/app/perfPage.test.ts`:
+- [x] **Step 1: Write the failing tests** `src/app/perfPage.test.ts`:
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -463,10 +463,10 @@ describe('formatting', () => {
 });
 ```
 
-- [ ] **Step 2: Run it, expect FAIL:** `npx vitest run src/app/perfPage.test.ts`
-- [ ] **Step 3: Implement `perfPage.ts`.**
-- [ ] **Step 4: Run it, expect PASS.**
-- [ ] **Step 5: Build `PerformanceSettings.svelte`** to the spec's layout B (mockup card B in `.superpowers/brainstorm/496-1793115511/content/performance-layout.html`):
+- [x] **Step 2: Run it, expect FAIL:** `npx vitest run src/app/perfPage.test.ts`
+- [x] **Step 3: Implement `perfPage.ts`.**
+- [x] **Step 4: Run it, expect PASS.**
+- [x] **Step 5: Build `PerformanceSettings.svelte`** to the spec's layout B (mockup card B in `.superpowers/brainstorm/496-1793115511/content/performance-layout.html`):
   1. **Strip:** `RAM 338 MB · CPU 4.8% · GPU 2.6% · Net 1.2 MB/hr (8.4 MB since start)`. Values come from the latest sample, `netLastHour`, and the latest `netBytes` (the session total).
   2. **Chips:** RAM / CPU / GPU / Network, with a full-width `Sparkline` of that series over the history. Network plots the per-sample delta of `netBytes`. GPU nulls plot as 0, and the strip shows "—".
   3. **Hint**, exact copy: "Includes GlassBar's WebView2 helpers and this Settings window. Network counts data GlassBar downloaded."
@@ -477,8 +477,8 @@ describe('formatting', () => {
   8. **Lifecycle:**
      - On mount: `perfHistory()`, subscribe to `events.perfSample` and append, call `perfWatch()` now and every 2 s.
      - On destroy: unsubscribe and clear the interval.
-- [ ] **Step 6: Verify:** `npm run check` (0 errors), `npm test`.
-- [ ] **Step 7: Commit** `feat: Settings › Performance page (usage, one-hour graph, modes)`
+- [x] **Step 6: Verify:** `npm run check` (0 errors), `npm test`.
+- [x] **Step 7: Commit** `feat: Settings › Performance page (usage, one-hour graph, modes)`
 
 ---
 
@@ -486,15 +486,15 @@ describe('formatting', () => {
 
 **Files:** none (fixes found here go in the task that owns the code).
 
-- [ ] **Step 1: Run every check:** `npm run check`, `npm test`, `cargo test --manifest-path src-tauri/Cargo.toml`. All pass.
-- [ ] **Step 2: Build:** `npx tauri build --no-bundle`. Expect `Built application at: …\target\release\glassbar.exe`.
-- [ ] **Step 3: Run it with the Performance page open.**
+- [x] **Step 1: Run every check:** `npm run check`, `npm test`, `cargo test --manifest-path src-tauri/Cargo.toml`. All pass.
+- [x] **Step 2: Build:** `npx tauri build --no-bundle`. Expect `Built application at: …\target\release\glassbar.exe`.
+- [x] **Step 3: Run it with the Performance page open.**
   - RAM is within ±10% of Task Manager's summed "Memory (private working set)" for glassbar.exe and its msedgewebview2 children.
   - CPU roughly matches the sum of their CPU %.
   - Network rises after a weather refresh.
-- [ ] **Step 4: Check the sampler's own cost (anti-goal).** Close Settings and wait 10 s. GlassBar's total CPU is within 0.1 percentage points of the same build with the sampler thread commented out. Measure over 60 s with `procs.ps1`.
-- [ ] **Step 5: Check the modes live.**
+- [x] **Step 4: Check the sampler's own cost (anti-goal).** Close Settings and wait 10 s. GlassBar's total CPU is within 0.1 percentage points of the same build with the sampler thread commented out. Measure over 60 s with `procs.ps1`.
+- [x] **Step 5: Check the modes live.**
   - Low: Equalizer visibly slower, Liquid battery still, companion still. After auto-hide, the bar's renderer CPU drops near 0.
   - High: Equalizer at 60 fps, liquid wave moving while not charging.
   - Auto on: the reason line shows "Auto chose Normal · your PC has room".
-- [ ] **Step 6: Commit** any fix-ups with the owning task's prefix. Then tick off this plan's checkboxes and commit `docs: performance plan done`.
+- [x] **Step 6: Commit** any fix-ups with the owning task's prefix. Then tick off this plan's checkboxes and commit `docs: performance plan done`.

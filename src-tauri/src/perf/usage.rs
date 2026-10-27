@@ -65,6 +65,18 @@ mod tests {
         assert_eq!(t, vec![10, 20, 21, 30]);
     }
 
+    /// What one sample costs (the monitor must stay cheap). By hand:
+    /// cargo test sample_cost -- --ignored --nocapture
+    #[test]
+    #[ignore]
+    fn sample_cost() {
+        let mut m = Meter::new();
+        m.sample();
+        let t = std::time::Instant::now();
+        for _ in 0..10 { m.sample(); }
+        println!("Meter::sample average: {:?}", t.elapsed() / 10);
+    }
+
     #[test]
     fn tree_survives_a_parent_cycle() {
         // PID reuse can make a process look like its own ancestor.
