@@ -76,5 +76,6 @@
     background: linear-gradient(100deg, transparent 30%, color-mix(in srgb, var(--accent) 22%, transparent) 50%, transparent 70%);
     background-size: 250% 100%; animation: sweep 2.8s linear infinite;
   }
+  :global(:root[data-perf='low']) .sw.shimmer::after { display: none; }
   @keyframes sweep { from { background-position: 130% 0; } to { background-position: -130% 0; } }
 </style>

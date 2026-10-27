@@ -15,6 +15,7 @@
   import { liveMedia, positionAt, toggle, type Source } from './media.svelte';
   import SourceBadge from './SourceBadge.svelte';
   import { wheelControl } from '../../lib/wheelIntent';
+  import { perf } from '../../lib/perf.svelte';
   import Visualizer from './Visualizer.svelte';
 
   let { size, settings, vertical, onenter, onleave, source = null }: { size: WidgetSize; settings: MusicSettings; vertical: boolean; onenter?: (e: PointerEvent) => void; onleave?: () => void; source?: Source | null } = $props();
@@ -90,7 +91,8 @@
     </span>
   {/if}
 
-  {#if p.viz === 'level'}
+  {#if perf.mode === 'low'}<!-- Low: no visualizer -->
+  {:else if p.viz === 'level'}
     <Visualizer active={!!media.m?.playing} width={p.vizWidth} height={20} />
   {:else if p.viz === 'spectrum'}
     <Spectrum settings={eq} len={p.vizWidth} height={20} />
@@ -123,6 +125,7 @@
   .eq i { width: 2px; height: 7px; background: #fff; border-radius: calc(1px * var(--rs)); transform-origin: bottom; animation: eq 0.9s ease-in-out infinite; }
   .eq i:nth-child(2) { animation-delay: -0.3s; } .eq i:nth-child(3) { animation-delay: -0.6s; }
   @keyframes eq { 0%, 100% { transform: scaleY(0.29); } 50% { transform: scaleY(1); } }
+  :global(:root[data-perf='low']) .eq i { animation: none; }
   .meta { display: flex; flex-direction: column; justify-content: center; min-width: 0; width: 120px; line-height: 1.2; }
   .ttl { font-size: 12px; font-weight: 600; }
   .sub { font-size: 10.5px; color: var(--fg-dim); font-variant-numeric: tabular-nums; }

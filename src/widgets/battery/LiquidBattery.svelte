@@ -1,7 +1,8 @@
 <script lang="ts">
   // Liquid battery: water level = charge %, a moving sine wave on top, colour by level
   // (green > 50, amber 20–50, red < 20), % centred, pulsing bolt and rising bubbles while charging.
-  // The waves only move while charging: moving SVG groups repaints the whole bar every frame.
+  // The waves move only while charging (always in High, never in Low): moving SVG groups
+  // repaints the whole bar every frame. Low also stills the bubbles and the bolt.
   import type { Battery } from '../../lib/ipc';
 
   let { b, height = 24 }: { b: Battery; height?: number } = $props();
@@ -43,8 +44,11 @@
   .liquid { position: relative; display: inline-grid; place-items: center; }
   .liquid > svg { display: block; overflow: visible; }
   .water { transition: transform 0.9s var(--ease); }
-  .charging .wave { animation: wave 2.6s linear infinite; }
-  .charging .wave.back { animation-duration: 3.8s; animation-direction: reverse; }
+  .wave { animation: wave 2.6s linear infinite paused; }
+  .wave.back { animation-duration: 3.8s; animation-direction: reverse; }
+  :global(:root:not([data-perf='low'])) .charging .wave, :global(:root[data-perf='high']) .wave { animation-play-state: running; }
+  :global(:root[data-perf='low']) .bolt { animation: none; }
+  :global(:root[data-perf='low']) .bubble { display: none; }
   @keyframes wave { from { transform: translateX(0); } to { transform: translateX(-24px); } }
   .pct {
     position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 1px;

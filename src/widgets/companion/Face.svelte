@@ -101,4 +101,6 @@
   /* A few swings, then still: an endless sway kept the bar redrawing all the time it slept. */
   .sway { animation: sway 2.4s ease-in-out 3; }
   @keyframes sway { 50% { transform: rotate(4deg); } }
+  :global(:root[data-perf='low']) .face { animation: none; }
+  :global(:root[data-perf='high']) .sway { animation-iteration-count: infinite; }
 </style>

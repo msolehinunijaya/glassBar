@@ -17,4 +17,5 @@ export default defineWidget<MusicSettings>({
   defaults: MUSIC_DEFAULTS,
   Pill,
   Popup: { component: Popup, width: 320, height: 560 },
+  perf: { low: 'No visualizer, still playing badge, no karaoke wipe', normal: 'Visualizer up to 30 fps', high: 'Visualizer at your frame rate' },
 });

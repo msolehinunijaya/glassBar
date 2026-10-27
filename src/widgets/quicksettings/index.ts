@@ -28,4 +28,5 @@ export default defineWidget<QuickSettings>({
   Pill,
   Popup: { component: Popup, width: 360, height: 680 },
   SettingsForm,
+  perf: { low: 'Liquid battery stays still, even while charging', normal: 'Liquid battery waves only while charging', high: 'Liquid battery always waves' },
 });

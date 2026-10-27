@@ -25,4 +25,5 @@ export default defineWidget<SysmonSettings>({
   Pill,
   Popup: { component: Popup, width: 360, height: 640 },
   SettingsForm,
+  perf: { low: 'Updates every 10 s', normal: 'Updates every 2 s', high: 'Updates every second' },
 });

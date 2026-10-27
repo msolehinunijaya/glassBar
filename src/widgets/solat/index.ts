@@ -20,4 +20,5 @@ export default defineWidget<SolatSettings>({
   Pill,
   Popup: { component: Popup, width: 320, height: 420 },
   SettingsForm,
+  perf: { low: 'Prayer-time glow stays still' },
 });

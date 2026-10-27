@@ -20,4 +20,5 @@ export default defineWidget<TimerSettings>({
   Pill,
   Popup: { component: Popup, width: 340, height: 440 },
   SettingsForm,
+  perf: { low: 'No stopwatch shimmer' },
 });

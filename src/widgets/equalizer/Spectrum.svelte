@@ -7,6 +7,8 @@
   import { listen } from '@tauri-apps/api/event';
   import { ipc, type Battery } from '../../lib/ipc';
   import { live } from '../../lib/live.svelte';
+  import { fpsCap } from '../../lib/perf';
+  import { barAway, perf } from '../../lib/perf.svelte';
   import { liveMedia } from '../music/media.svelte';
   import { paint } from './draw';
   import { palette, resample, step } from './eq';
@@ -29,6 +31,9 @@
   const bat = live<Battery | null>('battery', ipc.batteryGet, null);
   const media = liveMedia();
   const paused = () => s.batterySaver && !!bat.v && !bat.v.onAc;
+  // Low: the idle look is a still line. Away (auto-hidden bar, not High): no drawing at all.
+  const look = $derived(perf.mode === 'low' && s.idle === 'dots' ? { ...s, idle: 'line' as const } : s);
+  const away = () => barAway.v && perf.mode !== 'high';
 
   // The bands arrive on a local live stream: Tauri events wait behind a right-click menu (it
   // holds GlassBar's main thread), which froze the bars until the menu closed. Open while
@@ -86,9 +91,10 @@
     // Quiet: nap between redraws instead of waking every display frame. Breathing dots redraw
     // at ~15 fps; a still look (line / hidden) once a second, enough to follow size and colour.
     const frame = (now: number) => {
-      if (quiet) nap = setTimeout(() => { nap = 0; raf = requestAnimationFrame(frame); }, s.idle === 'dots' && s.idleOpacity > 0 ? 66 : 1000);
+      const L = look;
+      if (quiet || away()) nap = setTimeout(() => { nap = 0; raf = requestAnimationFrame(frame); }, !away() && L.idle === 'dots' && L.idleOpacity > 0 ? 66 : 1000);
       else raf = requestAnimationFrame(frame);
-      if (now - last < (quiet ? 60 : 1000 / +s.fps - 2)) return;
+      if (away() || now - last < (quiet ? 60 : 1000 / fpsCap(perf.mode, +s.fps) - 2)) return;
       const dt = last ? Math.min(100, now - last) : 16;
       last = now;
 
@@ -116,12 +122,14 @@
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       if (vertical) { ctx.translate(w, 0); ctx.rotate(Math.PI / 2); } // draw along the length, bars grow right
       if (now - accentAt > 1000) { accent = getComputedStyle(canvas).getPropertyValue('--accent').trim(); accentAt = now; }
-      paint(ctx, s, { cur: st.cur, peak: st.peak, quiet, now }, vertical ? h : w, vertical ? w : h, accent, album);
+      paint(ctx, L, { cur: st.cur, peak: st.peak, quiet, now }, vertical ? h : w, vertical ? w : h, accent, album);
     };
-    wake = () => { if (nap) { clearTimeout(nap); nap = 0; raf = requestAnimationFrame(frame); } };
+    wake = () => { if (nap && !away()) { clearTimeout(nap); nap = 0; raf = requestAnimationFrame(frame); } };
     raf = requestAnimationFrame(frame);
     return () => { cancelAnimationFrame(raf); clearTimeout(nap); wake = () => {}; ro.disconnect(); };
   });
+  // Back from away: draw again at once instead of after the nap.
+  $effect(() => { if (!barAway.v) wake(); });
 </script>
 
 <canvas bind:this={canvas} class:vertical style:--len="{len}px" style:--thick={height ? `${height}px` : '100%'}></canvas>

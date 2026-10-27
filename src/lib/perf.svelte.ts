@@ -4,6 +4,8 @@
 import { events, ipc, type PerfState } from './ipc';
 
 export const perf = $state<PerfState>({ mode: 'normal', auto: false, reason: null });
+/** The auto-hidden bar is slid away (bar window only). */
+export const barAway = $state({ v: false });
 
 export async function initPerf() {
   const root = document.documentElement;
@@ -14,6 +16,6 @@ export async function initPerf() {
   await load();
   events.changed('perf', load).catch(() => {});
   if (root.dataset.window === 'bar') {
-    events.barAway((away) => { if (away) root.dataset.away = ''; else delete root.dataset.away; }).catch(() => {});
+    events.barAway((away) => { barAway.v = away; if (away) root.dataset.away = ''; else delete root.dataset.away; }).catch(() => {});
   }
 }
