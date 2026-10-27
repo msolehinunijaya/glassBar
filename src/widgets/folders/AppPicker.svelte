@@ -6,13 +6,13 @@
   import { ipc, type InstalledApp } from '../../lib/ipc';
   import type { Pin } from '../apps/index';
   import { iconOf } from './appIcons.svelte';
-  import { pinKey } from './folders';
+  import { pinId } from './folders';
 
   let { have, add, done }: { have: Pin[]; add: (p: Pin) => void; done: () => void } = $props();
   let all = $state<InstalledApp[] | null>(null);
   let q = $state('');
   $effect(() => { ipc.appsInstalled().then((a) => (all = [...a].sort((x, y) => x.name.localeCompare(y.name)))).catch(() => (all = [])); });
-  const inFolder = $derived(new Set(have.map(pinKey)));
+  const inFolder = $derived(new Set(have.map(pinId)));
   const shown = $derived((all ?? []).filter((a) => !q.trim() || a.name.toLowerCase().includes(q.trim().toLowerCase())).slice(0, 60));
   const toPin = (a: InstalledApp): Pin => ({ path: a.path, args: a.args || undefined, name: a.name });
   async function browse() {
@@ -35,7 +35,7 @@
     {/if}
     {#each shown as a (a.path + a.args)}
       {@const p = toPin(a)}
-      {@const added = inFolder.has(pinKey(p))}
+      {@const added = inFolder.has(pinId(p))}
       {@const src = iconOf(p)}
       <button class="row" class:added disabled={added} onclick={() => add(p)} title={added ? 'Already in this folder' : `Add ${a.name}`}>
         {#if src}<img src={src} alt="" width="20" height="20" draggable="false" />{:else}<i class="ph">{a.name[0]?.toUpperCase()}</i>{/if}

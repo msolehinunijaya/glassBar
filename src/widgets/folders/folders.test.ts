@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addApps, folderKey, isApp, moveApp, parseFolderKey, pinKey, removeApp, type Folder } from './folders';
+import { addApps, folderKey, isApp, moveApp, parseFolderKey, pinId, removeApp, type Folder } from './folders';
 
 const f = (...paths: string[]): Folder => ({ id: 'a', name: '', apps: paths.map((path) => ({ path })) });
 const names = (x: Folder) => x.apps.map((p) => p.path);
@@ -10,10 +10,16 @@ describe('folders', () => {
   });
   it('removes and moves by key', () => {
     const x = f('C:\a.exe', 'C:\b.exe', 'C:\c.exe');
-    expect(names(removeApp(x, pinKey({ path: 'C:\b.exe' })))).toEqual(['C:\a.exe', 'C:\c.exe']);
-    expect(names(moveApp(x, pinKey({ path: 'C:\c.exe' }), 0))).toEqual(['C:\c.exe', 'C:\a.exe', 'C:\b.exe']);
-    expect(names(moveApp(x, pinKey({ path: 'C:\a.exe' }), 99))).toEqual(['C:\b.exe', 'C:\c.exe', 'C:\a.exe']);
+    expect(names(removeApp(x, pinId({ path: 'C:\b.exe' })))).toEqual(['C:\a.exe', 'C:\c.exe']);
+    expect(names(moveApp(x, pinId({ path: 'C:\c.exe' }), 0))).toEqual(['C:\c.exe', 'C:\a.exe', 'C:\b.exe']);
+    expect(names(moveApp(x, pinId({ path: 'C:\a.exe' }), 99))).toEqual(['C:\b.exe', 'C:\c.exe', 'C:\a.exe']);
     expect(moveApp(x, 'nope', 0)).toBe(x);
+  });
+  it('tells apart two shortcuts to the same program with different arguments', () => {
+    const cmd = f('C:/w/cmd.exe');
+    const dev = addApps(cmd, [{ path: 'C:/w/cmd.exe', args: '/k vsdevcmd.bat' }]);
+    expect(dev.apps.length).toBe(2);
+    expect(addApps(dev, [{ path: 'C:/w/CMD.exe', args: '/K VsDevCmd.bat' }]).apps.length).toBe(2);
   });
   it('round-trips its panel key, click and hover', () => {
     expect(parseFolderKey(folderKey(false, 'folders-1', 'f9'))).toEqual({ instance: 'folders-1', id: 'f9', hover: false });

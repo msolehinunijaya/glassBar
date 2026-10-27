@@ -24,7 +24,7 @@
 
   const W = 360, H = 300;
   const hp = hoverPanel();
-  let tiles: Record<string, HTMLElement> = {};
+  let tiles = $state<Record<string, HTMLElement>>({});
   function open(e: MouseEvent, f: Folder) {
     e.stopPropagation();
     hp.cancel();

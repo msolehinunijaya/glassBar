@@ -12,7 +12,7 @@
   import type { Pin } from '../apps/index';
   import manifest, { type FoldersSettings } from './index';
   import { settingsOf } from '../types';
-  import { addApps, isApp, moveApp, pinKey, pinName, removeApp, replace, type Folder } from './folders';
+  import { addApps, isApp, moveApp, pinId, pinName, removeApp, replace, type Folder } from './folders';
   import { iconOf, liveWindows } from './appIcons.svelte';
   import AppPicker from './AppPicker.svelte';
 
@@ -44,9 +44,9 @@
       { text: 'Open', action: () => launch(p) },
       { text: 'Show in folder', action: () => ipc.downloadsReveal(p.path).catch(() => {}) },
       '-',
-      ...(i > 0 ? [{ text: 'Move left', action: () => save(moveApp(f, pinKey(p), i - 1)) }] : []),
-      ...(i < f.apps.length - 1 ? [{ text: 'Move right', action: () => save(moveApp(f, pinKey(p), i + 1)) }] : []),
-      { text: 'Take out of the folder', action: () => save(removeApp(f, pinKey(p))) },
+      ...(i > 0 ? [{ text: 'Move left', action: () => save(moveApp(f, pinId(p), i - 1)) }] : []),
+      ...(i < f.apps.length - 1 ? [{ text: 'Move right', action: () => save(moveApp(f, pinId(p), i + 1)) }] : []),
+      { text: 'Take out of the folder', action: () => save(removeApp(f, pinId(p))) },
     ]);
   }
 
@@ -62,7 +62,7 @@
     if (e.button !== 0 || !folder) return;
     const start = { x: e.clientX, y: e.clientY };
     let picked = false;
-    const pick = () => { picked = true; dragKey = pinKey(p); order = [...folder!.apps]; };
+    const pick = () => { picked = true; dragKey = pinId(p); order = [...folder!.apps]; };
     const timer = setTimeout(pick, 250);
     const move = (ev: PointerEvent) => {
       if (!picked && Math.hypot(ev.clientX - start.x, ev.clientY - start.y) > 6) { clearTimeout(timer); pick(); }
@@ -72,7 +72,7 @@
       if (outside) return;
       const cells = [...grid.querySelectorAll<HTMLElement>('.app')].map((c) => { const r = c.getBoundingClientRect(); return Math.hypot(ev.clientX - (r.left + r.width / 2), ev.clientY - (r.top + r.height / 2)); });
       const to = cells.indexOf(Math.min(...cells));
-      const from = order.findIndex((x) => pinKey(x) === dragKey);
+      const from = order.findIndex((x) => pinId(x) === dragKey);
       if (to >= 0 && to !== from) order = moveApp({ id, name: '', apps: order }, dragKey!, to).apps;
     };
     const finish = (keep: boolean) => {
@@ -118,11 +118,11 @@
       <AppPicker have={folder.apps} add={addOne} done={() => (picking = false)} />
     {:else}
     <div class="grid" bind:this={grid}>
-      {#each shown as p, i (pinKey(p))}
+      {#each shown as p, i (pinId(p))}
         {@const src = iconOf(p)}
         {@const on = wins.of(p).length > 0}
-        <button class="app" class:lifted={dragKey === pinKey(p)} class:leaving={dragKey === pinKey(p) && outside}
-                title={dragKey === pinKey(p) && outside ? 'Release to take it out of the folder' : p.path}
+        <button class="app" class:lifted={dragKey === pinId(p)} class:leaving={dragKey === pinId(p) && outside}
+                title={dragKey === pinId(p) && outside ? 'Release to take it out of the folder' : p.path}
                 onpointerdown={(e) => down(e, p)} onclick={() => launch(p)} oncontextmenu={(e) => menu(e, p, i)}>
           {#if src}<img src={src} alt="" width="36" height="36" draggable="false" />{:else}<i class="ph">{pinName(p)[0]?.toUpperCase()}</i>{/if}
           <span class="nm ellipsis">{pinName(p)}</span>

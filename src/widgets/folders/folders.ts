@@ -17,7 +17,11 @@ export function parseFolderKey(key: string | null | undefined): { instance: stri
   return instance && id ? { instance, id, hover } : null;
 }
 
+/** Which program a pin is: matches its running windows (and shares their icon). */
 export const pinKey = (p: Pin) => keyFor(p.path, p.aumid);
+/** Which app a pin is: the program *and* its arguments. "Developer Command Prompt" and
+ *  "Command Prompt" are both cmd.exe, but two different apps in a folder. */
+export const pinId = (p: Pin) => `${pinKey(p)}|${(p.args ?? '').trim().toLowerCase()}`;
 export const pinName = (p: Pin) => p.name ?? nameOf(p.path);
 
 /** Only programs and shortcuts can go in a folder. */
@@ -25,14 +29,14 @@ export const isApp = (path: string) => /\.(exe|lnk|url|appref-ms)$/i.test(path);
 
 /** Add apps to the end, skipping ones already in the folder. */
 export const addApps = (f: Folder, pins: Pin[]): Folder => {
-  const have = new Set(f.apps.map(pinKey));
-  const fresh = pins.filter((p) => { const k = pinKey(p); if (have.has(k)) return false; have.add(k); return true; });
+  const have = new Set(f.apps.map(pinId));
+  const fresh = pins.filter((p) => { const k = pinId(p); if (have.has(k)) return false; have.add(k); return true; });
   return { ...f, apps: [...f.apps, ...fresh] };
 };
-export const removeApp = (f: Folder, key: string): Folder => ({ ...f, apps: f.apps.filter((p) => pinKey(p) !== key) });
+export const removeApp = (f: Folder, key: string): Folder => ({ ...f, apps: f.apps.filter((p) => pinId(p) !== key) });
 /** Move the app `key` to position `to` (clamped). */
 export function moveApp(f: Folder, key: string, to: number): Folder {
-  const from = f.apps.findIndex((p) => pinKey(p) === key);
+  const from = f.apps.findIndex((p) => pinId(p) === key);
   if (from < 0) return f;
   const apps = [...f.apps];
   const [p] = apps.splice(from, 1);
