@@ -53,6 +53,7 @@
       { type: 'choice', key: 'style', label: 'Design', choices: [{ value: 'player', label: 'Player' }, { value: 'classic', label: 'Classic' }, { value: 'mini', label: 'Mini (Play/Pause + Next)' }, { value: 'custom', label: 'Custom (choose the parts)' }] },
       { type: 'toggle', key: 'showViz', label: 'Sound visualizer (Player design)', hint: 'Live level from your speakers' },
       { type: 'toggle', key: 'showProgress', label: 'Show progress background', hint: 'Fill grows as the song plays' },
+      { type: 'toggle', key: 'wheelVolume', label: 'Mouse wheel changes volume', hint: 'Over the volume button. Off: scrolling there never changes the volume' },
     ]} />
     {#if settings.style !== 'custom'}
       <label class="vlen">Visualizer length <input type="range" min="32" max="200" step="4" value={settings.vizWidth}

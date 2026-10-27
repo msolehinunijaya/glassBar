@@ -6,6 +6,7 @@
   import { ChevronRight } from '@lucide/svelte';
   import { ipc } from '../../lib/ipc';
   import { volumeBlip } from '../../lib/sound';
+  import { wheelControl } from '../../lib/wheelIntent';
   import type { WidgetSize } from '../../lib/ipc';
   import { liveAudio, pct, volumeIcon } from './audio.svelte';
   import { layoutOf, SOUND_PANEL, type SoundSettings } from './settings';
@@ -40,18 +41,21 @@
     if (!audio.v.muted) volumeBlip(true);
   }
 
-  // Only when the user turned it on: wheel over the pill changes volume.
+  // Only when the user turned it on: wheel over the pill changes volume -- and only a wheel
+  // that started here, not a dock scroll passing over it (see wheelIntent.ts).
+  const wc = wheelControl();
   $effect(() => {
     const node = el;
     if (!settings.wheel || !node) return;
     const onWheel = (e: WheelEvent) => {
-      if (!audio.v) return;
+      if (!audio.v || !wc.owns(e)) return;
       e.preventDefault();
       e.stopPropagation();
       setVolume(Math.min(1, Math.max(0, audio.v.volume - Math.sign(e.deltaY) * settings.step / 100)));
     };
+    node.addEventListener('pointerenter', wc.enter);
     node.addEventListener('wheel', onWheel, { passive: false });
-    return () => node.removeEventListener('wheel', onWheel);
+    return () => { node.removeEventListener('pointerenter', wc.enter); node.removeEventListener('wheel', onWheel); };
   });
 
   const stop = (e: Event) => e.stopPropagation(); // slider/mute use must not open the panel or start edit mode

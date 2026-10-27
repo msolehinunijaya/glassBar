@@ -61,6 +61,8 @@ export interface MusicSettings {
   custom: MusicParts;
   /** The lyric line, on the Player and Custom designs. */
   lyrics: LyricsSettings;
+  /** Scrolling over the volume button changes the volume. */
+  wheelVolume: boolean;
 }
 
 /** Custom starts out looking like the Player design, so turning it on never shows a blank pill. */
@@ -75,7 +77,7 @@ export const CUSTOM_DEFAULTS: MusicParts = {
 
 export const MUSIC_DEFAULTS: MusicSettings = {
   style: 'player', showControls: true, showProgress: true, showViz: true, vizWidth: 64,
-  custom: CUSTOM_DEFAULTS, lyrics: LYRICS_DEFAULTS,
+  custom: CUSTOM_DEFAULTS, lyrics: LYRICS_DEFAULTS, wheelVolume: true,
 };
 
 /** `settingsOf()` merges one level deep, so the nested blocks are merged over their defaults

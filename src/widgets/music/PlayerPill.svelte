@@ -16,6 +16,7 @@
   import { currentIndex, lineAt, lineProgress } from './lyrics';
   import { liveLyrics } from './lyrics.svelte';
   import LyricLine from './LyricLine.svelte';
+  import { wheelControl } from '../../lib/wheelIntent';
   import Visualizer from './Visualizer.svelte';
 
   let { size, settings, vertical, onenter, onleave }: { size: WidgetSize; settings: MusicSettings; vertical: boolean; onenter?: (e: PointerEvent) => void; onleave?: () => void } = $props();
@@ -49,8 +50,11 @@
     const off = events.audioChanged((a) => (audio = a));
     return () => { off.then((f) => f()); };
   });
+  // Only a wheel that started on the speaker, and only when the option is on: a dock scroll
+  // passing over it must not change the volume (see wheelIntent.ts).
+  const wc = wheelControl();
   function wheelVolume(e: WheelEvent) {
-    if (!audio) return;
+    if (!audio || settings.wheelVolume === false || !wc.owns(e)) return;
     e.preventDefault(); e.stopPropagation();
     const v = Math.max(0, Math.min(1, audio.volume + (e.deltaY < 0 ? 0.02 : -0.02)));
     audio = { ...audio, volume: v, muted: false };
@@ -101,8 +105,8 @@
   {/if}
 
   {#if p.volume}
-    <button class="ctl vol" onpointerdown={down} onwheel={wheelVolume} onclick={stop(() => audio && ipc.audioSetMute(!audio.muted))}
-            title={audio ? `Volume ${Math.round(audio.volume * 100)}% · scroll to change, click to mute` : 'Volume'} aria-label="Volume">
+    <button class="ctl vol" onpointerdown={down} onpointerenter={wc.enter} onwheel={wheelVolume} onclick={stop(() => audio && ipc.audioSetMute(!audio.muted))}
+            title={audio ? `Volume ${Math.round(audio.volume * 100)}% · ${settings.wheelVolume === false ? '' : 'scroll to change, '}click to mute` : 'Volume'} aria-label="Volume">
       <VolIcon size={14} />
     </button>
   {/if}
