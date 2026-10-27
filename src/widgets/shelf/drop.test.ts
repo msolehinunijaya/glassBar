@@ -30,7 +30,7 @@ describe('the shelf listens for drops where Tauri actually sends them', () => {
     expect(pill).not.toMatch(/from ['"]@tauri-apps\/api\/webview['"]/);
   });
 
-  it('is the only place that listens for drops, so there is one thing to get right', async () => {
+  it('every place that listens for drops uses the target Tauri really sends them to', async () => {
     const fs = await import(/* @vite-ignore */ fsMod);
     const hits: string[] = [];
     const walk = (dir: string) => {
@@ -42,6 +42,12 @@ describe('the shelf listens for drops where Tauri actually sends them', () => {
       }
     };
     walk('src');
-    expect(hits).toEqual(['src/widgets/shelf/Pill.svelte']);
+    // The shelf, and App Folders (its dock tiles and its open panel).
+    expect(hits.sort()).toEqual(['src/widgets/folders/FolderPanel.svelte', 'src/widgets/folders/Pill.svelte', 'src/widgets/shelf/Pill.svelte']);
+    for (const p of hits) {
+      const code = fs.readFileSync(p, 'utf8');
+      expect(code, p).toContain('getCurrentWebviewWindow');
+      expect(code, p).not.toMatch(/getCurrentWebview\s*\(/);
+    }
   });
 });
