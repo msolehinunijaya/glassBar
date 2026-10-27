@@ -39,6 +39,8 @@
   // Prayer time is only read when that trigger is on: it loads prayer times, which Rust
   // caches per zone, and nobody should pay for data they switched off.
   let prayerNow = $state(false);
+  /** The times list carries two markers that aren't prayers: sunrise, and the pre-dawn cut-off. */
+  const NOT_A_PRAYER = new Set(['Syuruk', 'Imsak']);
   $effect(() => {
     if (!on.prayer) { prayerNow = false; return; }
     let stop = false;
@@ -46,7 +48,8 @@
       if (stop || !i) return;
       const now = Date.now();
       // "Just now" is the 10 minutes after a prayer time came.
-      prayerNow = i.days.some((d) => d.times.some(([, at]) => now >= at && now - at <= 10 * 60_000));
+      prayerNow = i.days.some((d) => d.times.some(([name, at]) =>
+        !NOT_A_PRAYER.has(name) && now >= at && now - at <= 10 * 60_000));
     }).catch(() => {});
     look();
     const t = setInterval(look, 60_000);

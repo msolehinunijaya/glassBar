@@ -92,4 +92,14 @@
   .foot { font-size: 11px; line-height: 1.4; margin: 10px 2px 0; }
   .empty { text-align: center; padding: 34px 10px 24px; }
   .empty p { margin: 10px 0 14px; font-size: 12px; line-height: 1.5; }
+  /* The one thing to do in this view, so it is the primary button (DESIGN_RULES section 6).
+     There is no global .btn -- each panel styles its own. */
+  .empty .btn {
+    padding: 0 16px; height: 36px; font-size: 12px; font-weight: 500; cursor: pointer;
+    border-radius: var(--r-inner); background: var(--accent); color: #fff;
+    transition: filter 0.2s var(--ease), transform 0.2s var(--spring);
+  }
+  .empty .btn:hover { filter: brightness(1.08); }
+  .empty .btn:active { transform: scale(0.97); }
+  .empty .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 </style>

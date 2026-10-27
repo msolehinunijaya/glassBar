@@ -159,7 +159,16 @@
   .empty { text-align: center; padding: 60px 10px; }
   .chint { font-size: 11px; line-height: 1.4; margin: 6px 2px 0; }
   .chint code { font-size: 10.5px; padding: 0 3px; border-radius: calc(4px * var(--rs)); background: var(--pill); }
-  .lyrbtn { display: block; margin: 6px 0; }
+  /* Secondary, per DESIGN_RULES section 6: ghost, with a visible hover and focus ring.
+     There is no global .btn -- each panel styles its own. */
+  .lyrbtn {
+    display: block; margin: 7px 0; padding: 6px 12px; font-size: 12px; cursor: pointer;
+    border-radius: var(--r-inner); border: 1px solid var(--line); background: var(--pill); color: var(--fg);
+    transition: background 0.2s var(--ease);
+  }
+  .lyrbtn:hover { background: var(--pill-hover); }
+  .lyrbtn:active { transform: scale(0.97); }
+  .lyrbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .vlen { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-top: 6px; }
   .vlen input { flex: 1; }
   .vizrow { display: flex; justify-content: center; margin: 10px 0 2px; }
