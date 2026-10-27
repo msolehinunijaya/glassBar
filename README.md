@@ -25,6 +25,7 @@ The bar can dock to any edge or float. You can drag it, resize it, and edit it i
 - **Timer & Stopwatch:** presets, several timers at once, and laps.
 - **Screen Time:** today's usage, top apps, and a 7-day graph. It records only while the widget is on your bar.
 - **Notifications:** GlassBar's alert history and Do Not Disturb, plus a Windows tab that opens Windows Notification Center.
+- **File Shelf:** park up to 5 files by the dock and pick them up later. Drag them in (or use **+**), click to open, right-click for Show in folder / Open with, and drag one out into Explorer, a chat or an email to take it off the shelf. It holds paths only — your files are never moved, copied or deleted — and survives a restart. A file that's been moved or deleted since shows struck through rather than vanishing.
 - **Time Progress:** dot-grid cards for the month, day and year (52 week-dots for the year), with the percentage passed.
 
 **Location**

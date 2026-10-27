@@ -15,6 +15,7 @@ pub mod ocr_text;
 pub mod quick;
 pub mod screenshots;
 pub mod screentime;
+pub mod shelf;
 pub mod solat;
 pub mod sound;
 pub mod spectrum;

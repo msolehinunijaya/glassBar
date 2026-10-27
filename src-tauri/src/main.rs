@@ -217,6 +217,7 @@ fn main() {
             widgets::downloads::downloads_state, widgets::downloads::downloads_open, widgets::downloads::downloads_reveal,
             widgets::downloads::downloads_open_folder, widgets::downloads::downloads_open_with, widgets::downloads::downloads_rename,
             widgets::downloads::downloads_recycle, widgets::downloads::downloads_drag, widgets::downloads::file_icon,
+            widgets::shelf::shelf_drag, widgets::shelf::shelf_pick,
             widgets::downloads::recycle_info, widgets::downloads::recycle_empty,
             widgets::focus::sw_get, widgets::focus::sw_toggle, widgets::focus::sw_lap, widgets::focus::sw_reset,
             widgets::location::location_status, widgets::location::location_clear, widgets::location::location_open_map, widgets::location::location_search, widgets::weather::weather_get,
