@@ -4,13 +4,14 @@
   import { Copy, Trash2 } from '@lucide/svelte';
   import { profile, store, update } from '../lib/config.svelte';
   import { events, ipc, type Config } from '../lib/ipc';
+  import { ALERT_DEFAULTS, type DockAlertsCfg } from './dockAlert';
   import Updates from './Updates.svelte';
   import LocationSettings from './LocationSettings.svelte';
   import WidgetManager from './widgets/WidgetManager.svelte';
   import About from './About.svelte';
   import AppearanceSettings from './AppearanceSettings.svelte';
 
-  const sections = ['Bar', 'Appearance', 'Widgets', 'Location', 'Notifications', 'Sounds', 'Profiles', 'Startup', 'Updates', 'Backup', 'About'] as const;
+  const sections = ['Bar', 'Appearance', 'Widgets', 'Location', 'Notifications', 'Dock alerts', 'Sounds', 'Profiles', 'Startup', 'Updates', 'Backup', 'About'] as const;
   import { SOURCE_WIDGET } from '../lib/notify';
   const BANNER_SOURCES = [...Object.entries(SOURCE_WIDGET).map(([k, v]) => [k, v.label] as const), ['update', 'Updates'] as const];
   type Section = (typeof sections)[number];
@@ -188,6 +189,42 @@
         {/if}
       </div>
 
+    {:else if section === 'Dock alerts'}
+      {@const da = { ...ALERT_DEFAULTS, ...(c.dockAlerts ?? {}) }}
+      {@const setDa = (p: Partial<DockAlertsCfg>) => set((c) => (c.dockAlerts = { ...da, ...p }))}
+      <p class="hint">For a moment the whole dock shows one thing, then goes back to your widgets. Hover to keep it, click to dismiss. Not over full-screen apps, except prayer time. No notification.</p>
+      <div class="group">
+        {#each [
+          ['charger', 'Charger', 'The charge level when you plug the charger in or unplug it.'],
+          ['volume', 'Volume', 'When the volume changes outside GlassBar: keyboard keys, Windows or another app.'],
+          ['brightness', 'Brightness', "When the built-in screen's brightness changes outside GlassBar. External monitors don't report it. If Windows changes it by itself (auto brightness), you'll see that too."],
+          ['prayer', 'Prayer time', 'The prayer name and time when it begins (Waktu Solat widget, with its alerts on).'],
+        ] as const as [k, label, hint] (k)}
+          <div class="field"><span>{label}</span>
+            <span class="row"><button class="btn ghost" onclick={() => ipc.dockAlertTest(k)}>Test</button>
+            {#if k === 'charger'}
+              <input type="checkbox" aria-label={label} checked={c.chargerFlash} onchange={(e) => set((c) => (c.chargerFlash = e.currentTarget.checked))} />
+            {:else}
+              <input type="checkbox" aria-label={label} checked={da[k]} onchange={(e) => setDa({ [k]: e.currentTarget.checked })} />
+            {/if}</span>
+          </div>
+          <p class="hint">{hint}</p>
+        {/each}
+      </div>
+      <div class="group">
+        <label class="field"><span>Show when the dock is hidden</span>
+          <input type="checkbox" checked={da.reveal} onchange={(e) => setDa({ reveal: e.currentTarget.checked })} />
+        </label>
+        <p class="hint">With auto-hide on, the dock slides out for the alert and away again after.</p>
+        <div class="field"><span>How long</span>
+          <div class="seg">
+            {#each [['short', 'Short'], ['normal', 'Normal'], ['long', 'Long']] as const as [v, label] (v)}
+              <button class:sel={da.length === v} onclick={() => setDa({ length: v })}>{label}</button>
+            {/each}
+          </div>
+        </div>
+      </div>
+
     {:else if section === 'Sounds'}
       <div class="group">
         <label class="field"><span>Charger sounds (plugged in / unplugged)</span>
@@ -198,12 +235,6 @@
           <button class="btn" onclick={() => chargerTone(false, c.deviceSounds.volume)}>Unplugged</button></span>
         </div>
         <p class="hint">Plays only when the charger state really changes (Windows power events), never repeatedly while it stays plugged in.</p>
-      </div>
-      <div class="group">
-        <label class="field"><span>Show the charge level across the dock</span>
-          <input type="checkbox" checked={c.chargerFlash} onchange={(e) => set((c) => (c.chargerFlash = e.currentTarget.checked))} />
-        </label>
-        <p class="hint">When you plug the charger in or unplug it, the whole dock shows the charge level for a couple of seconds, then goes back to your widgets. No notification.</p>
       </div>
       <div class="group">
         <label class="field"><span>Sound when a USB device is connected</span>
@@ -268,6 +299,9 @@
   main { flex: 1; overflow: auto; padding: 18px 28px 40px; }
   /* Used by widget panels in every window too. */
   :global(.btn) { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: calc(9px * var(--rs)); background: var(--accent); color: var(--on-accent); }
+  .btn.ghost { background: var(--pill); color: var(--fg); padding: 5px 12px; }
+  .btn.ghost:hover { background: var(--pill-hover); }
+  .row { display: inline-flex; align-items: center; gap: 10px; }
   :global(.btn:disabled) { opacity: 0.5; }
   /* Shared by every section component (Location, About, widget manager…). */
   .settings :global {

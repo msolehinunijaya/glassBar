@@ -325,6 +325,56 @@ pub fn mouse_down() -> bool { shell().mouse_down() }
 #[tauri::command]
 pub fn menu_open() -> bool { shell().menu_open() }
 
+// ---- Dock alerts (app/dockAlert.ts draws them) ----
+
+/// A full-screen app (game, slideshow, video) is in front: dock alerts stay out of its way.
+static FULLSCREEN: AtomicBool = AtomicBool::new(false);
+pub fn set_fullscreen(on: bool) { FULLSCREEN.store(on, Ordering::Relaxed); }
+
+/// Pure: may a dock alert of this kind show now? Prayer time still shows over a full-screen app.
+pub fn alert_allowed(kind: &str, fullscreen: bool) -> bool { !fullscreen || kind == "prayer" }
+
+/// An alert is about to show for `ms`. False = don't (a full-screen app). Otherwise an
+/// auto-hidden dock slides out for it (when that setting is on) and stays out until then;
+/// the auto-hide loop slides it back once the pointer isn't on it.
+#[tauri::command]
+pub fn dock_alert_begin(app: AppHandle, kind: String, ms: u64) -> bool {
+    if !alert_allowed(&kind, FULLSCREEN.load(Ordering::Relaxed)) { return false; }
+    if app.state::<AppState>().config.lock().unwrap().dock_alerts.reveal {
+        HOLD_UNTIL.store(crate::db::now_ms() as u64 + ms.min(20_000), Ordering::Relaxed);
+        reveal(&app, true);
+    }
+    true
+}
+
+/// The alert is gone: let an auto-hidden dock slide away again.
+#[tauri::command]
+pub fn dock_alert_end() { HOLD_UNTIL.store(0, Ordering::Relaxed); }
+
+/// Settings › Dock alerts › Test: a sample of that kind (the charger with the real battery).
+/// Async: reading the brightness over DDC/CI is slow and must not block the main thread.
+#[tauri::command]
+pub async fn dock_alert_test(app: AppHandle, kind: String) {
+    let Ok(Some(p)) = crate::widgets::blocking(move || sample_alert(&kind)).await else { return };
+    let _ = app.emit_to("bar", "dock:alert", p);
+}
+
+fn sample_alert(kind: &str) -> Option<serde_json::Value> {
+    Some(match kind {
+        "charger" => {
+            let b = crate::platform::power().battery();
+            serde_json::json!({ "kind": "charger", "plugged": b.map(|b| b.on_ac).unwrap_or(true), "percent": b.map(|b| b.percent), "secsLeft": b.and_then(|b| b.secs_left) })
+        }
+        "volume" => {
+            let a = crate::platform::audio().state().ok();
+            serde_json::json!({ "kind": "volume", "percent": a.as_ref().map(|a| (a.volume * 100.0).round()).unwrap_or(50.0), "muted": a.is_some_and(|a| a.muted) })
+        }
+        "brightness" => serde_json::json!({ "kind": "brightness", "percent": crate::platform::display().brightness().unwrap_or(70) }),
+        "prayer" => serde_json::json!({ "kind": "prayer", "name": "Zohor", "at": crate::db::now_ms() }),
+        _ => return None,
+    })
+}
+
 /// Native blur only when it's on and Windows' Transparency effects are on; otherwise the
 /// page draws the glass tint itself (else the bar is solid black in any theme).
 fn glass_native(wanted: bool) -> bool { wanted && shell().transparency_effects() }
@@ -706,6 +756,14 @@ fn on_menu(app: &AppHandle, id: &str) {
 mod tests {
     use super::*;
     const MON: Rect = Rect { x: 0, y: 0, w: 1920, h: 1080 };
+
+    #[test]
+    fn dock_alerts_stay_out_of_full_screen_apps_except_prayer_time() {
+        assert!(alert_allowed("volume", false));
+        assert!(!alert_allowed("volume", true));
+        assert!(!alert_allowed("charger", true));
+        assert!(alert_allowed("prayer", true));
+    }
 
     #[test]
     fn bottom_bar_is_centered_and_reserves_full_strip() {

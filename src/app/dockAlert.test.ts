@@ -1,0 +1,55 @@
+import { describe, expect, it } from 'vitest';
+import { arrive, holdMs, viewOf } from './dockAlert';
+
+describe('arrive', () => {
+  it('shows anything on an empty dock', () => {
+    expect(arrive(null, 'volume')).toBe('show');
+  });
+  it('updates the same kind in place', () => {
+    expect(arrive('volume', 'volume')).toBe('update');
+    expect(arrive('charger', 'charger')).toBe('update');
+  });
+  it('lets a higher alert replace a lower one', () => {
+    expect(arrive('volume', 'charger')).toBe('show');
+    expect(arrive('charger', 'prayer')).toBe('show');
+  });
+  it('drops a lower alert instead of queueing it', () => {
+    expect(arrive('prayer', 'volume')).toBe('drop');
+    expect(arrive('charger', 'brightness')).toBe('drop');
+  });
+  it('volume and brightness replace each other', () => {
+    expect(arrive('volume', 'brightness')).toBe('show');
+    expect(arrive('brightness', 'volume')).toBe('show');
+  });
+});
+
+describe('holdMs', () => {
+  it('keeps the charger flash timing at the normal length', () => {
+    expect(holdMs('charger', 'normal')).toBe(2100);
+  });
+  it('waits longest for the prayer alert, which has a button', () => {
+    expect(holdMs('prayer', 'normal')).toBeGreaterThan(holdMs('charger', 'normal'));
+  });
+  it('scales with the length setting', () => {
+    expect(holdMs('volume', 'short')).toBeLessThan(holdMs('volume', 'normal'));
+    expect(holdMs('volume', 'long')).toBeGreaterThan(holdMs('volume', 'normal'));
+  });
+});
+
+describe('viewOf', () => {
+  it('reads the charger like the old flash did', () => {
+    const v = viewOf({ kind: 'charger', plugged: true, percent: 40, secsLeft: null });
+    expect(v).toMatchObject({ icon: 'plug', value: '40%', label: 'Charging', fill: 0.4 });
+  });
+  it('shows volume as a level, and Muted with an empty fill', () => {
+    expect(viewOf({ kind: 'volume', percent: 48, muted: false })).toMatchObject({ icon: 'volume', value: '48%', fill: 0.48 });
+    expect(viewOf({ kind: 'volume', percent: 48, muted: true })).toMatchObject({ icon: 'mute', value: 'Muted', fill: 0 });
+  });
+  it('clamps nonsense levels', () => {
+    expect(viewOf({ kind: 'brightness', percent: 140 }).value).toBe('100%');
+  });
+  it('names the prayer and its time, with no fill', () => {
+    const v = viewOf({ kind: 'prayer', name: 'Zohor', at: 0 }, () => '1:15 PM');
+    expect(v).toMatchObject({ icon: 'prayer', value: 'Zohor', label: '1:15 PM · prayer time', fill: null });
+  });
+});

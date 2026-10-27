@@ -2,10 +2,11 @@
   import { availableMonitors, getCurrentWindow, primaryMonitor } from '@tauri-apps/api/window';
   import { flip } from 'svelte/animate';
   import { onMount } from 'svelte';
-  import { Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Maximize2, Plus, PlugZap, Unplug, X } from '@lucide/svelte';
+  import { Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Maximize2, MoonStar, Plus, PlugZap, Sun, Unplug, Volume2, VolumeX, X } from '@lucide/svelte';
   import { profile, store, update } from '../lib/config.svelte';
-  import { events, ipc, type ChargerFlip, type WidgetInst, type WidgetSize } from '../lib/ipc';
-  import { FLASH, FLASH_MS, fillOf, flashText, flashTone } from './chargeFlash';
+  import { events, ipc, type WidgetInst, type WidgetSize } from '../lib/ipc';
+  import { FLASH } from './chargeFlash';
+  import { ALERT_DEFAULTS, arrive, holdMs, viewOf, type AlertKind, type DockAlert } from './dockAlert';
   import { hiddenCounts, insertIndex, snap } from '../lib/geometry';
   import { GALLERY, openPopup } from '../lib/popup';
   import { chargerTone, chime, deviceTone, playAdzan, shutter, tick } from '../lib/sound';
@@ -43,29 +44,58 @@
   function onEnter() { if (autoHide) ipc.barReveal(true); }
   $effect(() => { if (autoHide && edit) ipc.barReveal(true); });
 
-  // ---- Charger flash ----
-  // The charger moved, so the whole dock says the charge level for a moment. Rust decides
-  // whether it fires at all (a real plug change, and the setting on); here we only time it.
-  // Two timeouts own the schedule, never a transitionend: with motion off there is nothing
-  // to wait for. The widgets stay mounted and fade, because unmounting them mid-animation
-  // makes the leaving ones float over their neighbours (see the App Launcher's +N row).
-  let flash = $state<ChargerFlip | null>(null);
+  // ---- Dock alerts ----
+  // For a moment the whole dock says one thing: the charger moved, the volume or brightness
+  // changed from outside GlassBar, prayer time (rules and wording in dockAlert.ts). Rust
+  // decides whether an event fires at all; here we only gate on the settings and time it.
+  // Timeouts own the schedule, never a transitionend: with motion off there is nothing to
+  // wait for. The widgets stay mounted and fade, because unmounting them mid-animation makes
+  // the leaving ones float over their neighbours (see the App Launcher's +N row).
+  let alert = $state<DockAlert | null>(null);
+  /** Bumped by a new alert (not an update), so only a new one replays the entrance. */
+  let alertSeq = $state(0);
   let leaving = $state(false);
-  let flashTimers: ReturnType<typeof setTimeout>[] = [];
+  let alertTimers: ReturnType<typeof setTimeout>[] = [];
+  const alertCfg = $derived({ ...ALERT_DEFAULTS, ...(store.config?.dockAlerts ?? {}) });
+  const view = $derived(alert ? viewOf(alert) : null);
 
-  function showFlash(f: ChargerFlip) {
-    // The setting is checked here, not in Rust: the charger flip also drives the Companion's
-    // face, so gating the event itself would switch that off too.
-    if (store.config?.chargerFlash === false) return;
-    // Mid-drag it would sit under the floating copy and look broken; the dock is busy anyway.
-    if (dragId) return;
-    flashTimers.forEach(clearTimeout);
-    flash = f;
+  // The charger's switch is the older `chargerFlash`; the Companion also rides the charger
+  // event, so the switch is checked here rather than in Rust.
+  const enabled = (k: AlertKind) => (k === 'charger' ? store.config?.chargerFlash !== false : alertCfg[k] !== false);
+  const current = () => (alert && !leaving ? alert.kind : null);
+  function clearAlertTimers() { alertTimers.forEach(clearTimeout); alertTimers = []; }
+  function endAlert() {
+    clearAlertTimers();
+    alert = null;
     leaving = false;
-    flashTimers = [
-      setTimeout(() => (leaving = true), FLASH_MS - FLASH.exit),
-      setTimeout(() => (flash = null), FLASH_MS),
-    ];
+    ipc.dockAlertEnd().catch(() => {});
+  }
+  /** Stay readable for `ms`, then leave. */
+  function holdFor(ms: number) {
+    clearAlertTimers();
+    alertTimers = [setTimeout(() => (leaving = true), ms), setTimeout(endAlert, ms + FLASH.exit)];
+  }
+  async function showAlert(a: DockAlert) {
+    // Mid-drag it would sit under the floating copy and look broken; the dock is busy anyway.
+    if (!enabled(a.kind) || dragId || arrive(current(), a.kind) === 'drop') return;
+    const hold = holdMs(a.kind, alertCfg.length);
+    // Rust refuses over a full-screen app, and slides an auto-hidden dock out for the alert.
+    if (!(await ipc.dockAlertBegin(a.kind, FLASH.enter + hold + FLASH.exit).catch(() => true))) return;
+    const how = arrive(current(), a.kind); // again: another alert may have come in meanwhile
+    if (how === 'drop') return;
+    alert = a;
+    leaving = false;
+    if (how === 'show') alertSeq++;
+    holdFor((how === 'show' ? FLASH.enter : 0) + hold);
+  }
+  // Hovering holds it; moving away gives it a short moment more. A click dismisses it.
+  const pauseAlert = () => { if (alert && !leaving) clearAlertTimers(); };
+  const resumeAlert = () => { if (alert && !leaving) holdFor(1200); };
+  function dismissAlert() {
+    if (!alert || leaving) return;
+    clearAlertTimers();
+    leaving = true;
+    alertTimers = [setTimeout(endAlert, FLASH.exit)];
   }
 
   onMount(() => {
@@ -106,11 +136,12 @@
         }, 450); // after the scroll settles
       }),
       events.soundPlay((s) => (s.kind === 'azan' || s.kind === 'adhan' ? playAdzan(s.kind === 'azan' ? s.src : adhanUrl, !!s.short, !!s.pauseMusic, { pause: ipc.mediaPausePlaying, resume: ipc.mediaResume }, s.volume ?? 1) : s.kind === 'connect' || s.kind === 'disconnect' ? deviceTone(s.kind === 'connect', s.volume) : s.kind === 'plug' || s.kind === 'unplug' ? chargerTone(s.kind === 'plug', s.volume) : chime(s.volume))),
-      events.chargerFlip(showFlash),
+      events.chargerFlip((f) => showAlert({ kind: 'charger', ...f })),
+      events.dockAlert(showAlert),
     ];
     return () => {
       offs.forEach((p) => p.then((off) => off()));
-      flashTimers.forEach(clearTimeout);
+      clearAlertTimers();
     };
   });
 
@@ -359,7 +390,7 @@
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="surface bar dock" class:vertical class:edit class:flashing={!!flash} onpointerdown={onBarDown} oncontextmenu={onContext}
+<div class="surface bar dock" class:vertical class:edit class:flashing={!!alert} onpointerdown={onBarDown} oncontextmenu={onContext}
      oncontextmenucapture={() => ipc.popupHoverHide()}
      onpointerenter={onEnter} data-size={bar.size} data-side={bar.sideWidth ?? 'regular'}>
   <div class="handle start" onpointerdown={(e) => onHandleDown(e, -1)}></div>
@@ -405,18 +436,22 @@
   {/if}
   </div>
 
-  {#if flash}
-    {@const t = flashText(flash)}
-    <div class="flash" class:out={leaving} role="status"
-         style:--c={flashTone(flash.plugged, flash.percent)} style:--p={fillOf(flash.percent)}
-         style:--f-enter="{FLASH.enter}ms" style:--f-fill="{FLASH.fill}ms" style:--f-exit="{FLASH.exit}ms">
-      <div class="flash-fill"></div>
+  {#if alert && view}
+    {#key alertSeq}
+    <!-- Hovering holds it, a click dismisses it; buttons inside act without dismissing. -->
+    <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
+    <div class="flash" class:out={leaving} role="status" aria-live="polite"
+         style:--c={view.tone} style:--p={view.fill ?? 0}
+         style:--f-enter="{FLASH.enter}ms" style:--f-fill="{FLASH.fill}ms" style:--f-exit="{FLASH.exit}ms"
+         onpointerenter={pauseAlert} onpointerleave={resumeAlert} onpointerdown={(e) => e.stopPropagation()} onclick={dismissAlert}>
+      {#if view.fill !== null}<div class="flash-fill"></div>{/if}
       <div class="flash-body">
-        {#if flash.plugged}<PlugZap size={16} />{:else}<Unplug size={16} />{/if}
-        <strong>{t.pct}</strong>
-        <span class="flash-label">{t.label}</span>
+        {#if view.icon === 'plug'}<PlugZap size={16} />{:else if view.icon === 'unplug'}<Unplug size={16} />{:else if view.icon === 'volume'}<Volume2 size={16} />{:else if view.icon === 'mute'}<VolumeX size={16} />{:else if view.icon === 'sun'}<Sun size={16} />{:else}<MoonStar size={16} />{/if}
+        <strong>{view.value}</strong>
+        <span class="flash-label">{view.label}</span>
       </div>
     </div>
+    {/key}
   {/if}
 
   {#if ghost && dragId}
@@ -526,14 +561,14 @@
   .edit .slot { animation: jiggle 0.28s ease-in-out infinite; }
   .edit .slot:nth-child(2n) { animation-delay: -0.14s; }
 
-  /* ---- Charger flash ----
-     The charge level across the whole dock for a moment after the charger moves. Every rule
+  /* ---- Dock alerts (the charger flash and its siblings) ----
+     One thing across the whole dock for a moment (dockAlert.ts). Every rule
      declares its resting state and animates *from* somewhere else, so with motion turned off
      (which drops every animation) the flash still draws correctly — it appears instead of
      growing. Durations come from chargeFlash.ts, so the CSS and the timeouts can't drift. */
   .flashing .slot, .flashing .empty { opacity: 0; pointer-events: none; }
   .flash {
-    position: absolute; inset: 0; z-index: 4; pointer-events: none;
+    position: absolute; inset: 0; z-index: 4; cursor: default;
     display: grid; place-items: center;
     border-radius: var(--r-window); overflow: hidden;
     background: color-mix(in srgb, var(--c) 8%, transparent);
@@ -550,6 +585,8 @@
     transform-origin: left; transform: scaleX(var(--p));
     background: linear-gradient(90deg, color-mix(in srgb, var(--c) 45%, transparent), color-mix(in srgb, var(--c) 22%, transparent));
     animation: flash-sweep var(--f-fill) var(--ease) var(--f-enter) backwards;
+    /* An update in place (volume-up again) slides the level instead of replaying the sweep. */
+    transition: transform 0.3s var(--ease);
   }
   @keyframes flash-sweep { from { transform: scaleX(0); } }
   .vertical .flash-fill {

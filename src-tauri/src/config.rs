@@ -218,6 +218,8 @@ pub struct Config {
     /// dock. Dock chrome, not an alert: it only says what the user just did with a cable, so
     /// Do Not Disturb leaves it alone. On by default; this is its only switch.
     pub charger_flash: bool,
+    /// The dock briefly shows the volume, brightness or prayer time (app/dockAlert.ts).
+    pub dock_alerts: DockAlerts,
     /// Pop-up banners next to the dock for GlassBar's own notifications.
     pub banners: Banners,
 }
@@ -230,6 +232,15 @@ pub struct Config {
 pub struct Banners { pub show: bool, pub seconds: u32, pub position: String, pub on_click: String, pub muted: Vec<String>, pub sound: bool }
 impl Default for Banners {
     fn default() -> Self { Self { show: true, seconds: 5, position: "auto".into(), on_click: "highlight".into(), muted: vec![], sound: true } }
+}
+
+/// Which dock alerts show (the charger's switch is `charger_flash`), whether an auto-hidden
+/// dock slides out for one, and how long they stay: "short" | "normal" | "long".
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase", default)]
+pub struct DockAlerts { pub volume: bool, pub brightness: bool, pub prayer: bool, pub reveal: bool, pub length: String }
+impl Default for DockAlerts {
+    fn default() -> Self { Self { volume: true, brightness: true, prayer: true, reveal: true, length: "normal".into() } }
 }
 
 /// Sounds when a USB device is plugged in / removed. Off by default: Windows plays its own.
@@ -250,7 +261,7 @@ impl Default for Config {
                profiles: BTreeMap::from([("Default".into(), Profile::default())]),
                theme: Theme::default(), startup: Startup::default(),
                dnd: false, location: LocationCfg::default(), device_sounds: DeviceSounds::default(),
-               charger_flash: true, banners: Banners::default() }
+               charger_flash: true, dock_alerts: DockAlerts::default(), banners: Banners::default() }
     }
 }
 
@@ -524,6 +535,16 @@ mod tests {
         // And an explicit `false` is still honoured.
         let off: Config = serde_json::from_value(serde_json::json!({ "chargerFlash": false })).unwrap();
         assert!(!off.charger_flash);
+    }
+
+    #[test]
+    fn dock_alerts_are_on_for_configs_written_before_they_existed() {
+        let old: Config = serde_json::from_value(serde_json::json!({ "version": 11 })).unwrap();
+        assert_eq!(old.dock_alerts, DockAlerts::default());
+        assert!(old.dock_alerts.volume && old.dock_alerts.reveal);
+        // A half-written block keeps the rest at their defaults.
+        let some: Config = serde_json::from_value(serde_json::json!({ "dockAlerts": { "volume": false } })).unwrap();
+        assert!(!some.dock_alerts.volume && some.dock_alerts.prayer && some.dock_alerts.length == "normal");
     }
 
     #[test]

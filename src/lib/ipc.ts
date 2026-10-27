@@ -36,6 +36,8 @@ export interface Config {
   dnd: boolean; location: LocationCfg; deviceSounds: { connect: boolean; disconnect: boolean; charger: boolean; volume: number };
   /** Show the charge level across the whole dock when the charger is plugged in or unplugged. */
   chargerFlash: boolean;
+  /** Settings › Dock alerts (see app/dockAlert.ts). */
+  dockAlerts: import('../app/dockAlert').DockAlertsCfg;
   banners: Banners;
 }
 /** A real charger plug/unplug. `percent` is null on a PC with no battery. */
@@ -148,6 +150,12 @@ export const ipc = {
   popupHoverHide: () => invoke<void>('popup_hover_hide'),
   /** A popup menu (ours or another app's, e.g. a tray icon's) is on screen. */
   menuOpen: () => invoke<boolean>('menu_open'),
+  /** A dock alert is about to show for `ms`: false over a full-screen app; slides an
+   *  auto-hidden dock out for it when that setting is on. */
+  dockAlertBegin: (kind: string, ms: number) => invoke<boolean>('dock_alert_begin', { kind, ms }),
+  dockAlertEnd: () => invoke<void>('dock_alert_end'),
+  /** Settings › Dock alerts › Test: show a sample alert of this kind on the dock. */
+  dockAlertTest: (kind: string) => invoke<void>('dock_alert_test', { kind }),
   bannerFit: (width: number, height: number) => invoke<void>('banner_fit', { width, height }),
   bannerHide: () => invoke<void>('banner_hide'),
   jumpTo: (source: string, data: unknown) => invoke<void>('jump_to', { source, data }),
@@ -339,6 +347,7 @@ export const events = {
   sysmonSample: (cb: (s: Sample) => void) => listen<Sample>('sysmon:sample', (e) => cb(e.payload)),
   soundPlay: (cb: (s: Sound) => void) => listen<Sound>('sound:play', (e) => cb(e.payload)),
   chargerFlip: (cb: (f: ChargerFlip) => void) => listen<ChargerFlip>('charger:flip', (e) => cb(e.payload)),
+  dockAlert: (cb: (a: import('../app/dockAlert').DockAlert) => void) => listen<import('../app/dockAlert').DockAlert>('dock:alert', (e) => cb(e.payload)),
   shelfDropped: (cb: (d: { instance: string; paths: string[] }) => void) =>
     listen<{ instance: string; paths: string[] }>('shelf:dropped', (e) => cb(e.payload)),
   /** Any "<name>:changed" event from Rust (todos, notes, timers, ...). */
