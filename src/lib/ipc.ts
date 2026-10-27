@@ -34,8 +34,12 @@ export interface Config {
   version: number; activeProfile: string; profiles: Record<string, Profile>;
   theme: Theme; startup: { launchAtLogin: boolean };
   dnd: boolean; location: LocationCfg; deviceSounds: { connect: boolean; disconnect: boolean; charger: boolean; volume: number };
+  /** Show the charge level across the whole dock when the charger is plugged in or unplugged. */
+  chargerFlash: boolean;
   banners: Banners;
 }
+/** A real charger plug/unplug. `percent` is null on a PC with no battery. */
+export interface ChargerFlip { plugged: boolean; percent: number | null; secsLeft: number | null }
 
 export interface Alert { id: number; source: string; title: string; body: string; at: number; missed: boolean; read: boolean; data: unknown }
 /** Pop-up banners: on/off, seconds shown, next to the dock or in the corner, what a click
@@ -317,6 +321,7 @@ export const events = {
   settingsSection: (cb: (s: string) => void) => listen<string>('settings:section', (e) => cb(e.payload)),
   sysmonSample: (cb: (s: Sample) => void) => listen<Sample>('sysmon:sample', (e) => cb(e.payload)),
   soundPlay: (cb: (s: Sound) => void) => listen<Sound>('sound:play', (e) => cb(e.payload)),
+  chargerFlip: (cb: (f: ChargerFlip) => void) => listen<ChargerFlip>('charger:flip', (e) => cb(e.payload)),
   /** Any "<name>:changed" event from Rust (todos, notes, timers, ...). */
   changed: (name: string, cb: () => void) => listen(`${name}:changed`, () => cb()),
 };

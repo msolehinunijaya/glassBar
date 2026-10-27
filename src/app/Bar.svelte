@@ -2,9 +2,10 @@
   import { availableMonitors, getCurrentWindow, primaryMonitor } from '@tauri-apps/api/window';
   import { flip } from 'svelte/animate';
   import { onMount } from 'svelte';
-  import { Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Maximize2, Plus, X } from '@lucide/svelte';
+  import { Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Maximize2, Plus, PlugZap, Unplug, X } from '@lucide/svelte';
   import { profile, store, update } from '../lib/config.svelte';
-  import { events, ipc, type WidgetInst, type WidgetSize } from '../lib/ipc';
+  import { events, ipc, type ChargerFlip, type WidgetInst, type WidgetSize } from '../lib/ipc';
+  import { FLASH, FLASH_MS, fillOf, flashText, flashTone } from './chargeFlash';
   import { hiddenCounts, insertIndex, snap } from '../lib/geometry';
   import { GALLERY, openPopup } from '../lib/popup';
   import { chargerTone, chime, deviceTone, playAdzan, shutter, tick } from '../lib/sound';
@@ -41,6 +42,28 @@
   const setBar = (f: (b: typeof bar) => void) => update((c) => f(c.profiles[c.activeProfile].bar));
   function onEnter() { if (autoHide) ipc.barReveal(true); }
   $effect(() => { if (autoHide && edit) ipc.barReveal(true); });
+
+  // ---- Charger flash ----
+  // The charger moved, so the whole dock says the charge level for a moment. Rust decides
+  // whether it fires at all (a real plug change, and the setting on); here we only time it.
+  // Two timeouts own the schedule, never a transitionend: with motion off there is nothing
+  // to wait for. The widgets stay mounted and fade, because unmounting them mid-animation
+  // makes the leaving ones float over their neighbours (see the App Launcher's +N row).
+  let flash = $state<ChargerFlip | null>(null);
+  let leaving = $state(false);
+  let flashTimers: ReturnType<typeof setTimeout>[] = [];
+
+  function showFlash(f: ChargerFlip) {
+    // Mid-drag it would sit under the floating copy and look broken; the dock is busy anyway.
+    if (dragId) return;
+    flashTimers.forEach(clearTimeout);
+    flash = f;
+    leaving = false;
+    flashTimers = [
+      setTimeout(() => (leaving = true), FLASH_MS - FLASH.exit),
+      setTimeout(() => (flash = null), FLASH_MS),
+    ];
+  }
 
   onMount(() => {
     const offs = [
@@ -80,8 +103,12 @@
         }, 450); // after the scroll settles
       }),
       events.soundPlay((s) => (s.kind === 'azan' || s.kind === 'adhan' ? playAdzan(s.kind === 'azan' ? s.src : adhanUrl, !!s.short, !!s.pauseMusic, { pause: ipc.mediaPausePlaying, resume: ipc.mediaResume }, s.volume ?? 1) : s.kind === 'connect' || s.kind === 'disconnect' ? deviceTone(s.kind === 'connect', s.volume) : s.kind === 'plug' || s.kind === 'unplug' ? chargerTone(s.kind === 'plug', s.volume) : chime(s.volume))),
+      events.chargerFlip(showFlash),
     ];
-    return () => offs.forEach((p) => p.then((off) => off()));
+    return () => {
+      offs.forEach((p) => p.then((off) => off()));
+      flashTimers.forEach(clearTimeout);
+    };
   });
 
   // ---- Move: drag the bar background, snap to an edge on release ----
@@ -329,7 +356,7 @@
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="surface bar dock" class:vertical class:edit onpointerdown={onBarDown} oncontextmenu={onContext}
+<div class="surface bar dock" class:vertical class:edit class:flashing={!!flash} onpointerdown={onBarDown} oncontextmenu={onContext}
      onpointerenter={onEnter} data-size={bar.size} data-side={bar.sideWidth ?? 'regular'}>
   <div class="handle start" onpointerdown={(e) => onHandleDown(e, -1)}></div>
 
@@ -373,6 +400,20 @@
     </button>
   {/if}
   </div>
+
+  {#if flash}
+    {@const t = flashText(flash)}
+    <div class="flash" class:out={leaving} role="status"
+         style:--c={flashTone(flash.plugged, flash.percent)} style:--p={fillOf(flash.percent)}
+         style:--f-enter="{FLASH.enter}ms" style:--f-fill="{FLASH.fill}ms" style:--f-exit="{FLASH.exit}ms">
+      <div class="flash-fill"></div>
+      <div class="flash-body">
+        {#if flash.plugged}<PlugZap size={16} />{:else}<Unplug size={16} />{/if}
+        <strong>{t.pct}</strong>
+        <span class="flash-label">{t.label}</span>
+      </div>
+    </div>
+  {/if}
 
   {#if ghost && dragId}
     {@const w = placed.find((x) => x.instance === dragId)}
@@ -480,6 +521,49 @@
   /* Slot and left/right column rules are shared with the Settings preview: glass.css (.dock). */
   .edit .slot { animation: jiggle 0.28s ease-in-out infinite; }
   .edit .slot:nth-child(2n) { animation-delay: -0.14s; }
+
+  /* ---- Charger flash ----
+     The charge level across the whole dock for a moment after the charger moves. Every rule
+     declares its resting state and animates *from* somewhere else, so with motion turned off
+     (which drops every animation) the flash still draws correctly — it appears instead of
+     growing. Durations come from chargeFlash.ts, so the CSS and the timeouts can't drift. */
+  .flashing .slot, .flashing .empty { opacity: 0; pointer-events: none; }
+  .flash {
+    position: absolute; inset: 0; z-index: 4; pointer-events: none;
+    display: grid; place-items: center;
+    border-radius: var(--r-window); overflow: hidden;
+    background: color-mix(in srgb, var(--c) 8%, transparent);
+    animation: flash-in var(--f-enter) var(--ease);
+  }
+  @keyframes flash-in { from { opacity: 0; transform: scale(0.96); } }
+  .flash.out { animation: flash-out var(--f-exit) var(--ease) forwards; }
+  @keyframes flash-out { to { opacity: 0; } }
+
+  /* The level itself, sweeping in from the leading edge. Transform only, so it stays on the
+     GPU compositor and never reflows the dock. */
+  .flash-fill {
+    position: absolute; inset: 0;
+    transform-origin: left; transform: scaleX(var(--p));
+    background: linear-gradient(90deg, color-mix(in srgb, var(--c) 45%, transparent), color-mix(in srgb, var(--c) 22%, transparent));
+    animation: flash-sweep var(--f-fill) var(--ease) var(--f-enter) backwards;
+  }
+  @keyframes flash-sweep { from { transform: scaleX(0); } }
+  .vertical .flash-fill {
+    transform-origin: bottom; transform: scaleY(var(--p));
+    background: linear-gradient(0deg, color-mix(in srgb, var(--c) 45%, transparent), color-mix(in srgb, var(--c) 22%, transparent));
+    animation-name: flash-sweep-v;
+  }
+  @keyframes flash-sweep-v { from { transform: scaleY(0); } }
+
+  .flash-body { position: relative; display: flex; align-items: center; gap: 8px; min-width: 0; padding: 0 12px; color: var(--fg); }
+  .flash-body :global(svg) { color: var(--c); flex: none; }
+  .flash-body strong { font-size: 20px; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; }
+  .flash-label { font-size: 11px; color: var(--fg-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bar[data-size='compact'] .flash-body strong { font-size: 16px; }
+  .bar[data-size='compact'] .flash-label { font-size: 10px; }
+  /* A side dock is 56-96 px wide: icon and number only, no label to cut off. */
+  .vertical .flash-body { flex-direction: column; gap: 2px; padding: 0 4px; }
+  .vertical .flash-label { display: none; }
 
   .badge {
     position: absolute;

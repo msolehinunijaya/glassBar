@@ -200,6 +200,12 @@
         <p class="hint">Plays only when the charger state really changes (Windows power events), never repeatedly while it stays plugged in.</p>
       </div>
       <div class="group">
+        <label class="field"><span>Show the charge level across the dock</span>
+          <input type="checkbox" checked={c.chargerFlash} onchange={(e) => set((c) => (c.chargerFlash = e.currentTarget.checked))} />
+        </label>
+        <p class="hint">When you plug the charger in or unplug it, the whole dock shows the charge level for a couple of seconds, then goes back to your widgets. No notification.</p>
+      </div>
+      <div class="group">
         <label class="field"><span>Sound when a USB device is connected</span>
           <input type="checkbox" checked={c.deviceSounds.connect} onchange={(e) => set((c) => (c.deviceSounds.connect = e.currentTarget.checked))} />
         </label>

@@ -214,6 +214,10 @@ pub struct Config {
     pub dnd: bool,
     pub location: LocationCfg,
     pub device_sounds: DeviceSounds,
+    /// Plugging in or unplugging the charger briefly shows the charge level across the whole
+    /// dock. Dock chrome, not an alert: it only says what the user just did with a cable, so
+    /// Do Not Disturb leaves it alone. On by default; this is its only switch.
+    pub charger_flash: bool,
     /// Pop-up banners next to the dock for GlassBar's own notifications.
     pub banners: Banners,
 }
@@ -245,7 +249,8 @@ impl Default for Config {
         Self { version: CURRENT_VERSION, active_profile: "Default".into(),
                profiles: BTreeMap::from([("Default".into(), Profile::default())]),
                theme: Theme::default(), startup: Startup::default(),
-               dnd: false, location: LocationCfg::default(), device_sounds: DeviceSounds::default(), banners: Banners::default() }
+               dnd: false, location: LocationCfg::default(), device_sounds: DeviceSounds::default(),
+               charger_flash: true, banners: Banners::default() }
     }
 }
 
@@ -508,6 +513,17 @@ mod tests {
         let bad: Config = serde_json::from_value(serde_json::json!({ "location": { "mode": "x", "lat": 95.0, "lon": 0.0 } })).unwrap();
         let bad = bad.normalized().location;
         assert_eq!((bad.mode.as_str(), bad.lat), ("auto", None));
+    }
+
+    #[test]
+    fn the_charger_flash_is_on_for_configs_written_before_it_existed() {
+        // An upgrade must not turn it off: the container-level serde `default` fills a missing
+        // key from Config::default(), not from bool::default(), which would be false.
+        let old: Config = serde_json::from_value(serde_json::json!({ "version": 11 })).unwrap();
+        assert!(old.charger_flash);
+        // And an explicit `false` is still honoured.
+        let off: Config = serde_json::from_value(serde_json::json!({ "chargerFlash": false })).unwrap();
+        assert!(!off.charger_flash);
     }
 
     #[test]
