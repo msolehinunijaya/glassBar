@@ -6,6 +6,7 @@ mod files;
 mod gpu;
 mod hotspot;
 mod lang;
+mod osd;
 mod power;
 mod packages;
 mod powermode;
@@ -162,6 +163,9 @@ impl Shell for WinShell {
     fn set_starts_with_windows(&self, on: bool) { appbar::KEEP_ON_RESTART.store(on, std::sync::atomic::Ordering::Relaxed) }
     fn list_windows(&self) -> Vec<AppWindow> { windows_list::list() }
     fn watch_windows(&self, f: Box<dyn Fn() + Send>) { windows_list::watch(f) }
+    fn windows_osd(&self, hide: bool) { osd::set(hide) }
+    fn windows_osd_nudge(&self) { osd::nudge() }
+    fn windows_osd_restore(&self) { osd::restore_now() }
     fn activate(&self, id: isize) { windows_list::activate(id) }
     fn close(&self, id: isize) { windows_list::close(id) }
     fn launch(&self, path: &str, args: &str) -> Res<()> { windows_list::launch(path, args) }

@@ -162,6 +162,12 @@ pub trait Shell: Send + Sync {
     fn list_windows(&self) -> Vec<AppWindow>;
     /// Calls `on_change` (debounced) whenever top-level windows change.
     fn watch_windows(&self, on_change: Box<dyn Fn() + Send>);
+    /// Hide (or stop hiding) Windows' own volume / brightness pop-up (windows/osd.rs).
+    fn windows_osd(&self, _hide: bool) {}
+    /// The volume or brightness just changed: catch Windows' pop-up as it appears.
+    fn windows_osd_nudge(&self) {}
+    /// Closing: give Windows its pop-up back now.
+    fn windows_osd_restore(&self) {}
     /// Focus, restore, or minimize if it is already the active window.
     fn activate(&self, id: isize);
     fn close(&self, id: isize);

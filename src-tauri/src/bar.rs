@@ -242,6 +242,7 @@ pub fn apply_later(app: &AppHandle, after_s: &[u64]) {
 
 /// Undo everything that outlives the process: reserved space and hidden taskbar.
 pub fn cleanup(_app: &AppHandle) {
+    shell().windows_osd_restore();
     crate::platform::tray().stop();
     shell().appbar_remove();
     shell().set_taskbar(TaskbarMode::Show);
@@ -326,6 +327,14 @@ pub fn mouse_down() -> bool { shell().mouse_down() }
 
 #[tauri::command]
 pub fn menu_open() -> bool { shell().menu_open() }
+
+/// Windows' own volume / brightness pop-up is hidden while the setting is on and GlassBar
+/// shows at least one of those alerts itself -- never leaving the user with neither.
+pub fn osd_wanted(a: &crate::config::DockAlerts) -> bool { a.hide_windows_osd && (a.volume || a.brightness) }
+pub fn sync_osd(app: &AppHandle) {
+    let on = osd_wanted(&app.state::<AppState>().config.lock().unwrap().dock_alerts);
+    shell().windows_osd(on);
+}
 
 /// Close GlassBar from the dock's right-click menu: the same clean exit as the tray's Quit
 /// (the reserved screen space and the Windows taskbar are given back).
@@ -807,6 +816,15 @@ fn on_menu(app: &AppHandle, id: &str) {
 mod tests {
     use super::*;
     const MON: Rect = Rect { x: 0, y: 0, w: 1920, h: 1080 };
+
+    #[test]
+    fn windows_popup_is_hidden_only_while_glassbar_shows_volume_or_brightness() {
+        let d = crate::config::DockAlerts::default();
+        assert!(osd_wanted(&d));
+        assert!(!osd_wanted(&crate::config::DockAlerts { volume: false, brightness: false, ..d.clone() }), "never neither");
+        assert!(osd_wanted(&crate::config::DockAlerts { volume: false, ..d.clone() }));
+        assert!(!osd_wanted(&crate::config::DockAlerts { hide_windows_osd: false, ..d }));
+    }
 
     #[test]
     fn dock_alerts_stay_out_of_full_screen_apps_except_prayer_time() {

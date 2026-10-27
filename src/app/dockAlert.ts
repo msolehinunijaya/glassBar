@@ -17,8 +17,10 @@ export type AlertKind = DockAlert['kind'];
 export type AlertLength = 'short' | 'normal' | 'long';
 
 /** Settings › Dock alerts. The charger has its own older switch, `chargerFlash`. */
-export interface DockAlertsCfg { volume: boolean; brightness: boolean; prayer: boolean; water: boolean; reveal: boolean; length: AlertLength }
-export const ALERT_DEFAULTS: DockAlertsCfg = { volume: true, brightness: true, prayer: true, water: true, reveal: true, length: 'normal' };
+export interface DockAlertsCfg { volume: boolean; brightness: boolean; prayer: boolean; water: boolean; reveal: boolean; length: AlertLength;
+  /** Hide Windows' own volume / brightness pop-up while GlassBar shows its own. */
+  hideWindowsOsd: boolean }
+export const ALERT_DEFAULTS: DockAlertsCfg = { volume: true, brightness: true, prayer: true, water: true, reveal: true, length: 'normal', hideWindowsOsd: true };
 
 /** Higher wins. Volume and brightness share a rank: the newer one is the one being changed. */
 const RANK: Record<AlertKind, number> = { prayer: 4, water: 3, charger: 2, volume: 1, brightness: 1 };

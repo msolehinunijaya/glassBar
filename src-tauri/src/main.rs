@@ -44,6 +44,7 @@ pub fn commit(app: &AppHandle, cfg: Config) -> Result<(), String> {
     config::save(&st.path, &cfg).map_err(|e| e.to_string())?;
     *st.config.lock().unwrap() = cfg.clone();
     bar::apply(app);
+    bar::sync_osd(app);
     bar::refresh_tray(app);
     widgets::ocr::register_hotkey(app);
     widgets::quick::sync_tray(app);
@@ -159,6 +160,7 @@ fn main() {
             widgets::ocr::register_hotkey(h);
             bar::watch_autohide(h);
             bar::watch_hover_panel(h);
+            bar::sync_osd(h);
             backdrop::watch(h);
             widgets::sound::charger_init();
             widgets::screenshots::prune(h);

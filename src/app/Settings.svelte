@@ -223,6 +223,10 @@
         {/each}
       </div>
       <div class="group">
+        <label class="field"><span>Hide Windows' own volume and brightness pop-up</span>
+          <input type="checkbox" checked={da.hideWindowsOsd} disabled={!da.volume && !da.brightness} onchange={(e) => setDa({ hideWindowsOsd: e.currentTarget.checked })} />
+        </label>
+        <p class="hint">So only GlassBar's shows, not both. Works while the Volume or Brightness alert above is on; Windows' pop-up comes back when you close GlassBar. Right after GlassBar starts, the very first one may still flash once. It also hides Windows' media pop-up (play/pause keys).</p>
         <label class="field"><span>Show when the dock is hidden</span>
           <input type="checkbox" checked={da.reveal} onchange={(e) => setDa({ reveal: e.currentTarget.checked })} />
         </label>
