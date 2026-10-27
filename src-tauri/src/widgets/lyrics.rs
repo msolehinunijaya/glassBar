@@ -288,7 +288,9 @@ fn get(app: &AppHandle, title: &str, artist: &str, album: &str, duration_ms: i64
             r
         }
         // Offline: show whatever was cached and don't remember the failure.
-        Err(_) => cached.unwrap_or_else(none),
+        // "offline" (not "none"): the page asks again in a little while. LRCLIB answers 503 now
+        // and then; without this a passing error lost the lyrics for the whole song.
+        Err(_) => cached.unwrap_or_else(|| Lyrics { source: "offline".into(), ..none() }),
     }
 }
 

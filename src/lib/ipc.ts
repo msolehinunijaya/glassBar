@@ -47,7 +47,8 @@ export interface ChargerFlip { plugged: boolean; percent: number | null; secsLef
 /** One timed lyric line. `text` is empty for a gap between verses. */
 export interface LyricLine { atMs: number; text: string }
 /** Synced lyrics for a track. `lines` empty = this track has none. */
-export interface Lyrics { lines: LyricLine[]; source: 'local' | 'lrclib' | 'none'; fetchedAt: number }
+/** source 'offline': LRCLIB couldn't be reached (asked again shortly), not 'this song has none'. */
+export interface Lyrics { lines: LyricLine[]; source: 'local' | 'lrclib' | 'none' | 'offline'; fetchedAt: number }
 
 export interface Alert { id: number; source: string; title: string; body: string; at: number; missed: boolean; read: boolean; data: unknown }
 /** Pop-up banners: on/off, seconds shown, next to the dock or in the corner, what a click

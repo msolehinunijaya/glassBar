@@ -11,6 +11,7 @@ export function liveLyrics(media: { m: MediaInfo | null }, on: () => boolean, lo
   let got = $state<Lyrics | null>(null);
   let want = ''; // the track the latest request was for; a late reply for another is dropped
 
+  let retry: ReturnType<typeof setTimeout> | undefined;
   $effect(() => {
     const m = media.m;
     // The lookup switch is part of the key, so turning it on asks again straight away instead
@@ -22,12 +23,23 @@ export function liveLyrics(media: { m: MediaInfo | null }, on: () => boolean, lo
     const key = on() && m?.title ? `${m.artist}\u0000${m.title}\u0000${use}\u0000${Math.round((m.durationMs || 0) / 1000)}` : '';
     if (key === want) return;
     want = key;
+    clearTimeout(retry);
     got = null;
     if (!key || !m) return;
-    ipc.lyricsGet(m.title, m.artist, m.album, m.durationMs, use)
-      .then((l) => { if (want === key) got = l; })
+    // LRCLIB couldn't be reached: try again after 5 s, 15 s, 30 s, then every minute, for as
+    // long as this song plays (a new song or turning lyrics off changes `want` and stops it).
+    const delays = [5_000, 15_000, 30_000];
+    let tries = 0;
+    const ask = () => ipc.lyricsGet(m.title, m.artist, m.album, m.durationMs, use)
+      .then((l) => {
+        if (want !== key) return;
+        got = l;
+        if (l.source === 'offline') retry = setTimeout(() => { if (want === key) ask(); }, delays[tries++] ?? 60_000);
+      })
       .catch(() => {});
+    ask();
   });
+  $effect(() => () => clearTimeout(retry));
 
   return {
     get v() { return got; },
