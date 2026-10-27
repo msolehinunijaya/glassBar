@@ -16,7 +16,10 @@ export function liveLyrics(media: { m: MediaInfo | null }, on: () => boolean, lo
     // The lookup switch is part of the key, so turning it on asks again straight away instead
     // of waiting for the next song.
     const use = lookup();
-    const key = on() && m?.title ? `${m.artist}\u0000${m.title}\u0000${use}` : '';
+    // The length is in the key too: at a track change a player can report the previous song's
+    // length for a moment, and Rust doesn't remember a miss caused by a length that disagrees,
+    // so asking again with the real length finds them.
+    const key = on() && m?.title ? `${m.artist}\u0000${m.title}\u0000${use}\u0000${Math.round((m.durationMs || 0) / 1000)}` : '';
     if (key === want) return;
     want = key;
     got = null;

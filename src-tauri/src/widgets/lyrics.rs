@@ -132,8 +132,44 @@ fn local(artist: &str, title: &str) -> Option<Vec<LyricLine>> {
 
 /// Keyed on artist and title only: the same song has the same lyrics whichever album or
 /// release it came from, and the reported duration can differ by a second between players.
+///
+/// "lyrics2": misses saved under the old, 2-second length rule are not trusted any more.
 pub fn cache_key(artist: &str, title: &str) -> String {
-    format!("lyrics:{}|{}", artist.trim().to_lowercase(), title.trim().to_lowercase())
+    format!("lyrics2:{}|{}", artist.trim().to_lowercase(), title.trim().to_lowercase())
+}
+
+/// Browser players report a video's title and its channel: "Song (Official Video)" by
+/// "ArtistVEVO", or "Artist - Song" by "Artist - Topic". The song and the singer, as LRCLIB
+/// knows them; unchanged when there is nothing to clean.
+pub fn clean(artist: &str, title: &str) -> (String, String) {
+    const NOISE: [&str; 9] = ["official", "lyric", "audio", "video", "visuali", " mv", "hd", "4k", "music"];
+    let mut a = artist.trim().to_string();
+    for suffix in [" - Topic", "VEVO", " Official"] {
+        if a.len() > suffix.len() && a.to_lowercase().ends_with(&suffix.to_lowercase()) { a.truncate(a.len() - suffix.len()); }
+    }
+    let a = a.trim().to_string();
+    // Drop bracketed parts that only describe the upload: (Official Video), [Lyrics], (HD).
+    let mut t = String::new();
+    let mut rest = title;
+    while let Some(i) = rest.find(['(', '[']) {
+        let close = if rest[i..].starts_with('(') { ')' } else { ']' };
+        let Some(j) = rest[i..].find(close) else { break };
+        let inside = rest[i + 1..i + j].to_lowercase();
+        t.push_str(&rest[..i]);
+        if !NOISE.iter().any(|n| inside.contains(n)) { t.push_str(&rest[i..=i + j]); }
+        rest = &rest[i + j + 1..];
+    }
+    t.push_str(rest);
+    let mut t = t.split_whitespace().collect::<Vec<_>>().join(" ");
+    // "Artist - Song" with the artist in the title too.
+    if let Some((left, right)) = t.split_once(" - ") {
+        if left.trim().eq_ignore_ascii_case(&a) || a.is_empty() {
+            let (l, r) = (left.trim().to_string(), right.trim().to_string());
+            return (if a.is_empty() { l } else { a }, r);
+        }
+    }
+    if t.is_empty() { t = title.trim().to_string(); }
+    (a, t)
 }
 
 fn synced_of(v: &Value) -> Option<Vec<LyricLine>> {
@@ -151,41 +187,66 @@ fn is_absent(err: &str) -> bool {
     err.starts_with("HTTP 404")
 }
 
-/// The first candidate with synced lyrics that is also the right length.
-///
-/// Without the duration check the first hit wins, so a live version, a remix or a radio edit
-/// takes a studio track's place -- with timings that are wrong for the whole song, cached for
-/// thirty days. A track whose own duration is unknown can't be checked, so it takes the first.
+/// How far a candidate's length may be from the track's: 6 % of it, at least 3 s. Players and
+/// releases disagree by seconds (Spotify's "back to friends" is 189 s, LRCLIB's 199 s); a live
+/// version or a remix is usually much further off.
+fn tolerance(dur_s: i64) -> f64 { (dur_s as f64 * 0.06).max(3.0) }
+
+/// The synced candidate closest in length, within the tolerance. Without a length check the
+/// first hit wins, so a live version or a remix takes the studio track's place, with timings
+/// wrong for the whole song. A track whose own length is unknown can't be checked: the first.
 fn pick(v: &Value, dur_s: i64) -> Option<Vec<LyricLine>> {
-    let close = |c: &Value| {
-        dur_s <= 0
-            || c.get("duration").and_then(Value::as_f64).is_some_and(|d| (d - dur_s as f64).abs() <= 2.0)
-    };
-    v.as_array()?.iter().filter(|c| close(c)).find_map(synced_of)
+    let all = v.as_array()?;
+    if dur_s <= 0 { return all.iter().find_map(synced_of); }
+    let mut near: Vec<(f64, &Value)> = all.iter()
+        .filter_map(|c| Some(((c.get("duration")?.as_f64()? - dur_s as f64).abs(), c)))
+        .filter(|(d, _)| *d <= tolerance(dur_s))
+        .collect();
+    near.sort_by(|a, b| a.0.total_cmp(&b.0));
+    near.into_iter().find_map(|(_, c)| synced_of(c))
 }
 
-/// Ok(Some) found · Ok(None) LRCLIB says this track has no synced lyrics · Err couldn't ask.
-/// The distinction matters: only Ok(None) may be cached as a miss.
-fn fetch(artist: &str, title: &str, album: &str, dur_s: i64) -> Result<Option<Vec<LyricLine>>, String> {
+/// What LRCLIB said. Only `Absent` may be remembered as "this song has no lyrics": `NoMatch`
+/// can be a player that briefly reported the previous song's length at a track change.
+enum Found { Lines(Vec<LyricLine>), Absent, NoMatch }
+
+fn search(url: &str, dur_s: i64) -> Result<Found, String> {
+    match get_json(url) {
+        Ok(v) => Ok(match pick(&v, dur_s) {
+            Some(l) => Found::Lines(l),
+            None if v.as_array().is_some_and(|a| a.iter().any(|c| synced_of(c).is_some())) => Found::NoMatch,
+            None => Found::Absent,
+        }),
+        Err(e) if is_absent(&e) => Ok(Found::Absent),
+        Err(e) => Err(e),
+    }
+}
+
+/// Exact match first, then a search by artist and title, then (for a browser's video title)
+/// the cleaned-up song and singer, then a free-text search. Err = couldn't ask at all.
+fn fetch(artist: &str, title: &str, album: &str, dur_s: i64) -> Result<Found, String> {
     let exact = format!(
         "https://lrclib.net/api/get?artist_name={}&track_name={}&album_name={}&duration={}",
         enc(artist), enc(title), enc(album), dur_s
     );
     match get_json(&exact) {
-        Ok(v) => {
-            if let Some(l) = synced_of(&v) {
-                return Ok(Some(l));
-            }
-        }
-        Err(e) if is_absent(&e) => {} // no exact match: try the search
+        Ok(v) => { if let Some(l) = synced_of(&v) { return Ok(Found::Lines(l)); } }
+        Err(e) if is_absent(&e) => {} // no exact match: search
         Err(e) => return Err(e),
     }
-    let search = format!("https://lrclib.net/api/search?artist_name={}&track_name={}", enc(artist), enc(title));
-    match get_json(&search) {
-        Ok(v) => Ok(pick(&v, dur_s)),
-        Err(e) if is_absent(&e) => Ok(None),
-        Err(e) => Err(e),
+    let mut best = search(&format!("https://lrclib.net/api/search?artist_name={}&track_name={}", enc(artist), enc(title)), dur_s)?;
+    let (a, t) = clean(artist, title);
+    if !matches!(best, Found::Lines(_)) && (a != artist.trim() || t != title.trim()) {
+        if let Found::Lines(l) = search(&format!("https://lrclib.net/api/search?artist_name={}&track_name={}", enc(&a), enc(&t)), dur_s)? { return Ok(Found::Lines(l)); }
     }
+    if !matches!(best, Found::Lines(_)) {
+        match search(&format!("https://lrclib.net/api/search?q={}", enc(&format!("{a} {t}"))), dur_s)? {
+            Found::Lines(l) => return Ok(Found::Lines(l)),
+            Found::NoMatch => best = Found::NoMatch,
+            Found::Absent => {}
+        }
+    }
+    Ok(best)
 }
 
 fn get(app: &AppHandle, title: &str, artist: &str, album: &str, duration_ms: i64, lookup: bool) -> Lyrics {
@@ -214,10 +275,13 @@ fn get(app: &AppHandle, title: &str, artist: &str, album: &str, duration_ms: i64
     }
 
     match fetch(artist, title, album, duration_ms / 1000) {
+        // Lyrics of another length only: maybe the player's length was wrong for a moment.
+        // Not remembered, so the next ask (with the right length) tries again.
+        Ok(Found::NoMatch) => cached.unwrap_or_else(none),
         Ok(found) => {
             let r = match found {
-                Some(lines) => Lyrics { lines, source: "lrclib".into(), fetched_at: now_ms() },
-                None => none(),
+                Found::Lines(lines) => Lyrics { lines, source: "lrclib".into(), fetched_at: now_ms() },
+                _ => none(),
             };
             let db = app.state::<Db>();
             kv_set(&db.0.lock().unwrap(), &key, &serde_json::to_string(&r).unwrap());
@@ -341,9 +405,25 @@ mod tests {
         assert_eq!(at(&pick(&results, 296).unwrap()), vec![(2_000, "the studio one")]);
         // Nothing close enough is better than the wrong song's timings.
         assert!(pick(&results, 120).is_none());
-        // A couple of seconds out is the same recording.
-        assert!(pick(&results, 298).is_some());
-        assert!(pick(&results, 299).is_none());
+        // A few seconds out is the same recording; the closest one wins.
+        assert_eq!(at(&pick(&results, 301).unwrap()), vec![(2_000, "the studio one")]);
+        assert!(pick(&results, 330).is_none(), "34 s out: another version");
+    }
+
+    #[test]
+    fn a_radio_edit_ten_seconds_shorter_still_finds_its_lyrics() {
+        // Spotify's "back to friends" is 189 s; every LRCLIB copy is 199 s.
+        let results = serde_json::json!([{ "duration": 82.0, "syncedLyrics": "[00:01.00]snippet" }, { "duration": 199.0, "syncedLyrics": "[00:02.00]song" }]);
+        assert_eq!(at(&pick(&results, 189).unwrap()), vec![(2_000, "song")]);
+    }
+
+    #[test]
+    fn cleans_a_browser_video_title_into_song_and_singer() {
+        assert_eq!(clean("Taylor Swift", "The Archer"), ("Taylor Swift".into(), "The Archer".into()), "nothing to clean");
+        assert_eq!(clean("LordHuronVEVO", "The Night We Met (Official Video)"), ("LordHuron".into(), "The Night We Met".into()));
+        assert_eq!(clean("Lord Huron - Topic", "The Night We Met"), ("Lord Huron".into(), "The Night We Met".into()));
+        assert_eq!(clean("sombr", "sombr - back to friends [Lyrics]"), ("sombr".into(), "back to friends".into()));
+        assert_eq!(clean("Song (feat. X)", "Song (feat. X)").1, "Song (feat. X)", "a real part of the title stays");
     }
 
     #[test]
@@ -378,5 +458,17 @@ mod tests {
         let name = p.file_name().unwrap().to_string_lossy();
         assert!(!name.contains('/') && !name.contains('\\'), "got {name}");
         assert!(name.starts_with("AC_DC - "), "got {name}");
+    }
+}
+
+
+/// Live check against LRCLIB (network, read only): `cargo test -- --ignored lrclib_live --nocapture`.
+#[cfg(test)]
+#[test]
+#[ignore]
+fn lrclib_live() {
+    for (a, t, d) in [("sombr", "back to friends", 189), ("Taylor Swift", "The Archer", 211), ("LordHuronVEVO", "The Night We Met (Official Video)", 208)] {
+        let n = match fetch(a, t, "", d) { Ok(Found::Lines(l)) => format!("{} lines", l.len()), Ok(Found::Absent) => "absent".into(), Ok(Found::NoMatch) => "no match".into(), Err(e) => e };
+        println!("{a} - {t}: {n}");
     }
 }
