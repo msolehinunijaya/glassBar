@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.0 — 2026-10-27
+
+### New
+- **The dock shows your charge level when the charger moves.** Plug the charger in or unplug it and the whole dock becomes a battery display for a couple of seconds — the level as a filled background, the percentage, and how long is left — then it goes back to your widgets. No notification. On by default; turn it off in Settings › Sounds. It only ever reacts to a real plug change, never to the battery level ticking down while it stays plugged in.
+- **Music › Custom design:** pick every part yourself. Album art (circle, rounded or square, and its size), title, artist, album, the app name, the progress bar, each of Previous / Play-Pause / Next / volume, elapsed / left / total time in any combination, and either the output level meter or the real frequency spectrum in seven looks. Player, Classic and Mini are unchanged.
+- **Lyrics** (Music › Lyrics): the line that's playing, beside the pill, on the left or the right. Choose its length, text size, weight, italics or capitals, and how each line arrives — fading, sliding up, sliding in from the side, typing itself out, karaoke (the words fill in as they're sung), or just appearing. Off by default, because turning it on looks lyrics up online.
+- **File Shelf:** park up to 5 files by the dock and pick them up later. Drag them in, click to open, right-click for Show in folder or Open with, and drag one out into Explorer, a chat or an email to take it off the shelf. It remembers only where the files are, so yours are never moved, copied or deleted, and it survives a restart. A file that's been moved or deleted since shows struck through instead of vanishing.
+- **Companion:** a small creature on the dock. It blinks on its own, giggles when you wiggle the pointer across it (and gets dizzy if you keep going), winks when clicked, and changes its eyes for what's going on: the charger, a battery under 15 %, music playing (it sings along), a prayer time arriving, a Pomodoro working or on a break, Do Not Disturb, and being left alone. Fifteen faces. Every trigger can be switched off, and its size, background, eye colour, hands and blink rate are yours. It holds still whenever the dock isn't on screen.
+
+### Changed
+- The Equalizer and the Music widget's spectrum are now the same piece of code, so they look and cost the same.
+
 ## 0.2.7 — 2026-10-27
 
 ### New
