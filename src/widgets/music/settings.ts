@@ -59,7 +59,7 @@ export interface MusicSettings {
   /** Player only: the level visualizer and its width in px. */
   showViz: boolean; vizWidth: number;
   custom: MusicParts;
-  /** The lyric line, on the Player and Custom designs. */
+  /** The lyric line, on every design (not on a side dock: no room). */
   lyrics: LyricsSettings;
   /** Scrolling over the volume button changes the volume. */
   wheelVolume: boolean;

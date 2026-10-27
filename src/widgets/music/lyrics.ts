@@ -34,3 +34,22 @@ export function lineProgress(lines: LyricLine[], i: number, posMs: number, durat
   if (!(end > start)) return 1;
   return Math.max(0, Math.min(1, (posMs - start) / (end - start)));
 }
+
+/**
+ * Font size and wrapping for a lyric line in a `width` px box: the chosen size if it fits;
+ * else one size smaller; else, where wrapping is allowed, two lines at that smaller size
+ * (CSS cuts anything past the second line). `measure(px)` is the line's width at that size.
+ */
+export function fitLine(measure: (px: number) => number, width: number, size: number, canWrap: boolean): { size: number; wrap: boolean } {
+  if (measure(size) <= width) return { size, wrap: false };
+  const smaller = Math.max(10, size - 1);
+  return { size: smaller, wrap: canWrap && measure(smaller) > width };
+}
+
+/** An instrumental gap: no words at `i` (or before the first line), lasting over 5 s. */
+export function inGap(lines: LyricLine[], i: number, durationMs: number): boolean {
+  if (!lines.length || (i >= 0 && lines[i].text.trim())) return false;
+  const start = i < 0 ? 0 : lines[i].atMs;
+  const end = i + 1 < lines.length ? lines[i + 1].atMs : durationMs;
+  return end - start > 5000;
+}

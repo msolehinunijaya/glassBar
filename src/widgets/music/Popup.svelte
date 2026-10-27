@@ -9,6 +9,8 @@
   import type { PopupProps } from '../types';
   import { fmt, liveMedia, positionAt, toggle } from './media.svelte';
   import Rhythm from './Rhythm.svelte';
+  import LyricsList from './LyricsList.svelte';
+  import { liveLyrics } from './lyrics.svelte';
 
   let { instance, settings }: PopupProps<MusicSettings> = $props();
   let showOptions = $state(false);
@@ -27,6 +29,10 @@
   let now = $state(Date.now());
   $effect(() => { const t = setInterval(() => (now = Date.now()), 500); return () => clearInterval(t); });
   const pos = $derived(media.m ? positionAt(media.m, now) : 0);
+  // The whole song's lyrics beside the player (below it in a narrow panel), when the lyric
+  // switch is on -- also on a side dock, where the dock itself has no room for the line.
+  const lyrics = liveLyrics(media, () => lyr.on, () => lyr.lookup);
+  const showList = $derived(lyr.on && lyrics.lines.length > 0);
   const frac = $derived(media.m?.durationMs ? pos / media.m.durationMs : 0);
 
   let audio = $state<AudioState | null>(null);
@@ -85,9 +91,8 @@
       <p class="chint dim">On a left or right dock only the art and the buttons fit, so the text, the progress bar and the visualizer are left out there.</p>
     {/if}
 
-    {#if settings.style === 'player' || settings.style === 'custom'}
       <OptionsPopover title="Lyrics" values={lyr} save={saveLyr} options={[
-        { type: 'toggle', key: 'on', label: 'Show the lyric line', hint: 'The line that is playing, beside the pill' },
+        { type: 'toggle', key: 'on', label: 'Show the lyric line', hint: 'Beside the music widget, and the whole song in its panel' },
         { type: 'choice', key: 'side', label: 'Side', choices: [{ value: 'left', label: 'Left' }, { value: 'right', label: 'Right' }] },
         { type: 'toggle', key: 'lookup', label: 'Look up lyrics online', hint: 'Sends the title, artist, album and length to lrclib.net' },
         { type: 'range', key: 'maxWidth', label: 'Length', min: 100, max: 420, step: 10, unit: 'px' },
@@ -108,10 +113,11 @@
         <button class="btn lyrbtn" onclick={openLyricsFolder}>Open lyrics folder</button>
         Name it <code>Artist - Title.lrc</code>. Not every song has lyrics; the line stays empty then.
       </p>
-    {/if}
   </div>
 {/if}
 {#if media.m}
+  <div class="cols" class:has-lyr={showList}>
+  <div class="player">
   <div class="art">
     {#if media.m.art}<img src={media.m.art} alt="Album art" />{:else}<Music size={48} />{/if}
   </div>
@@ -142,11 +148,21 @@
       <span class="dim pct">{Math.round((audio.muted ? 0 : audio.volume) * 100)}</span>
     </div>
   {/if}
+  </div>
+  {#if showList}<LyricsList lines={lyrics.lines} {media} {pos} source={lyrics.v?.source ?? 'lrclib'} />{/if}
+  </div>
 {:else}
   <div class="empty dim"><Music size={36} /><p>Nothing is playing.<br />Start music in Spotify, a browser, or any media app.</p></div>
 {/if}
 
 <style>
+  /* With lyrics: below the player in a narrow panel, beside it in a wide one (hovering opens
+     it wide). Beside, the list takes the player's height and scrolls inside it. */
+  .cols.has-lyr :global(.lyrics) { height: 220px; margin-top: 14px; }
+  @media (min-width: 560px) {
+    .cols.has-lyr { display: grid; grid-template-columns: 272px 1fr; gap: 20px; }
+    .cols.has-lyr :global(.lyrics) { height: auto; margin-top: 0; contain: size; padding-top: 24px; }
+  }
   .gear { position: absolute; top: 10px; right: 10px; z-index: 2; }
   .gear.on { color: var(--accent); }
   .optwrap { margin: 28px 0 8px; }

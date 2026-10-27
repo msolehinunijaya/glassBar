@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { LyricLine } from '../../lib/ipc';
-import { currentIndex, lineAt, lineProgress } from './lyrics';
+import { currentIndex, fitLine, inGap, lineAt, lineProgress } from './lyrics';
 
 const L: LyricLine[] = [
   { atMs: 10_000, text: 'First' },
@@ -72,5 +72,43 @@ describe('lineProgress', () => {
   it('is 0 with no line selected', () => {
     expect(lineProgress(L, -1, 5_000, 40_000)).toBe(0);
     expect(lineProgress(L, 99, 5_000, 40_000)).toBe(0);
+  });
+});
+
+describe('fitLine', () => {
+  // A fake font: every character is half the font size wide.
+  const m = (text: string) => (px: number) => text.length * px * 0.5;
+  it('keeps the chosen size when the line fits', () => {
+    expect(fitLine(m('short line'), 200, 12, true)).toEqual({ size: 12, wrap: false });
+  });
+  it('steps down one size before wrapping', () => {
+    // 34 chars: 204 px at 12, 187 px at 11
+    expect(fitLine(m('x'.repeat(34)), 200, 12, true)).toEqual({ size: 11, wrap: false });
+  });
+  it('wraps onto two lines when one size smaller still does not fit', () => {
+    expect(fitLine(m('x'.repeat(60)), 200, 12, true)).toEqual({ size: 11, wrap: true });
+  });
+  it('never wraps when wrapping is not allowed (karaoke)', () => {
+    expect(fitLine(m('x'.repeat(60)), 200, 12, false)).toEqual({ size: 11, wrap: false });
+  });
+  it('never goes below 10 px', () => {
+    expect(fitLine(m('x'.repeat(60)), 200, 10, true).size).toBe(10);
+  });
+});
+
+describe('inGap', () => {
+  const L = [{ atMs: 0, text: '' }, { atMs: 8000, text: 'one' }, { atMs: 10000, text: '' }, { atMs: 12000, text: 'two' }];
+  it('is a gap when the silence lasts over 5 s', () => {
+    expect(inGap(L, 0, 60000)).toBe(true);
+  });
+  it('is not a gap for a short pause', () => {
+    expect(inGap(L, 2, 60000)).toBe(false);
+  });
+  it('is not a gap while words show', () => {
+    expect(inGap(L, 1, 60000)).toBe(false);
+  });
+  it('counts the intro before the first line', () => {
+    expect(inGap([{ atMs: 9000, text: 'hi' }], -1, 60000)).toBe(true);
+    expect(inGap([], -1, 60000)).toBe(false);
   });
 });
