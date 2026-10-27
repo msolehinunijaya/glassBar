@@ -5,7 +5,7 @@
   import { ipc } from '../../lib/ipc';
   import { updateWidgetSettings } from '../../lib/config.svelte';
   import OptionsPopover from '../../lib/OptionsPopover.svelte';
-  import Tank from './Tank.svelte';
+  import Tank from '../../lib/Tank.svelte';
   import type { PopupProps } from '../types';
   import { WATER_DEFAULTS, type WaterSettings } from './settings';
   import { fmtWater, progressOf } from './units';

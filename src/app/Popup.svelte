@@ -116,7 +116,7 @@
   {:else if instance?.startsWith(BATTERY_PANEL)}
     {@const qs = profile().widgets.find((x) => x.instance === instance!.slice(BATTERY_PANEL.length))}
     {#if qs}
-      <div class="solo"><BatterySection instance={qs.instance} style={(qs.settings as { batteryStyle?: 'classic' | 'liquid' })?.batteryStyle ?? 'classic'} /></div>
+      <div class="solo"><BatterySection instance={qs.instance} style={(qs.settings as { batteryStyle?: 'classic' | 'liquid' | 'fill' })?.batteryStyle ?? 'classic'} /></div>
     {/if}
   {:else if instance?.startsWith(SOUND_PANEL)}
     {@const qs = profile().widgets.find((x) => x.instance === instance!.slice(SOUND_PANEL.length))}

@@ -12,6 +12,7 @@
   import BatteryIcon from '../battery/BatteryIcon.svelte';
   import LiquidBattery from '../battery/LiquidBattery.svelte';
   import BatteryTall from '../battery/BatteryTall.svelte';
+  import BatteryFill from '../battery/BatteryFill.svelte';
   import SoundPart from '../sound/SoundPart.svelte';
   import { BATTERY_PANEL, soundOf } from '../sound/settings';
   import { reallyLeft } from '../../lib/hoverPanel';
@@ -102,11 +103,15 @@
   {#if settings.soundOnDock}<SoundPart {instance} {size} settings={soundOf(settings)} vertical />{/if}
   {#if bat.v}
     <!-- svelte-ignore a11y_click_events_have_key_events -->
-    <div class="side" title="{bat.v.percent}% · {batWord}" role="button" tabindex="-1" onpointerdown={(e) => e.stopPropagation()}
+    <div class="side" class:batfill={settings.batteryStyle === 'fill'} title="{bat.v.percent}% · {batWord}" role="button" tabindex="-1" onpointerdown={(e) => e.stopPropagation()}
          onclick={(e) => { e.stopPropagation(); ipc.popupOpen(BATTERY_PANEL + instance, e.currentTarget.getBoundingClientRect(), 320, 420); }}>
+      {#if settings.batteryStyle === 'fill'}
+      <BatteryFill b={bat.v} />
+      {:else}
       <BatteryTall b={bat.v} />
       <span class="side-v">{bat.v.percent}<small>%</small></span>
       {#if bat.v.onAc}<span class="plugc" title={batWord}><Plug size={11} strokeWidth={2.4} /></span>{/if}
+      {/if}
     </div>
   {/if}
 </div>
@@ -140,10 +145,15 @@
 {#if settings.soundOnDock}<SoundPart {instance} {size} settings={soundOf(settings)} vertical={false} />{/if}
 {#if bat.v}
   <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <div class="pill bat" title="{bat.v.percent}% · {batWord}" role="button" tabindex="-1" onpointerdown={(e) => e.stopPropagation()}
+  <div class="pill bat" class:batfill={settings.batteryStyle === 'fill'} title="{bat.v.percent}% · {batWord}" role="button" tabindex="-1" onpointerdown={(e) => e.stopPropagation()}
        onclick={(e) => { e.stopPropagation(); ipc.popupOpen(BATTERY_PANEL + instance, e.currentTarget.getBoundingClientRect(), 320, 420); }}>
-    {#if settings.batteryStyle === 'liquid'}<LiquidBattery b={bat.v} />{:else}<BatteryIcon b={bat.v} size={16} />{/if}
-    {#if bat.v.onAc}<span class="plug"><Plug size={12} strokeWidth={2.2} /></span>{/if}
+    {#if settings.batteryStyle === 'fill'}
+      <!-- The whole battery part fills up to the charge level, % in the middle. -->
+      <BatteryFill b={bat.v} />
+    {:else}
+      {#if settings.batteryStyle === 'liquid'}<LiquidBattery b={bat.v} />{:else}<BatteryIcon b={bat.v} size={16} />{/if}
+      {#if bat.v.onAc}<span class="plug"><Plug size={12} strokeWidth={2.2} /></span>{/if}
+    {/if}
   </div>
 {/if}
 </div>
@@ -160,6 +170,9 @@
   .chev:hover, .chev.open { background: var(--pill-hover); }
   .lang { font-size: 11.5px; letter-spacing: 0.04em; min-width: 18px; text-align: center; }
   .bat { gap: 2px; padding: 0 9px; }
+  /* Fill design: the part is the tank; the % sits in its middle. */
+  .bat.batfill { position: relative; justify-content: center; min-width: 58px; padding: 0 10px; overflow: hidden; }
+  .side.batfill { position: relative; overflow: hidden; min-height: 40px; justify-content: center; }
   .plug { display: inline-flex; color: #30d158; }
   .count { font-size: 10px; font-variant-numeric: tabular-nums; opacity: 0.75; }
   .icons { overflow: hidden; }

@@ -14,7 +14,7 @@ export const TILES = [['wifi', 'Wi-Fi'], ['bluetooth', 'Bluetooth'], ['airplane'
   ['nearby', 'Nearby sharing'], ['nightlight', 'Night light'], ['cast', 'Cast']] as const;
 export type TileKey = (typeof TILES)[number][0];
 /** nearbyMode: the 'on' Nearby sharing mode the tile turns back on (1 my devices, 2 everyone). */
-export interface QuickSettings { hiddenTiles?: TileKey[]; nearbyMode?: 1 | 2; showLanguage: boolean; langOnDock: boolean; showTray: boolean; trayOnDock: boolean; showBattery: boolean; batteryOnDock: boolean; batteryStyle: 'classic' | 'liquid'; soundOnDock: boolean; sound?: Partial<SoundSettings> }
+export interface QuickSettings { hiddenTiles?: TileKey[]; nearbyMode?: 1 | 2; showLanguage: boolean; langOnDock: boolean; showTray: boolean; trayOnDock: boolean; showBattery: boolean; batteryOnDock: boolean; batteryStyle: 'classic' | 'liquid' | 'fill'; soundOnDock: boolean; sound?: Partial<SoundSettings> }
 
 export default defineWidget<QuickSettings>({
   id: 'quicksettings',

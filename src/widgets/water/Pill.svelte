@@ -5,7 +5,7 @@
   import { fmtWater, progressOf } from './units';
   import { liveWater } from './live.svelte';
   import Drop from './Drop.svelte';
-  import Tank from './Tank.svelte';
+  import Tank from '../../lib/Tank.svelte';
 
   let { size, settings, vertical }: PillProps<WaterSettings> = $props();
   const w = liveWater(() => settings);
