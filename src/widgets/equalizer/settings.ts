@@ -27,6 +27,8 @@ export interface EqSettings {
   batterySaver: boolean;
   /** Shrink to a small square while nothing plays, and grow back when sound returns. */
   shrinkIdle: boolean;
+  /** Fill the whole widget: edge to edge, full height, no margin (Height is then 100 %). */
+  full: boolean;
   myPresets: Preset[];
 }
 
@@ -41,7 +43,7 @@ export const EQ_DEFAULTS: EqSettings = {
   barOpacity: 100, bgOpacity: 0, idleOpacity: 50,
   gain: 100, fall: 4, peaks: true, peakHold: 600, flip: false,
   lowHz: '30', highHz: '16000', tilt: 30, spacing: 'log',
-  idle: 'dots', fps: '60', batterySaver: true, shrinkIdle: true, myPresets: [],
+  idle: 'dots', fps: '60', batterySaver: true, shrinkIdle: true, full: false, myPresets: [],
 };
 
 /** Silence must last this long before the widget shrinks, so it doesn't pump between songs. */
@@ -53,7 +55,7 @@ export const shrunkAt = (quietSince: number | null, now: number): boolean =>
 
 
 /** Settings a preset carries: the look and motion, not the widget's size, frame rate or power options. */
-const NOT_LOOK = new Set<keyof EqSettings>(['length', 'fps', 'batterySaver', 'shrinkIdle', 'myPresets', 'idle']);
+const NOT_LOOK = new Set<keyof EqSettings>(['length', 'fps', 'batterySaver', 'shrinkIdle', 'full', 'myPresets', 'idle']);
 export const pickLook = (s: EqSettings): Partial<EqSettings> =>
   Object.fromEntries(Object.entries(s).filter(([k]) => !NOT_LOOK.has(k as keyof EqSettings))) as Partial<EqSettings>;
 

@@ -40,7 +40,8 @@
     ]],
     ['Size', [
       ...opt(s.style !== 'radial', { type: 'range', key: 'length', label: 'Length', min: 30, max: 400, step: 2, unit: 'px' }),
-      { type: 'range', key: 'fill', label: 'Height', min: 30, max: 100, step: 5, unit: '%' },
+      { type: 'toggle', key: 'full', label: 'Fill the whole widget', hint: 'Edge to edge and full height, no margin. Off: as before' },
+      ...opt(!s.full, { type: 'range', key: 'fill', label: 'Height', min: 30, max: 100, step: 5, unit: '%' }),
       { type: 'range', key: 'bands', label: 'Bars', min: 8, max: 128 },
       { type: 'range', key: 'gap', label: 'Gap', min: 0, max: 8, step: 0.5, unit: 'px' },
       ...opt(barLike || s.style === 'radial', { type: 'range', key: 'radius', label: 'Corners', min: 0, max: 6, step: 0.5, unit: 'px' }),

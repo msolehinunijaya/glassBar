@@ -27,18 +27,24 @@
   const thick = $derived(Math.round((vertical ? box?.width : box?.height) ?? 0));
   // Hidden is 1 px, never 0: the frame loop skips a 0 px canvas before it checks for sound,
   // so a hidden equalizer would never notice the music again.
+  // Fill the whole widget: no margin, and the bars use its full height.
+  const full = $derived(s.full === true);
+  const look = $derived(full ? { ...s, fill: 100 } : s);
   const len = $derived(gone ? 1 : s.style === 'radial' || shrunk ? thick : s.length);
 </script>
 
 <!-- The vertical layout comes from `.dock.vertical .pill` in glass.css; the canvas gets it
      from the `vertical` prop. There is nothing left for a class on this div to do. -->
-<div class="pill eq" class:shrunk class:gone bind:contentRect={box} aria-label={shrunk ? 'Audio equalizer (nothing playing)' : 'Audio equalizer'}>
-  <Spectrum settings={s} {vertical} {len} {onquiet} />
+<div class="pill eq" class:full class:shrunk class:gone bind:contentRect={box} aria-label={shrunk ? 'Audio equalizer (nothing playing)' : 'Audio equalizer'}>
+  <Spectrum settings={look} {vertical} {len} {onquiet} />
 </div>
 
 <style>
   .eq { padding: 4px 8px; transition: padding 0.26s var(--spring, ease), opacity 0.2s var(--ease); }
   .eq.shrunk { padding: 4px; }
+  /* Edge to edge: the spectrum is the widget, clipped to its rounded shape. */
+  .eq.full { padding: 0; overflow: hidden; }
+  .eq.full.shrunk { padding: 0; }
   .eq.gone { padding: 0; opacity: 0; }
   @media (prefers-reduced-motion: reduce) { .eq { transition: none; } }
 </style>
