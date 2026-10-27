@@ -4,7 +4,7 @@
   import { events, type AudioState } from '../../lib/ipc';
   import { updateWidgetSettings } from '../../lib/config.svelte';
   import OptionsPopover from '../../lib/OptionsPopover.svelte';
-  import type { MusicSettings } from './index';
+  import { CUSTOM_DEFAULTS, type MusicSettings } from './settings';
   import { ipc } from '../../lib/ipc';
   import type { PopupProps } from '../types';
   import { fmt, liveMedia, positionAt, toggle } from './media.svelte';
@@ -12,6 +12,10 @@
 
   let { instance, settings }: PopupProps<MusicSettings> = $props();
   let showOptions = $state(false);
+  // settingsOf() merges one level deep, so `custom` arrives whole or not at all: merge it
+  // over the defaults here, or saving one switch would wipe every part the user never touched.
+  const custom = $derived({ ...CUSTOM_DEFAULTS, ...(settings.custom ?? {}) });
+  const saveCustom = (p: Record<string, unknown>) => updateWidgetSettings(instance, { custom: { ...custom, ...p } });
   const media = liveMedia();
   let now = $state(Date.now());
   $effect(() => { const t = setInterval(() => (now = Date.now()), 500); return () => clearInterval(t); });
@@ -39,12 +43,39 @@
 {#if showOptions}
   <div class="optwrap">
     <OptionsPopover title="Music widget" values={settings} save={(p) => updateWidgetSettings(instance, p)} options={[
-      { type: 'choice', key: 'style', label: 'Design', choices: [{ value: 'player', label: 'Player' }, { value: 'classic', label: 'Classic' }, { value: 'mini', label: 'Mini (Play/Pause + Next)' }] },
+      { type: 'choice', key: 'style', label: 'Design', choices: [{ value: 'player', label: 'Player' }, { value: 'classic', label: 'Classic' }, { value: 'mini', label: 'Mini (Play/Pause + Next)' }, { value: 'custom', label: 'Custom (choose the parts)' }] },
       { type: 'toggle', key: 'showViz', label: 'Sound visualizer (Player design)', hint: 'Live level from your speakers' },
       { type: 'toggle', key: 'showProgress', label: 'Show progress background', hint: 'Fill grows as the song plays' },
     ]} />
-    <label class="vlen">Visualizer length <input type="range" min="32" max="200" step="4" value={settings.vizWidth}
-      oninput={(e) => updateWidgetSettings(instance, { vizWidth: +e.currentTarget.value })} /> <span class="dim">{settings.vizWidth}px</span></label>
+    {#if settings.style !== 'custom'}
+      <label class="vlen">Visualizer length <input type="range" min="32" max="200" step="4" value={settings.vizWidth}
+        oninput={(e) => updateWidgetSettings(instance, { vizWidth: +e.currentTarget.value })} /> <span class="dim">{settings.vizWidth}px</span></label>
+    {:else}
+      <!-- The custom design: the user picks every part. Saved under settings.custom, so the
+           Player / Classic / Mini designs keep their own switches untouched. -->
+      <OptionsPopover title="Custom design" values={custom} save={saveCustom} options={[
+        { type: 'checks', label: 'Show', min: 1, items: [
+          { key: 'art', label: 'Album art' }, { key: 'title', label: 'Title' }, { key: 'artist', label: 'Artist' },
+          { key: 'album', label: 'Album' }, { key: 'appName', label: 'App' }, { key: 'progress', label: 'Progress bar' }] },
+        { type: 'choice', key: 'artShape', label: 'Art shape', choices: [{ value: 'circle', label: 'Circle' }, { value: 'rounded', label: 'Rounded' }, { value: 'square', label: 'Square' }] },
+        { type: 'range', key: 'artSize', label: 'Art size', min: 18, max: 40, unit: 'px' },
+        { type: 'checks', label: 'Buttons', items: [
+          { key: 'prev', label: 'Previous' }, { key: 'playPause', label: 'Play/Pause' },
+          { key: 'next', label: 'Next' }, { key: 'volume', label: 'Volume' }] },
+        { type: 'checks', label: 'Time', items: [
+          { key: 'elapsed', label: 'Elapsed' }, { key: 'remaining', label: 'Left' }, { key: 'duration', label: 'Total' }] },
+        { type: 'choice', key: 'viz', label: 'Visualizer', choices: [
+          { value: 'none', label: 'None' },
+          { value: 'level', label: 'Level', hint: 'How loud it is right now. Very cheap.' },
+          { value: 'spectrum', label: 'Equalizer', hint: 'The real frequency spectrum, like the Equalizer widget. Costs more; pauses on battery.' }] },
+        { type: 'choice', key: 'eqLook', label: 'Equalizer look', menu: true, choices: [
+          { value: 'bars', label: 'Bars' }, { value: 'mirror', label: 'Mirror' }, { value: 'glow', label: 'Glow spikes' },
+          { value: 'led', label: 'LED' }, { value: 'particles', label: 'Particle wave' }, { value: 'line', label: 'Line' },
+          { value: 'radial', label: 'Radial' }] },
+        { type: 'range', key: 'vizWidth', label: 'Visualizer length', min: 32, max: 200, step: 4, unit: 'px' },
+      ]} />
+      <p class="chint dim">On a left or right dock only the art and the buttons fit, so the text, the progress bar and the visualizer are left out there.</p>
+    {/if}
   </div>
 {/if}
 {#if media.m}
@@ -98,6 +129,7 @@
   .play { width: 52px; height: 52px; }
   .icon-btn:disabled { opacity: 0.35; }
   .empty { text-align: center; padding: 60px 10px; }
+  .chint { font-size: 11px; line-height: 1.4; margin: 6px 2px 0; }
   .vlen { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-top: 6px; }
   .vlen input { flex: 1; }
   .vizrow { display: flex; justify-content: center; margin: 10px 0 2px; }

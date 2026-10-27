@@ -5,7 +5,7 @@
   import { ipc } from '../../lib/ipc';
   import { tickingNow } from '../../lib/now.svelte';
   import type { PillProps } from '../types';
-  import type { MusicSettings } from './index';
+  import type { MusicSettings } from './settings';
   import { liveMedia, toggle } from './media.svelte';
   import { songProgress } from './progress';
   import Rhythm from './Rhythm.svelte';
@@ -24,7 +24,8 @@
   const down = (e: PointerEvent) => e.stopPropagation(); // buttons must not start edit mode
 </script>
 
-{#if settings.style === 'player'}
+{#if settings.style === 'player' || settings.style === 'custom'}
+  <!-- Custom is the Player pill with the parts the user chose; see settings.ts layoutOf(). -->
   <PlayerPill {size} {settings} {vertical} onenter={enter} onleave={hp.leave} />
 {:else}
 <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -78,7 +79,6 @@
   @keyframes ending { 50% { opacity: 0.55; } }
 
   .art { width: 28px; height: 28px; border-radius: calc(8px * var(--rs)); object-fit: cover; flex: none; }
-  .art.round { width: 24px; height: 24px; border-radius: 50%; }
   .noart { display: grid; place-items: center; background: var(--pill-hover); }
   .meta { display: flex; flex-direction: column; line-height: 1.2; max-width: 150px; min-width: 0; }
   .t { font-weight: 500; font-size: 12px; }
