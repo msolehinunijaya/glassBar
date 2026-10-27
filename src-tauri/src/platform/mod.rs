@@ -213,6 +213,9 @@ pub trait Media: Send + Sync {
     fn pause_playing(&self) -> Res<Vec<String>>;
     fn resume(&self, ids: &[String]) -> Res<()>;
     fn watch(&self, on_change: Box<dyn Fn(Option<MediaInfo>) + Send>);
+    /// The app behind the current media session: Windows' id for it ("Spotify.exe",
+    /// "Chrome", "MSEdge", a Store app id). None when nothing is playing.
+    fn source_id(&self) -> Option<String> { None }
 }
 
 pub trait Radios: Send + Sync {

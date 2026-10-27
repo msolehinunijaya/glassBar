@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { MicVocal, Music, Pause, Play, Settings2, SkipBack, SkipForward, Volume2, VolumeX } from '@lucide/svelte';
+  import { ExternalLink, MicVocal, Music, Pause, Play, Settings2, SkipBack, SkipForward, Volume2, VolumeX } from '@lucide/svelte';
   import Visualizer from './Visualizer.svelte';
   import { events, type AudioState } from '../../lib/ipc';
   import { updateWidgetSettings } from '../../lib/config.svelte';
@@ -7,7 +7,7 @@
   import { CUSTOM_DEFAULTS, LYRICS_DEFAULTS, type MusicSettings } from './settings';
   import { ipc } from '../../lib/ipc';
   import type { PopupProps } from '../types';
-  import { fmt, liveMedia, positionAt, toggle } from './media.svelte';
+  import { fmt, liveMedia, liveSource, openSource, positionAt, toggle } from './media.svelte';
   import Rhythm from './Rhythm.svelte';
   import LyricsList from './LyricsList.svelte';
   import { liveLyrics } from './lyrics.svelte';
@@ -26,6 +26,7 @@
     try { await ipc.downloadsOpen(await ipc.lyricsFolder()); } catch { /* nothing to open */ }
   };
   const media = liveMedia();
+  const src = liveSource(media);
   let now = $state(Date.now());
   $effect(() => { const t = setInterval(() => (now = Date.now()), 500); return () => clearInterval(t); });
   const pos = $derived(media.m ? positionAt(media.m, now) : 0);
@@ -69,6 +70,7 @@
       { type: 'choice', key: 'style', label: 'Design', choices: [{ value: 'player', label: 'Player' }, { value: 'classic', label: 'Classic' }, { value: 'mini', label: 'Mini (Play/Pause + Next)' }, { value: 'custom', label: 'Custom (choose the parts)' }] },
       { type: 'toggle', key: 'showViz', label: 'Sound visualizer (Player design)', hint: 'Live level from your speakers' },
       { type: 'toggle', key: 'showProgress', label: 'Show progress background', hint: 'Fill grows as the song plays' },
+      { type: 'toggle', key: 'hoverOpen', label: 'Open this panel on hover', hint: 'Off: only a click on the widget opens it' },
       { type: 'toggle', key: 'wheelVolume', label: 'Mouse wheel changes volume', hint: 'Over the volume button. Off: scrolling there never changes the volume' },
     ]} />
     {#if settings.style !== 'custom'}
@@ -134,7 +136,13 @@
   <div class="meta">
     <b class="ellipsis">{media.m.title || 'Unknown title'}</b>
     <span class="dim ellipsis">{[media.m.artist, media.m.album].filter(Boolean).join(' — ')}</span>
-    <span class="dim app"><Rhythm playing={media.m.playing} /> {media.m.app}</span>
+    <!-- The app that is playing: click to bring it to the front (or start it). -->
+    <button class="srcchip" onclick={openSource} title="Open {src.v?.name ?? media.m.app}">
+      <Rhythm playing={media.m.playing} />
+      {#if src.v?.icon}<img src={src.v.icon} alt="" width="14" height="14" draggable="false" />{/if}
+      <span>{src.v?.name ?? media.m.app}</span>
+      <ExternalLink size={11} />
+    </button>
   </div>
   {#if media.m.durationMs > 0}
     <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
@@ -197,7 +205,15 @@
   .art img { width: 100%; height: 100%; object-fit: cover; }
   .meta { display: flex; flex-direction: column; text-align: center; gap: 2px; }
   .meta b { font-size: 15px; font-weight: 600; }
-  .app { font-size: 11px; }
+  .srcchip {
+    display: inline-flex; align-items: center; gap: 6px; align-self: center; margin-top: 4px; height: 26px; padding: 0 10px;
+    border-radius: var(--r-chip); font-size: 11.5px; font-weight: 500; color: var(--fg-dim);
+    background: var(--pill); border: 1px solid var(--line-soft); transition: background 0.2s var(--ease), color 0.2s var(--ease), transform 0.15s var(--ease);
+  }
+  .srcchip:hover { background: var(--pill-hover); color: var(--fg); }
+  .srcchip:active { transform: scale(0.96); }
+  .srcchip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .srcchip img { width: 14px; height: 14px; object-fit: contain; }
   .bar { height: 6px; border-radius: calc(3px * var(--rs)); background: var(--track); margin: 14px 0 4px; cursor: pointer; overflow: hidden; }
   .fill { height: 100%; background: var(--fg); border-radius: calc(3px * var(--rs)); transition: width 0.5s linear; }
   .times { display: flex; justify-content: space-between; font-size: 11px; font-variant-numeric: tabular-nums; }

@@ -65,6 +65,10 @@ fn app_name(id: &str) -> String {
     id.strip_suffix(".exe").unwrap_or(id).to_string()
 }
 
+pub fn source_id() -> Option<String> {
+    session()?.SourceAppUserModelId().ok().map(|t| t.to_string()).filter(|s| !s.is_empty())
+}
+
 pub fn info() -> Res<Option<MediaInfo>> {
     let Some(s) = session() else { return Ok(None) };
     let props = s.TryGetMediaPropertiesAsync().and_then(|op| op.join()).map_err(err)?;

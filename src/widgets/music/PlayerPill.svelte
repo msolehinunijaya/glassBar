@@ -12,11 +12,12 @@
   import Spectrum from '../equalizer/Spectrum.svelte';
   import { subText } from './label';
   import { artRadius, layoutOf, type MusicSettings } from './settings';
-  import { liveMedia, positionAt, toggle } from './media.svelte';
+  import { liveMedia, positionAt, toggle, type Source } from './media.svelte';
+  import SourceBadge from './SourceBadge.svelte';
   import { wheelControl } from '../../lib/wheelIntent';
   import Visualizer from './Visualizer.svelte';
 
-  let { size, settings, vertical, onenter, onleave }: { size: WidgetSize; settings: MusicSettings; vertical: boolean; onenter?: (e: PointerEvent) => void; onleave?: () => void } = $props();
+  let { size, settings, vertical, onenter, onleave, source = null }: { size: WidgetSize; settings: MusicSettings; vertical: boolean; onenter?: (e: PointerEvent) => void; onleave?: () => void; source?: Source | null } = $props();
   const media = liveMedia();
   const t = tickingNow(() => !!media.m?.playing);
   const pos = $derived(media.m ? positionAt(media.m, t.now) : 0);
@@ -57,9 +58,12 @@
 <div class="pill player" class:wide class:vertical class:playing={media.m?.playing} onpointerenter={onenter} onpointerleave={onleave}
      aria-label={media.m ? `${media.m.title} — ${media.m.artist}${media.m.app ? ` (${media.m.app})` : ''}` : 'Nothing playing'}>
   {#if p.art}
-    <span class="art" style:--art-size="{p.artSize}px" style:--art-r={artRadius(p.artShape)}>
+    <span class="artwrap">
+      <span class="art" style:--art-size="{p.artSize}px" style:--art-r={artRadius(p.artShape)}>
       {#if media.m?.art}<img src={media.m.art} alt="" draggable="false" />{:else}<Music size={14} />{/if}
       {#if media.m?.playing}<span class="eq"><i></i><i></i><i></i></span>{/if}
+    </span>
+      {#if source}<SourceBadge s={source} />{/if}
     </span>
   {/if}
 
@@ -106,13 +110,15 @@
 
 <style>
   .player { position: relative; gap: 8px; padding: 0 8px 0 5px; overflow: hidden; }
+  .artwrap { position: relative; display: grid; flex: none; }
   .art { position: relative; width: var(--art-size); height: var(--art-size); border-radius: var(--art-r); overflow: hidden; flex: none; display: grid; place-items: center;
          background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 55%, #fff), var(--accent)); color: #fff;
          box-shadow: 0 2px 6px rgba(0,0,0,0.25); transition: transform 0.3s var(--spring); }
   .art img { width: 100%; height: 100%; object-fit: cover; }
   .player:hover .art { transform: scale(1.06); }
   /* small "now playing" badge on the art */
-  .eq { position: absolute; right: 2px; bottom: 2px; display: flex; align-items: flex-end; gap: 1px; height: 8px; padding: 1px 2px; border-radius: calc(3px * var(--rs)); background: rgba(0,0,0,0.55); }
+  /* bottom-left: the bottom-right corner carries the playing app's badge */
+  .eq { position: absolute; left: 2px; bottom: 2px; display: flex; align-items: flex-end; gap: 1px; height: 8px; padding: 1px 2px; border-radius: calc(3px * var(--rs)); background: rgba(0,0,0,0.55); }
   .eq i { width: 2px; background: #fff; border-radius: calc(1px * var(--rs)); animation: eq 0.9s ease-in-out infinite; }
   .eq i:nth-child(2) { animation-delay: -0.3s; } .eq i:nth-child(3) { animation-delay: -0.6s; }
   @keyframes eq { 0%, 100% { height: 2px; } 50% { height: 7px; } }

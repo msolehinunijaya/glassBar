@@ -198,6 +198,7 @@ impl Media for WinMedia {
     fn pause_playing(&self) -> Res<Vec<String>> { media::pause_playing() }
     fn resume(&self, ids: &[String]) -> Res<()> { media::resume(ids) }
     fn watch(&self, f: Box<dyn Fn(Option<MediaInfo>) + Send>) { media::watch(f) }
+    fn source_id(&self) -> Option<String> { media::source_id() }
 }
 
 impl Radios for WinRadios {

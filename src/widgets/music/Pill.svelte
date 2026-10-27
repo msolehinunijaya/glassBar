@@ -8,7 +8,8 @@
   import { tickingNow } from '../../lib/now.svelte';
   import type { PillProps } from '../types';
   import { lyricsOf, showLyrics, type MusicSettings } from './settings';
-  import { liveMedia, positionAt, toggle } from './media.svelte';
+  import { liveMedia, liveSource, positionAt, toggle } from './media.svelte';
+  import SourceBadge from './SourceBadge.svelte';
   import { fade, slide } from 'svelte/transition';
   import { cubicOut } from 'svelte/easing';
   import { currentIndex, inGap, lineAt, lineProgress } from './lyrics';
@@ -21,6 +22,7 @@
 
   let { instance, size, settings, vertical }: PillProps<MusicSettings> = $props();
   const media = liveMedia();
+  const src = liveSource(media);
   // Lyrics: Rust answers from a local .lrc or its cache, and only reaches the network when
   // the lookup is on. The line follows the song once a second, only while it plays.
   const lyr = $derived(lyricsOf(settings));
@@ -32,12 +34,14 @@
   const lyricShown = $derived(lyricsOn && lyrics.lines.length > 0);
   // With lyrics on, the lyric part is there for every song: the line, or a quiet note that
   // this song has none (or that they can't be fetched right now) -- never just nothing.
-  const lyricPart = $derived(lyricsOn && !!media.m?.title && lyrics.status !== 'idle');
+  // Only while the music plays: paused or stopped, the lyric part slides away (and back on play).
+  const lyricPart = $derived(lyricsOn && !!media.m?.title && !!media.m?.playing && lyrics.status !== 'idle');
   const NOTE = { loading: 'Looking for lyrics…', none: 'Lyrics not available', offline: 'Lyrics not available right now', found: '', idle: '' } as const;
   // Hovering the widget opens its panel (art, controls, volume) without a click; with lyrics
   // it opens wide enough to show them beside the player.
   const hp = hoverPanel();
-  const enter = (e: PointerEvent) => hp.enter(e, `__hover:${instance}`, lyricShown ? 640 : 320, 560);
+  // Hovering opens the panel only when that option is on (off by default: a click opens it).
+  const enter = (e: PointerEvent) => { if (settings.hoverOpen) hp.enter(e, `__hover:${instance}`, lyricShown ? 640 : 320, 560); };
   const t = tickingNow(() => !!media.m?.playing && settings.showProgress);
   const prog = $derived(settings.showProgress ? songProgress(media.m, t.now) : null);
   const track = $derived(media.m ? `${media.m.app}|${media.m.title}|${media.m.artist}` : '');
@@ -49,7 +53,7 @@
 <div class="mwrap" class:vertical class:lyr-left={lyr.side === 'left'} data-popup-width={lyricShown ? 640 : 320} onpointerenter={enter} onpointerleave={hp.leave} onpointerdown={hp.cancel}>
 {#if settings.style === 'player' || settings.style === 'custom'}
   <!-- Custom is the Player pill with the parts the user chose; see settings.ts layoutOf(). -->
-  <PlayerPill {size} {settings} {vertical} />
+  <PlayerPill {size} {settings} {vertical} source={src.v} />
 {:else}
 <div class="pill music" class:mini={settings.style === 'mini'} class:vertical aria-label={media.m ? `${media.m.title} — ${media.m.artist}` : 'Nothing playing'}>
   {#if prog}
@@ -60,7 +64,7 @@
 
   {#if settings.style === 'mini'}
     <!-- Compact mini player: album art (when the app gives one), Play/Pause and Next. Track info lives in the tooltip and the panel. -->
-    {#if media.m?.art}<img class="art mini-art" src={media.m.art} alt="" draggable="false" />{/if}
+    {#if media.m?.art}<span class="artwrap"><img class="art mini-art" src={media.m.art} alt="" draggable="false" />{#if src.v}<SourceBadge s={src.v} size={11} />{/if}</span>{/if}
     <span class="ctls">
       <button class="ctl" disabled={!media.m} onpointerdown={down} onclick={stop(() => media.m && toggle(media))} aria-label={media.m?.playing ? 'Pause' : 'Play'}>
         {#if media.m?.playing}<Pause size={14} />{:else}<Play size={14} />{/if}
@@ -68,7 +72,10 @@
       <button class="ctl" disabled={!media.m?.canNext} onpointerdown={down} onclick={stop(() => ipc.mediaControl('next'))} aria-label="Next track"><SkipForward size={13} /></button>
     </span>
   {:else}
-    {#if media.m?.art}<img class="art" src={media.m.art} alt="" />{:else}<span class="art noart"><Music size={14} /></span>{/if}
+    <span class="artwrap">
+      {#if media.m?.art}<img class="art" src={media.m.art} alt="" />{:else}<span class="art noart"><Music size={14} /></span>{/if}
+      {#if src.v}<SourceBadge s={src.v} />{/if}
+    </span>
     {#if media.m}<Rhythm playing={media.m.playing} />{/if}
     {#if size !== 'small'}
       <span class="meta">
@@ -142,5 +149,6 @@
   .ctls { display: flex; gap: 0; }
   .vertical .ctls { flex-direction: column; }
   .mini .ctl { width: 22px; height: 22px; }
+  .artwrap { position: relative; display: grid; flex: none; }
   .mini-art { width: 22px; height: 22px; border-radius: calc(6px * var(--rs)); margin: 0 2px; }
 </style>

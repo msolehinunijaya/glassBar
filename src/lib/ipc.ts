@@ -116,6 +116,7 @@ export interface AppWindow { id: number; title: string; exe: string; active: boo
 export interface AudioDevice { id: string; name: string; isDefault: boolean }
 export interface AudioSession { pid: number; name: string; exe: string; volume: number; muted: boolean }
 export interface AudioState { volume: number; muted: boolean; devices: AudioDevice[] }
+export interface MediaSource { name: string; id: string; exe: string | null; window: number | null; aumid: string | null }
 export interface MediaInfo {
   app: string; title: string; artist: string; album: string; art: string | null; playing: boolean;
   positionMs: number; durationMs: number; updatedAtMs: number;
@@ -270,6 +271,10 @@ export const ipc = {
   mediaInfo: () => invoke<MediaInfo | null>('media_info'),
   mediaControl: (action: 'toggle' | 'next' | 'prev') => invoke<void>('media_control', { action }),
   mediaSeek: (positionMs: number) => invoke<void>('media_seek', { positionMs }),
+  /** The app that is playing (name, its window and program). */
+  mediaSource: () => invoke<MediaSource | null>('media_source'),
+  /** Bring the playing app to the front, or start it. */
+  mediaSourceOpen: () => invoke<void>('media_source_open'),
   /** `lookup` false never touches the network: only a local .lrc or the cache is used. */
   lyricsGet: (title: string, artist: string, album: string, durationMs: number, lookup: boolean) =>
     invoke<Lyrics>('lyrics_get', { title, artist, album, durationMs, lookup }),
