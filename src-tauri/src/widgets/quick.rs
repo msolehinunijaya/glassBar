@@ -54,6 +54,9 @@ pub async fn radio_set(kind: RadioKind, on: bool) -> Res<()> { blocking(move || 
 pub async fn airplane_set(on: bool) -> Res<()> { blocking(move || radios().set(None, !on)).await? }
 #[tauri::command]
 pub async fn display_mode() -> Option<DisplayMode> { blocking(move || display().mode()).await.ok().flatten() }
+/// How many displays are plugged in.
+#[tauri::command]
+pub async fn display_count() -> u32 { blocking(move || display().connected()).await.unwrap_or(1) }
 #[tauri::command]
 pub async fn display_set_mode(mode: DisplayMode) -> Res<()> { blocking(move || display().set_mode(mode)).await? }
 #[tauri::command]

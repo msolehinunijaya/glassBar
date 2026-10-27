@@ -29,6 +29,71 @@ fn watchers() -> Vec<String> {
     w.iter().map(|(l, _)| l.clone()).collect()
 }
 
+// ---- Live stream on 127.0.0.1 ----
+// Tauri events go through GlassBar's main thread, which a right-click menu holds for as long
+// as it's open: the Equalizer froze until the menu closed. So the bands also go out as
+// server-sent events from a tiny local server (127.0.0.1 only, random port, random key in
+// the URL), written straight from the capture thread.
+
+static STREAMS: Mutex<Vec<std::net::TcpStream>> = Mutex::new(Vec::new());
+static STREAM_URL: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+
+fn stream_url() -> Option<String> {
+    if let Some(u) = STREAM_URL.get() { return Some(u.clone()); }
+    use std::hash::{BuildHasher, Hasher};
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").ok()?;
+    let port = listener.local_addr().ok()?.port();
+    let mut h = std::collections::hash_map::RandomState::new().build_hasher();
+    h.write_u128(std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0));
+    let key = format!("{:016x}{:016x}", h.finish(), std::collections::hash_map::RandomState::new().build_hasher().finish());
+    let url = format!("http://127.0.0.1:{port}/spectrum?k={key}");
+    let want = format!("GET /spectrum?k={key} ");
+    std::thread::Builder::new().name("spectrum-stream".into()).spawn(move || {
+        for conn in listener.incoming().flatten() {
+            let _ = conn.set_read_timeout(Some(Duration::from_secs(2)));
+            let mut buf = [0u8; 1024];
+            let n = std::io::Read::read(&mut &conn, &mut buf).unwrap_or(0);
+            let req = String::from_utf8_lossy(&buf[..n]);
+            let mut conn = conn;
+            if !req.starts_with(&want) {
+                let _ = std::io::Write::write_all(&mut conn, b"HTTP/1.1 403 Forbidden
+Content-Length: 0
+
+");
+                continue;
+            }
+            let ok = std::io::Write::write_all(&mut conn, b"HTTP/1.1 200 OK
+Content-Type: text/event-stream
+Cache-Control: no-cache
+Access-Control-Allow-Origin: *
+
+");
+            let _ = conn.set_nodelay(true);
+            if ok.is_ok() { STREAMS.lock().unwrap().push(conn); }
+        }
+    }).ok()?;
+    let _ = STREAM_URL.set(url);
+    STREAM_URL.get().cloned()
+}
+
+/// Send one frame to every open stream; drop the ones that closed.
+fn stream_send(b: &[u8]) {
+    use base64::Engine;
+    let line = format!("data: {}
+
+", base64::engine::general_purpose::STANDARD.encode(b));
+    STREAMS.lock().unwrap().retain_mut(|c| std::io::Write::write_all(c, line.as_bytes()).is_ok());
+}
+
+fn streaming() -> bool { !STREAMS.lock().unwrap().is_empty() }
+
+/// The Equalizer's live stream address (starts capturing while it's open).
+#[tauri::command]
+pub fn audio_spectrum_stream(app: tauri::AppHandle) -> Option<String> {
+    start_capture(&app);
+    stream_url()
+}
+
 #[tauri::command]
 pub fn audio_spectrum(app: tauri::AppHandle, webview: tauri::Webview) {
     {
@@ -39,23 +104,32 @@ pub fn audio_spectrum(app: tauri::AppHandle, webview: tauri::Webview) {
             None => w.push((webview.label().to_string(), now)),
         }
     }
+    start_capture(&app);
+}
+
+fn start_capture(app: &tauri::AppHandle) {
     STARTED.call_once(|| {
+        let app = app.clone();
         std::thread::spawn(move || {
             use tauri::{Emitter, EventTarget};
             loop {
-                if watchers().is_empty() { std::thread::sleep(Duration::from_millis(300)); continue; }
+                if watchers().is_empty() && !streaming() { std::thread::sleep(Duration::from_millis(300)); continue; }
                 let mut an = Analyzer::default();
                 let mut to = watchers();
+                let mut live = streaming();
                 let mut checked = Instant::now();
                 let r = crate::platform::audio().loopback(&mut |s, rate| {
-                    if checked.elapsed() > Duration::from_millis(500) { to = watchers(); checked = Instant::now(); }
+                    if checked.elapsed() > Duration::from_millis(500) { to = watchers(); live = streaming(); checked = Instant::now(); }
                     if let Some(b) = an.push(s, rate) {
-                        let _ = app.emit_filter("audio:spectrum", b, |t| match t {
-                            EventTarget::Webview { label } | EventTarget::WebviewWindow { label } | EventTarget::Window { label } => to.contains(label),
-                            _ => false,
-                        });
+                        if live { stream_send(&b); }
+                        if !to.is_empty() {
+                            let _ = app.emit_filter("audio:spectrum", b, |t| match t {
+                                EventTarget::Webview { label } | EventTarget::WebviewWindow { label } | EventTarget::Window { label } => to.contains(label),
+                                _ => false,
+                            });
+                        }
                     }
-                    !to.is_empty()
+                    !to.is_empty() || live
                 });
                 // No output device or capture refused: try again shortly.
                 if r.is_err() { std::thread::sleep(Duration::from_secs(1)); }

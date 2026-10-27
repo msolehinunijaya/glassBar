@@ -28,6 +28,25 @@ pub fn mode() -> Option<DisplayMode> {
     }
 }
 
+/// How many displays are plugged in, also ones switched off right now ("PC only" hides the
+/// second one but it's still connected).
+pub fn connected() -> u32 {
+    unsafe {
+        let (mut np, mut nm) = (0u32, 0u32);
+        if GetDisplayConfigBufferSizes(QDC_ALL_PATHS, &mut np, &mut nm).ok().is_err() { return 1; }
+        let mut paths = vec![DISPLAYCONFIG_PATH_INFO::default(); np as usize];
+        let mut modes = vec![DISPLAYCONFIG_MODE_INFO::default(); nm as usize];
+        if QueryDisplayConfig(QDC_ALL_PATHS, &mut np, paths.as_mut_ptr(), &mut nm, modes.as_mut_ptr(), None).ok().is_err() { return 1; }
+        let mut seen: Vec<(u32, i32, u32)> = paths[..np as usize].iter()
+            .filter(|p| p.targetInfo.targetAvailable.as_bool())
+            .map(|p| (p.targetInfo.adapterId.LowPart, p.targetInfo.adapterId.HighPart, p.targetInfo.id))
+            .collect();
+        seen.sort();
+        seen.dedup();
+        (seen.len() as u32).max(1)
+    }
+}
+
 pub fn set_mode(m: DisplayMode) -> Res<()> {
     let topo = match m {
         DisplayMode::Internal => SDC_TOPOLOGY_INTERNAL,
@@ -36,7 +55,9 @@ pub fn set_mode(m: DisplayMode) -> Res<()> {
         DisplayMode::External => SDC_TOPOLOGY_EXTERNAL,
     };
     let r = unsafe { SetDisplayConfig(None, None, SDC_APPLY | topo) };
-    if r == 0 { Ok(()) } else { Err(format!("display mode change failed ({r})")) }
+    if r == 0 { return Ok(()); }
+    Err(if connected() < 2 { "No second display is connected".into() }
+        else { "Windows couldn't switch the display. Check the second display's cable, or try again with Win+P".into() })
 }
 
 // ---- External monitors: DDC/CI ----

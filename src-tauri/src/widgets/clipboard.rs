@@ -10,7 +10,8 @@ use std::path::PathBuf;
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_clipboard_manager::ClipboardExt;
 
-const KEEP: i64 = 200;
+/// Copies kept (pinned ones come on top and don't count).
+const KEEP: i64 = 20;
 fn dir() -> PathBuf { crate::data_dir().join("clipboard") }
 
 fn enabled(app: &AppHandle) -> bool {
@@ -81,7 +82,8 @@ fn record(app: &AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-/// Keep the newest 200; drop images older than the retention period. Pinned items always stay.
+/// Keep the newest `KEEP` unpinned copies; drop images older than the retention period.
+/// Pinned items always stay.
 pub fn prune(app: &AppHandle) {
     let days = {
         let st = app.state::<crate::AppState>();
@@ -90,12 +92,72 @@ pub fn prune(app: &AppHandle) {
     };
     let cutoff = now_ms() - days * 86_400_000;
     let db = app.state::<Db>();
-    let c = db.0.lock().unwrap();
-    let gone: Vec<String> = c.prepare("SELECT path FROM clipboard WHERE pinned = 0 AND path IS NOT NULL AND (at < ?1 OR id NOT IN (SELECT id FROM clipboard ORDER BY at DESC LIMIT ?2))")
-        .and_then(|mut s| s.query_map(params![cutoff, KEEP], |r| r.get::<_, String>(0)).map(|r| r.filter_map(Result::ok).collect()))
-        .unwrap_or_default();
+    let (gone, kept) = {
+        let c = db.0.lock().unwrap();
+        let gone = prune_db(&c, cutoff, KEEP);
+        let kept: std::collections::HashSet<String> = c.prepare("SELECT path FROM clipboard WHERE path IS NOT NULL")
+            .and_then(|mut s| s.query_map([], |r| r.get::<_, String>(0)).map(|r| r.filter_map(Result::ok).map(|p| p.to_lowercase()).collect()))
+            .unwrap_or_default();
+        (gone, kept)
+    };
     for p in &gone { let _ = std::fs::remove_file(p); }
-    let _ = c.execute("DELETE FROM clipboard WHERE pinned = 0 AND ((path IS NOT NULL AND at < ?1) OR id NOT IN (SELECT id FROM clipboard ORDER BY at DESC LIMIT ?2))", params![cutoff, KEEP]);
+    // Leftover images of copies removed by older versions (their files stayed behind).
+    for f in std::fs::read_dir(dir()).into_iter().flatten().flatten() {
+        let p = f.path();
+        let ours = p.extension().is_some_and(|e| e == "png") && p.file_name().is_some_and(|n| n.to_string_lossy().starts_with("clip-"));
+        // Older than a minute: a copy being saved right now writes its file just before its row.
+        let old = f.metadata().and_then(|m| m.modified()).ok().and_then(|t| t.elapsed().ok()).is_some_and(|e| e.as_secs() > 60);
+        if ours && old && !kept.contains(&p.to_string_lossy().to_lowercase()) { let _ = std::fs::remove_file(&p); }
+    }
+}
+
+/// The database part of `prune`: deletes the rows, returns the image files to delete.
+fn prune_db(c: &rusqlite::Connection, cutoff: i64, keep: i64) -> Vec<String> {
+    let gone: Vec<String> = c.prepare("SELECT path FROM clipboard WHERE pinned = 0 AND path IS NOT NULL AND (at < ?1 OR id NOT IN (SELECT id FROM clipboard WHERE pinned = 0 ORDER BY at DESC LIMIT ?2))")
+        .and_then(|mut s| s.query_map(params![cutoff, keep], |r| r.get::<_, String>(0)).map(|r| r.filter_map(Result::ok).collect()))
+        .unwrap_or_default();
+    let _ = c.execute("DELETE FROM clipboard WHERE pinned = 0 AND ((path IS NOT NULL AND at < ?1) OR id NOT IN (SELECT id FROM clipboard WHERE pinned = 0 ORDER BY at DESC LIMIT ?2))", params![cutoff, keep]);
+    gone
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn keeps_the_20_newest_plus_every_pinned_copy() {
+        let c = rusqlite::Connection::open_in_memory().unwrap();
+        crate::db::migrate(&c).unwrap();
+        for i in 0..30i64 {
+            c.execute("INSERT INTO clipboard(at, kind, text, hash, pinned) VALUES(?1, 'text', ?2, ?2, ?3)",
+                params![1000 + i, format!("copy {i}"), (i == 2) as i64]).unwrap();
+        }
+        prune_db(&c, 0, KEEP);
+        let left: Vec<String> = c.prepare("SELECT text FROM clipboard ORDER BY pinned DESC, at DESC").unwrap()
+            .query_map([], |r| r.get(0)).unwrap().filter_map(Result::ok).collect();
+        assert_eq!(left.len(), 21, "20 newest + the pinned one");
+        assert_eq!(left[0], "copy 2", "the old pinned copy stays, on top");
+        assert_eq!(left[1], "copy 29");
+        assert_eq!(left[20], "copy 10");
+    }
+
+    #[test]
+    fn history_survives_a_restart() {
+        let path = std::env::temp_dir().join(format!("glassbar-test-{}.db", std::process::id()));
+        let _ = std::fs::remove_file(&path);
+        {
+            let db = crate::db::open(&path).unwrap();
+            let c = db.0.lock().unwrap();
+            c.execute("INSERT INTO clipboard(at, kind, text, hash) VALUES(1, 'text', 'hello', 'h')", []).unwrap();
+            c.execute("INSERT INTO ocr_history(at, text, mode, engine) VALUES(1, 'read', 'text', 'windows')", []).unwrap();
+        } // closed, like quitting GlassBar
+        let db = crate::db::open(&path).unwrap();
+        let c = db.0.lock().unwrap();
+        let n: i64 = c.query_row("SELECT (SELECT COUNT(*) FROM clipboard) + (SELECT COUNT(*) FROM ocr_history)", [], |r| r.get(0)).unwrap();
+        assert_eq!(n, 2);
+        drop(c); drop(db);
+        for ext in ["", "-wal", "-shm"] { let _ = std::fs::remove_file(format!("{}{ext}", path.display())); }
+    }
 }
 
 #[tauri::command]

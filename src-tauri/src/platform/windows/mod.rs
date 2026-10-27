@@ -204,6 +204,7 @@ impl Radios for WinRadios {
 impl Display for WinDisplay {
     fn mode(&self) -> Option<DisplayMode> { display::mode() }
     fn set_mode(&self, m: DisplayMode) -> Res<()> { display::set_mode(m) }
+    fn connected(&self) -> u32 { display::connected() }
     fn brightness(&self) -> Option<u32> { display::brightness() }
     fn set_brightness(&self, v: u32) -> Res<()> { display::set_brightness(v) }
 }

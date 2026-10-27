@@ -63,6 +63,9 @@
   .slot { position: relative; display: grid; place-items: center; }
   .slot > :global(*) { grid-area: 1 / 1; }
   .qt {
+    /* Above the ring: it's positioned, so it sat on top and took the click (which then
+       opened the panel instead of starting or pausing). */
+    position: relative; z-index: 1;
     display: grid; place-items: center; width: 100%; height: 100%; border-radius: 50%;
     background: var(--c); color: var(--phase-ink); opacity: 0; transform: scale(0.8);
     transition: opacity 0.15s, transform 0.2s var(--spring);

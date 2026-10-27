@@ -13,6 +13,8 @@
   let view = $state<'main' | 'wifi' | 'bluetooth'>('main');
   let radios = $state<RadioInfo[]>([]);
   let mode = $state<DisplayMode | null>(null);
+  /** Displays plugged in: with one, only "PC only" makes sense. */
+  let displays = $state(2);
   let brightness = $state<number | null>(null);
   let error = $state('');
   let busy = $state(false);
@@ -30,6 +32,7 @@
     loadRadios();
     loadHotspot();
     ipc.displayMode().then((m) => (mode = m));
+    ipc.displayCount().then((n) => (displays = n)).catch(() => {});
     ipc.brightness().then((b) => (brightness = b));
   });
 
@@ -91,9 +94,12 @@
 <h4 class="dim"><Monitor size={13} /> Display</h4>
 <div class="seg">
   {#each modes as [m, label] (m)}
-    <button class:sel={mode === m} onclick={() => run(async () => { await ipc.setDisplayMode(m); mode = m; })}>{label}</button>
+    {@const off = displays < 2 && m !== 'internal'}
+    <button class:sel={mode === m} disabled={off} title={off ? 'Connect a second display to use this' : ''}
+            onclick={() => run(async () => { await ipc.setDisplayMode(m); mode = m; })}>{label}</button>
   {/each}
 </div>
+{#if displays < 2}<p class="dim note">No second display connected.</p>{/if}
 
 <h4 class="dim"><Sun size={13} /> Brightness</h4>
 {#if brightness !== null}
@@ -137,6 +143,8 @@
   .seg { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; padding: 3px; border-radius: calc(12px * var(--rs)); background: var(--pill); }
   .seg button { padding: 7px 2px; border-radius: calc(9px * var(--rs)); font-size: 11px; }
   .seg .sel { background: var(--accent); color: #fff; }
+  .seg button:disabled { opacity: 0.35; cursor: default; }
+  .note { font-size: 11px; margin: 6px 2px 0; }
   .small { font-size: 12px; }
   .err { color: #ff453a; font-size: 12px; }
 </style>
