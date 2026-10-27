@@ -189,7 +189,10 @@ pub trait Audio: Send + Sync {
     fn sessions(&self) -> Res<Vec<AudioSession>>;
     fn set_session_volume(&self, pid: u32, v: f32) -> Res<()>;
     fn set_session_mute(&self, pid: u32, m: bool) -> Res<()>;
-    fn watch(&self, on_change: Box<dyn Fn(AudioState) + Send>);
+    /// `on_change`: the volume, mute or device list changed (any source). `on_level`: the
+    /// master volume or mute changed from *outside* GlassBar (keys, Windows, another app), as
+    /// it happens -- (volume 0..1, muted).
+    fn watch(&self, on_change: Box<dyn Fn(AudioState) + Send>, on_level: Box<dyn Fn(f32, bool) + Send>);
     /// Current output peak level 0..1 (None if no output device).
     fn peak(&self) -> Option<f32>;
     /// Capture what the speakers play, as mono chunks (see windows/audio.rs `loopback`).
@@ -336,6 +339,8 @@ pub trait Display: Send + Sync {
     fn connected(&self) -> u32 { 1 }
     fn brightness(&self) -> Option<u32>;
     fn set_brightness(&self, v: u32) -> Res<()>;
+    /// The built-in screen's brightness changed from outside GlassBar (0..100).
+    fn watch_brightness(&self, _on_change: Box<dyn Fn(u32) + Send>) {}
 }
 
 #[cfg(windows)]

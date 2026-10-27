@@ -162,9 +162,64 @@ fn wmi_set(value: u32) -> windows::core::Result<()> {
 
 pub fn brightness() -> Option<u32> { ddc_get().or_else(wmi_get) }
 
+/// When GlassBar last set the brightness (ms). WMI's change event carries no "who", so a
+/// change arriving shortly after ours is taken to be ours.
+static OURS_AT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+const OURS_FOR_MS: u64 = 1500;
+fn now_ms() -> u64 { std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0) }
+
+/// Pure: should a brightness event become an alert? Only a real change, not one we just made.
+fn outside_change(last: Option<u32>, now: u32, since_ours_ms: u64) -> bool {
+    last.is_some_and(|l| l != now) && since_ours_ms > OURS_FOR_MS
+}
+
+/// The laptop panel's brightness, as WMI announces it (WmiMonitorBrightnessEvent). Blocks
+/// on the event, so it costs nothing between changes. External monitors (DDC/CI) send no
+/// event and are not covered. No laptop panel or no WMI: try again every few minutes.
+pub fn watch_brightness(on_change: Box<dyn Fn(u32) + Send>) {
+    std::thread::spawn(move || {
+        let mut last = wmi_get();
+        loop {
+            if let Ok(svc) = wmi() {
+                let q = unsafe { svc.ExecNotificationQuery(&BSTR::from("WQL"), &BSTR::from("SELECT * FROM WmiMonitorBrightnessEvent"),
+                    WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY, None) };
+                if let Ok(en) = q {
+                    loop {
+                        let mut objs = [None];
+                        let mut n = 0u32;
+                        if unsafe { en.Next(WBEM_INFINITE, &mut objs, &mut n) }.is_err() || n == 0 { break; }
+                        let Some(o) = objs[0].take() else { continue };
+                        let mut v = VARIANT::default();
+                        if unsafe { o.Get(w!("Brightness"), 0, &mut v, None, None) }.is_err() { continue; }
+                        let Ok(b) = (unsafe { windows::Win32::System::Variant::VariantToUInt32(&v) }) else { continue };
+                        let since = now_ms().saturating_sub(OURS_AT.load(std::sync::atomic::Ordering::Relaxed));
+                        if outside_change(last, b, since) { on_change(b); }
+                        last = Some(b);
+                    }
+                }
+            }
+            std::thread::sleep(std::time::Duration::from_secs(300));
+        }
+    });
+}
+
 pub fn set_brightness(v: u32) -> Res<()> {
     let v = v.min(100);
+    OURS_AT.store(now_ms(), std::sync::atomic::Ordering::Relaxed);
     let ddc = ddc_set(v);
     let laptop = wmi_set(v).is_ok();
     if ddc || laptop { Ok(()) } else { Err(err("No monitor here supports brightness control")) }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::outside_change;
+
+    #[test]
+    fn brightness_alerts_only_for_real_changes_from_outside() {
+        assert!(outside_change(Some(40), 60, 10_000), "a brightness key");
+        assert!(!outside_change(Some(40), 40, 10_000), "same level again");
+        assert!(!outside_change(None, 60, 10_000), "first reading is the baseline");
+        assert!(!outside_change(Some(40), 60, 300), "our own slider, a moment ago");
+    }
 }

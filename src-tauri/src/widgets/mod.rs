@@ -32,7 +32,16 @@ pub fn start_watchers(app: &AppHandle) {
     let a = app.clone();
     p.watch_windows(Box::new(move || { let _ = a.emit("apps:changed", crate::platform::shell().list_windows()); }));
     let a = app.clone();
-    crate::platform::audio().watch(Box::new(move |s| { let _ = a.emit("audio:changed", s); }));
+    let b = app.clone();
+    // Changes from outside GlassBar also go to the dock as a volume / brightness alert (the
+    // page checks Settings > Dock alerts; dockAlert.ts).
+    crate::platform::audio().watch(Box::new(move |s| { let _ = a.emit("audio:changed", s); }), Box::new(move |v, muted| {
+        let _ = b.emit_to("bar", "dock:alert", serde_json::json!({ "kind": "volume", "percent": (v * 100.0).round(), "muted": muted }));
+    }));
+    let a = app.clone();
+    crate::platform::display().watch_brightness(Box::new(move |p| {
+        let _ = a.emit_to("bar", "dock:alert", serde_json::json!({ "kind": "brightness", "percent": p }));
+    }));
     let a = app.clone();
     crate::platform::media().watch(Box::new(move |m| { let _ = a.emit("media:changed", m); }));
 }

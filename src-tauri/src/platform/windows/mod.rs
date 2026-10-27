@@ -180,7 +180,7 @@ impl Audio for WinAudio {
     fn sessions(&self) -> Res<Vec<AudioSession>> { audio::sessions() }
     fn set_session_volume(&self, pid: u32, v: f32) -> Res<()> { audio::set_session_volume(pid, v) }
     fn set_session_mute(&self, pid: u32, m: bool) -> Res<()> { audio::set_session_mute(pid, m) }
-    fn watch(&self, f: Box<dyn Fn(AudioState) + Send>) { audio::watch(f) }
+    fn watch(&self, f: Box<dyn Fn(AudioState) + Send>, level: Box<dyn Fn(f32, bool) + Send>) { audio::watch(f, level) }
     fn peak(&self) -> Option<f32> { audio::peak() }
     fn loopback(&self, f: &mut dyn FnMut(&[f32], u32) -> bool) -> Res<()> { audio::loopback(f) }
 }
@@ -207,6 +207,7 @@ impl Display for WinDisplay {
     fn connected(&self) -> u32 { display::connected() }
     fn brightness(&self) -> Option<u32> { display::brightness() }
     fn set_brightness(&self, v: u32) -> Res<()> { display::set_brightness(v) }
+    fn watch_brightness(&self, f: Box<dyn Fn(u32) + Send>) { display::watch_brightness(f) }
 }
 
 impl Location for WinLocation {
