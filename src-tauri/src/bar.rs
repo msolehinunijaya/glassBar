@@ -357,7 +357,8 @@ pub fn dock_alert_end() { HOLD_UNTIL.store(0, Ordering::Relaxed); }
 /// Async: reading the brightness over DDC/CI is slow and must not block the main thread.
 #[tauri::command]
 pub async fn dock_alert_test(app: AppHandle, kind: String) {
-    let Ok(Some(p)) = crate::widgets::blocking(move || sample_alert(&kind)).await else { return };
+    let Ok(Some(mut p)) = crate::widgets::blocking(move || sample_alert(&kind)).await else { return };
+    p["test"] = serde_json::Value::Bool(true); // shown even with that kind switched off
     let _ = app.emit_to("bar", "dock:alert", p);
 }
 

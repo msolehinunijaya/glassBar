@@ -5,13 +5,14 @@ import type { ChargerFlip } from '../lib/ipc';
 import { FLASH, fillOf, flashText, flashTone } from './chargeFlash';
 import { fmtWater, progressOf, type WaterUnit } from '../widgets/water/units';
 
-export type DockAlert =
+/** `test`: a sample from Settings > Dock alerts > Test, shown even with that kind switched off. */
+export type DockAlert = { test?: boolean } & (
   | ({ kind: 'charger' } & ChargerFlip)
   | { kind: 'volume'; percent: number; muted: boolean }
   | { kind: 'brightness'; percent: number }
   | { kind: 'prayer'; name: string; at: number }
   /** A water reminder, or (`reached`) the day's goal just met. `test`: from Settings' Test button. */
-  | { kind: 'water'; total: number; goal: number; cup: number; unit?: WaterUnit; reached?: boolean; test?: boolean };
+  | { kind: 'water'; total: number; goal: number; cup: number; unit?: WaterUnit; reached?: boolean });
 export type AlertKind = DockAlert['kind'];
 export type AlertLength = 'short' | 'normal' | 'long';
 

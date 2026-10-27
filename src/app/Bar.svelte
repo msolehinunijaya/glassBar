@@ -80,7 +80,7 @@
   }
   async function showAlert(a: DockAlert) {
     // Mid-drag it would sit under the floating copy and look broken; the dock is busy anyway.
-    if (!enabled(a.kind) || dragId || arrive(current(), a.kind) === 'drop') return;
+    if ((!enabled(a.kind) && !a.test) || dragId || arrive(current(), a.kind) === 'drop') return;
     const hold = holdMs(a.kind, alertCfg.length);
     // Rust refuses over a full-screen app, and slides an auto-hidden dock out for the alert.
     if (!(await ipc.dockAlertBegin(a.kind, FLASH.enter + hold + FLASH.exit).catch(() => true))) return;
