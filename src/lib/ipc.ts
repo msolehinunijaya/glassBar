@@ -156,6 +156,8 @@ export const ipc = {
   popupHoverHide: () => invoke<void>('popup_hover_hide'),
   /** A popup menu (ours or another app's, e.g. a tray icon's) is on screen. */
   menuOpen: () => invoke<boolean>('menu_open'),
+  /** Close GlassBar (gives the screen space and the taskbar back). */
+  appQuit: () => invoke<void>('app_quit'),
   /** A dock alert is about to show for `ms`: false over a full-screen app; slides an
    *  auto-hidden dock out for it when that setting is on. */
   dockAlertBegin: (kind: string, ms: number) => invoke<boolean>('dock_alert_begin', { kind, ms }),

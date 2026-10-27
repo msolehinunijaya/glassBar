@@ -327,6 +327,11 @@ pub fn mouse_down() -> bool { shell().mouse_down() }
 #[tauri::command]
 pub fn menu_open() -> bool { shell().menu_open() }
 
+/// Close GlassBar from the dock's right-click menu: the same clean exit as the tray's Quit
+/// (the reserved screen space and the Windows taskbar are given back).
+#[tauri::command]
+pub fn app_quit(app: AppHandle) { cleanup(&app); app.exit(0); }
+
 // ---- Dock alerts (app/dockAlert.ts draws them) ----
 
 /// A full-screen app (game, slideshow, video) is in front: dock alerts stay out of its way.
