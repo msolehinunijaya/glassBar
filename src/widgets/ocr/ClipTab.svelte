@@ -2,7 +2,7 @@
   import { fade } from './look';
   // Clipboard history: copied text and images, newest first. Click to copy again.
   // Things apps mark as private (password managers) are never recorded.
-  import { Copy, Search, Trash2 } from '@lucide/svelte';
+  import { Copy, Pin, PinOff, Search, Trash2 } from '@lucide/svelte';
   import { updateWidgetSettings } from '../../lib/config.svelte';
   import { events, ipc, type ClipItem } from '../../lib/ipc';
   import { relTime } from '../../lib/time';
@@ -43,8 +43,9 @@
         {#if c.kind === 'image' && c.thumb}<img src={c.thumb} alt="Copied image" />{:else}<span class="txt">{c.text}</span>{/if}
       </button>
       <div class="meta dim">
-        <span>{relTime(c.at)}{c.kind === 'image' ? ` · ${c.w}×${c.h}` : ''}</span>
+        <span>{#if c.pinned}<Pin size={10} class="pinned" /> {/if}{relTime(c.at)}{c.kind === 'image' ? ` · ${c.w}×${c.h}` : ''}</span>
         <span class="acts">
+          <button onclick={() => ipc.clipPin(c.id, !c.pinned)} aria-label={c.pinned ? 'Unpin' : 'Pin'} title={c.pinned ? 'Unpin' : 'Pin: keep it at the top, never removed'}>{#if c.pinned}<PinOff size={12} />{:else}<Pin size={12} />{/if}</button>
           <button onclick={() => copy(c)} aria-label="Copy">{#if copied === c.id}✓{:else}<Copy size={12} />{/if}</button>
           <button onclick={() => ipc.clipDelete(c.id)} aria-label="Delete"><Trash2 size={12} /></button>
         </span>
@@ -54,7 +55,7 @@
     <p class="dim small empty">{q ? 'No match.' : 'Copy something and it shows up here.'}</p>
   {/each}
 </div>
-<p class="dim small">Keeps the last 200 copies. Passwords copied from password managers are skipped.</p>
+<p class="dim small">Keeps the last 200 copies; pinned ones stay at the top and are never removed, not even by Clear. Passwords copied from password managers are skipped.</p>
 </div>
 
 <style>
@@ -74,6 +75,7 @@
   .txt { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; font-size: 12px; line-height: 1.4; white-space: pre-wrap; word-break: break-word; }
   .meta { display: flex; justify-content: space-between; align-items: center; padding: 2px 8px 5px 10px; font-size: 10px; }
   .acts { display: flex; gap: 2px; }
+  .meta :global(.pinned) { color: var(--accent); vertical-align: -1px; }
   .acts button { display: grid; place-items: center; width: 20px; height: 20px; border-radius: calc(6px * var(--rs)); color: var(--fg); opacity: 0.75; }
   .acts button:hover { opacity: 1; background: var(--pill-hover); }
   .small { font-size: 11px; margin: 8px 2px 0; }

@@ -28,7 +28,8 @@ fn opts(app: &AppHandle) -> Opts {
     let s = cfg.widget_settings("ocr");
     Opts {
         mode: serde_json::from_value(s["mode"].clone()).unwrap_or_default(),
-        engine: s["engine"].as_str().unwrap_or("windows").to_string(),
+        // Only Windows OCR now (the Claude engine went with the AI widgets and their API key).
+        engine: "windows".to_string(),
         auto_copy: s["autoCopy"].as_bool().unwrap_or(true),
         toast: s["toast"].as_bool().unwrap_or(true) && !cfg.dnd,
     }
@@ -162,21 +163,7 @@ fn hide(app: &AppHandle) { if let Some(w) = app.get_webview_window("snap") { let
 #[tauri::command]
 pub fn ocr_snap_cancel(app: AppHandle) { hide(&app); *SHOT.lock().unwrap() = None; }
 
-fn recognise(app: &AppHandle, bgra: Vec<u8>, w: u32, h: u32, o: &Opts) -> Result<String, String> {
-    if o.engine == "ai" {
-        let png = png(&bgra, w, h).ok_or("couldn't encode the selection")?;
-        let how = match o.mode {
-            Mode::Text => "Keep the line breaks.",
-            Mode::Code => "It is source code: keep indentation exactly. No markdown fences.",
-            Mode::Terminal => "It is a terminal: keep commands and output, drop shell prompts. No markdown fences.",
-        };
-        let content = json!([
-            { "type": "image", "source": { "type": "base64", "media_type": "image/png",
-              "data": base64::engine::general_purpose::STANDARD.encode(png) } },
-            { "type": "text", "text": format!("Transcribe all text in this image exactly. Output only the text. {how}") },
-        ]);
-        return super::ai::ask(app, content, "low", 8000).map(|t| t.trim().to_string());
-    }
+fn recognise(bgra: Vec<u8>, w: u32, h: u32, o: &Opts) -> Result<String, String> {
     // Windows OCR reads small text better when it's bigger.
     let (bgra, w, h) = if w < 1200 && h < 600 {
         let img = image::RgbaImage::from_raw(w, h, bgra).ok_or("bad image")?;
@@ -219,13 +206,15 @@ pub async fn ocr_snap_finish(app: AppHandle, x: u32, y: u32, w: u32, h: u32, win
         let shot = SHOT.lock().unwrap().take().ok_or("no screenshot")?;
         let (bgra, cw, ch) = crop(&shot.bgra, shot.w as u32, shot.h as u32, x, y, w, h).ok_or("selection too small")?;
         let o = opts(&a);
-        let text = recognise(&a, bgra, cw, ch, &o)?;
+        let text = recognise(bgra, cw, ch, &o)?;
         if text.trim().is_empty() { return Err("No text found in the selection".into()); }
         {
             let db = a.state::<Db>();
             let c = db.0.lock().unwrap();
             let mode = serde_json::to_value(o.mode).unwrap().as_str().unwrap_or("text").to_string();
             let _ = c.execute("INSERT INTO ocr_history(at, text, mode, engine) VALUES(?1, ?2, ?3, ?4)", params![now_ms(), text, mode, o.engine]);
+            // Only the latest 5 are kept.
+            let _ = c.execute("DELETE FROM ocr_history WHERE id NOT IN (SELECT id FROM ocr_history ORDER BY id DESC LIMIT 5)", []);
             let _ = c.execute("DELETE FROM ocr_history WHERE id NOT IN (SELECT id FROM ocr_history ORDER BY id DESC LIMIT 200)", []);
         }
         if o.auto_copy { a.clipboard().write_text(text.clone()).map_err(|e| e.to_string())?; }

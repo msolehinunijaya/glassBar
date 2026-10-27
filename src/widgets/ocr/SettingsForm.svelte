@@ -16,7 +16,6 @@
 <p class="dim" style="font-size:12px">Click the box and press a combination with Ctrl, Alt, Shift or Win.</p>
 <OptionsPopover title="OCR Snap" values={settings} save={(p) => save(p as Partial<OcrSettings>)} options={[
   { type: 'choice', key: 'mode', label: 'Mode', choices: [{ value: 'text', label: 'Text' }, { value: 'code', label: 'Code' }, { value: 'terminal', label: 'Terminal' }] },
-  { type: 'choice', key: 'engine', label: 'Engine', choices: [{ value: 'windows', label: 'Windows OCR', hint: 'Offline' }, { value: 'ai', label: 'Claude', hint: 'Sends the selection to Anthropic' }] },
   { type: 'toggle', key: 'autoCopy', label: 'Copy to clipboard automatically' },
   { type: 'toggle', key: 'toast', label: 'Show a notification' },
 ]} />

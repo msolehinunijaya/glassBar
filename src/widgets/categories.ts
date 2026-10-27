@@ -7,7 +7,6 @@ export const CATEGORIES = [
   { id: 'connectivity', name: 'Connectivity & Quick Controls' },
   { id: 'media', name: 'Media & Notifications' },
   { id: 'info', name: 'Weather & Information' },
-  { id: 'ai', name: 'AI & Insights' },
   { id: 'other', name: 'Other' },
 ] as const;
 

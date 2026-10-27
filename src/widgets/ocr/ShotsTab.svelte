@@ -42,15 +42,12 @@
     </button>
   {/each}
 </div>
-<p class="dim small">Copied to the clipboard automatically. Kept for
-  <select value={String(settings.keepDays)} onchange={(e) => updateWidgetSettings(instance, { keepDays: +e.currentTarget.value })}>
-    {#each [1, 3, 7, 14, 30] as d (d)}<option value={String(d)}>{d} day{d > 1 ? 's' : ''}</option>{/each}
-  </select>, then deleted.</p>
+<p class="dim small">Copied to the clipboard automatically. Only your 5 latest screenshots are kept.</p>
 </div>
 
 <div class="grp hist">
 <div class="head">
-  <h4 class="dim">Recent</h4>
+  <h4 class="dim">Latest 5</h4>
   <span>
     <button class="link" onclick={() => ipc.shotsOpen(null)}><FolderOpen size={12} /> Folder</button>
     {#if shots.v.length}<button class="link" onclick={() => ipc.shotsDelete(null)}>Clear</button>{/if}
@@ -81,7 +78,6 @@
   .mode:hover { background: var(--pill-hover); }
   .mode:active { transform: scale(0.95); }
   .small { font-size: 11px; margin: 8px 2px 0; }
-  select { font-size: 11px; padding: 1px 4px; border-radius: calc(6px * var(--rs)); background: var(--pill); color: inherit; border: none; }
   .head { display: flex; justify-content: space-between; align-items: center; margin: 12px 2px 6px; }
   h4 { margin: 0; font-size: 12px; font-weight: 500; }
   .link { display: inline-flex; align-items: center; gap: 3px; color: var(--accent); font-size: 12px; margin-left: 8px; }

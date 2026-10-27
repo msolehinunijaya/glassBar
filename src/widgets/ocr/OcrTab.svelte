@@ -36,21 +36,16 @@
     <button class:sel={settings.mode === m} onclick={() => updateWidgetSettings(instance, { mode: m })}>{label}</button>
   {/each}
 </div>
-<div class="seg two">
-  <button class:sel={settings.engine === 'windows'} onclick={() => updateWidgetSettings(instance, { engine: 'windows' })}>Windows OCR</button>
-  <button class:sel={settings.engine === 'ai'} onclick={() => updateWidgetSettings(instance, { engine: 'ai' })}>Claude (AI)</button>
-</div>
-{#if settings.engine === 'ai'}<p class="dim small">The selection is sent to Anthropic. Needs your API key (AI Usage widget settings).</p>{/if}
 </div>
 
 <div class="grp hist">
-<div class="head"><h4 class="dim">History</h4>{#if hist.v.length}<button class="link" onclick={() => ipc.ocrHistoryDelete(null)}>Clear</button>{/if}</div>
+<div class="head"><h4 class="dim">Latest 5</h4>{#if hist.v.length}<button class="link" onclick={() => ipc.ocrHistoryDelete(null)}>Clear</button>{/if}</div>
 <div class="list">
   {#each hist.v as i, n (i.id)}
     <div class="card item" style:--fade={fade(n)}>
       <pre>{i.text}</pre>
       <div class="meta dim small">
-        <span>{relTime(i.at)} · {i.mode} · {i.engine === 'ai' ? 'Claude' : 'Windows'}</span>
+        <span>{relTime(i.at)} · {i.mode}</span>
         <button onclick={() => copy(i)} aria-label="Copy"><Copy size={13} />{copied === i.id ? ' Copied' : ''}</button>
         <button onclick={() => ipc.ocrHistoryDelete(i.id)} aria-label="Delete"><Trash2 size={13} /></button>
       </div>
@@ -65,7 +60,6 @@
   .go { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 10px; border-radius: calc(12px * var(--rs)); background: var(--accent); color: #fff; font-weight: 600; }
   .k { font-size: 11px; font-weight: 500; opacity: 0.8; padding: 1px 6px; border-radius: calc(6px * var(--rs)); background: rgba(255,255,255,0.2); }
   .seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; padding: 3px; border-radius: calc(10px * var(--rs)); background: var(--pill); margin-top: 10px; }
-  .seg.two { grid-template-columns: 1fr 1fr; margin-top: 6px; }
   .seg button { padding: 6px; border-radius: calc(8px * var(--rs)); font-size: 12px; }
   .seg .sel { background: var(--accent); color: #fff; }
   .head { display: flex; justify-content: space-between; align-items: center; margin: 12px 2px 6px; }

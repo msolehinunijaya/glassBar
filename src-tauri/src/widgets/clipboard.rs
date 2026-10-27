@@ -27,7 +27,7 @@ fn hash_of(bytes: &[u8]) -> String {
 
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct ClipItem { pub id: i64, pub at: i64, pub kind: String, pub text: Option<String>, pub thumb: Option<String>, pub w: Option<u32>, pub h: Option<u32> }
+pub struct ClipItem { pub id: i64, pub at: i64, pub kind: String, pub text: Option<String>, pub thumb: Option<String>, pub w: Option<u32>, pub h: Option<u32>, pub pinned: bool }
 
 /// Called on every clipboard change (from Windows' clipboard listener).
 pub fn on_change(app: &AppHandle) {
@@ -81,7 +81,7 @@ fn record(app: &AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-/// Keep the newest 200; drop images older than the retention period.
+/// Keep the newest 200; drop images older than the retention period. Pinned items always stay.
 pub fn prune(app: &AppHandle) {
     let days = {
         let st = app.state::<crate::AppState>();
@@ -91,11 +91,11 @@ pub fn prune(app: &AppHandle) {
     let cutoff = now_ms() - days * 86_400_000;
     let db = app.state::<Db>();
     let c = db.0.lock().unwrap();
-    let gone: Vec<String> = c.prepare("SELECT path FROM clipboard WHERE path IS NOT NULL AND (at < ?1 OR id NOT IN (SELECT id FROM clipboard ORDER BY at DESC LIMIT ?2))")
+    let gone: Vec<String> = c.prepare("SELECT path FROM clipboard WHERE pinned = 0 AND path IS NOT NULL AND (at < ?1 OR id NOT IN (SELECT id FROM clipboard ORDER BY at DESC LIMIT ?2))")
         .and_then(|mut s| s.query_map(params![cutoff, KEEP], |r| r.get::<_, String>(0)).map(|r| r.filter_map(Result::ok).collect()))
         .unwrap_or_default();
     for p in &gone { let _ = std::fs::remove_file(p); }
-    let _ = c.execute("DELETE FROM clipboard WHERE (path IS NOT NULL AND at < ?1) OR id NOT IN (SELECT id FROM clipboard ORDER BY at DESC LIMIT ?2)", params![cutoff, KEEP]);
+    let _ = c.execute("DELETE FROM clipboard WHERE pinned = 0 AND ((path IS NOT NULL AND at < ?1) OR id NOT IN (SELECT id FROM clipboard ORDER BY at DESC LIMIT ?2))", params![cutoff, KEEP]);
 }
 
 #[tauri::command]
@@ -103,8 +103,9 @@ pub fn clip_list(app: AppHandle, query: Option<String>) -> Vec<ClipItem> {
     let db = app.state::<Db>();
     let c = db.0.lock().unwrap();
     let q = format!("%{}%", query.unwrap_or_default());
-    let mut st = c.prepare("SELECT id, at, kind, text, thumb, w, h FROM clipboard WHERE kind = 'image' OR text LIKE ?1 ORDER BY at DESC LIMIT 200").unwrap();
-    st.query_map([q], |r| Ok(ClipItem { id: r.get(0)?, at: r.get(1)?, kind: r.get(2)?, text: r.get(3)?, thumb: r.get(4)?, w: r.get(5)?, h: r.get(6)? }))
+    // Pinned first, then newest first.
+    let mut st = c.prepare("SELECT id, at, kind, text, thumb, w, h, pinned FROM clipboard WHERE kind = 'image' OR text LIKE ?1 ORDER BY pinned DESC, at DESC LIMIT 200").unwrap();
+    st.query_map([q], |r| Ok(ClipItem { id: r.get(0)?, at: r.get(1)?, kind: r.get(2)?, text: r.get(3)?, thumb: r.get(4)?, w: r.get(5)?, h: r.get(6)?, pinned: r.get::<_, i64>(7)? != 0 }))
         .unwrap().filter_map(Result::ok).collect()
 }
 
@@ -129,6 +130,18 @@ pub async fn clip_copy(app: AppHandle, id: i64) -> Result<(), String> {
     }).await?
 }
 
+/// Pin or unpin an item: pinned items stay at the top and are never removed automatically
+/// or by "Clear".
+#[tauri::command]
+pub fn clip_pin(app: AppHandle, id: i64, on: bool) {
+    {
+        let db = app.state::<Db>();
+        let _ = db.0.lock().unwrap().execute("UPDATE clipboard SET pinned = ?1 WHERE id = ?2", params![on as i64, id]);
+    }
+    let _ = app.emit("clip:changed", ());
+}
+
+/// Delete one item, or (no id) everything that isn't pinned.
 #[tauri::command]
 pub fn clip_delete(app: AppHandle, id: Option<i64>) {
     {
@@ -136,10 +149,10 @@ pub fn clip_delete(app: AppHandle, id: Option<i64>) {
         let c = db.0.lock().unwrap();
         let paths: Vec<String> = match id {
             Some(id) => c.query_row("SELECT path FROM clipboard WHERE id = ?1 AND path IS NOT NULL", [id], |r| r.get(0)).ok().into_iter().collect(),
-            None => c.prepare("SELECT path FROM clipboard WHERE path IS NOT NULL").and_then(|mut s| s.query_map([], |r| r.get(0)).map(|r| r.filter_map(Result::ok).collect())).unwrap_or_default(),
+            None => c.prepare("SELECT path FROM clipboard WHERE path IS NOT NULL AND pinned = 0").and_then(|mut s| s.query_map([], |r| r.get(0)).map(|r| r.filter_map(Result::ok).collect())).unwrap_or_default(),
         };
         for p in &paths { let _ = std::fs::remove_file(p); }
-        let _ = match id { Some(id) => c.execute("DELETE FROM clipboard WHERE id = ?1", [id]), None => c.execute("DELETE FROM clipboard", []) };
+        let _ = match id { Some(id) => c.execute("DELETE FROM clipboard WHERE id = ?1", [id]), None => c.execute("DELETE FROM clipboard WHERE pinned = 0", []) };
     }
     let _ = app.emit("clip:changed", ());
 }

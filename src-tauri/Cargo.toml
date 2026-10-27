@@ -1,6 +1,6 @@
 [package]
 name = "glassbar"
-version = "0.2.5"
+version = "0.2.6"
 description = "GlassBar - a customizable glass taskbar"
 edition = "2021"
 
@@ -28,7 +28,6 @@ tauri-plugin-process = "2"
 tauri-plugin-global-shortcut = "2"
 tauri-plugin-clipboard-manager = "2"
 tauri-plugin-dialog = "2"
-keyring = { version = "3", features = ["windows-native"] }
 
 [profile.release]
 codegen-units = 1

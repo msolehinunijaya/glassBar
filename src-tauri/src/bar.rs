@@ -352,7 +352,9 @@ pub fn appearance_support() -> Support {
 pub fn popup_fit(app: AppHandle, height: f64) {
     let Some(p) = app.state::<AppState>().popup.lock().unwrap().place else { return };
     let Some(win) = app.get_webview_window("popup") else { return };
-    let h = ((height * p.scale).round() as i32).clamp(60, p.mon.h * 85 / 100);
+    // Round up: at 125 % scaling, rounding to the nearest pixel could leave the window a
+    // fraction too short, so a scrollbar came and went and the panel jiggled.
+    let h = ((height * p.scale).ceil() as i32).clamp(60, p.mon.h * 85 / 100);
     set_rect(&win, popup_rect(p.bar, p.anchor, p.width, h, p.edge, p.mon, p.gap));
 }
 
@@ -422,8 +424,10 @@ pub fn popup_open(app: AppHandle, instance: String, x: f64, y: f64, w: f64, h: f
     let gap = (8.0 * s) as i32;
     let r = popup_rect(br, anchor, (width * s).round() as i32, (height * s).round() as i32, edge, mon, gap);
     st.popup.lock().unwrap().place = Some(Placement { bar: br, anchor, width: r.w, edge, mon, gap, scale: s });
-    let _ = app.emit("popup:show", &instance);
+    // Size first, then tell the page: the page fits the window to its content right away,
+    // and a size set after that would undo it (a panel stuck too short, with a scrollbar).
     set_rect(&popup, r);
+    let _ = app.emit("popup:show", &instance);
     // Hover previews must not steal focus from the user's app: make the window
     // non-activating for them, then show it through Tauri so its visible state stays right.
     popup.set_focusable(focus).map_err(e)?;

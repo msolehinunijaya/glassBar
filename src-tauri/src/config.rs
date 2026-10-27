@@ -253,7 +253,7 @@ impl Default for Config {
 /// v3 folded the Disk widget into the System Monitor; v4 the Tray widget into Quick Settings.
 /// v10: opacity became "how solid the dock is" on top of the Windows material (it was the
 /// acrylic tint, which Windows 11 ignores): 0 keeps the old native look.
-pub const CURRENT_VERSION: u32 = 10;
+pub const CURRENT_VERSION: u32 = 11;
 
 /// Migration helper: widget `from` became part of widget `into`. Its settings (mapped by
 /// `map`) are merged into the existing `into` widget, or it turns into one in place.
@@ -405,6 +405,10 @@ impl Config {
             (self.location.lat, self.location.lon) = (None, None);
         }
         if self.version < 10 && self.theme.native_blur { self.theme.opacity = 0.0; }
+        if self.version < 11 {
+            // The Ask Claude and AI Usage widgets were removed.
+            for p in self.profiles.values_mut() { p.widgets.retain(|w| w.id != "ai" && w.id != "aiusage"); }
+        }
         self.version = CURRENT_VERSION;
         if self.profiles.is_empty() {
             self.profiles.insert("Default".into(), Profile::default());
@@ -696,6 +700,16 @@ mod tests {
         let c = c.normalized();
         let ws = &c.profiles["Default"].widgets;
         assert_eq!((ws[0].id.as_str(), &ws[0].settings["disk"], &ws[0].settings["cpu"]), ("sysmon", &serde_json::json!(true), &serde_json::json!(false)));
+    }
+
+    #[test]
+    fn v11_drops_the_removed_ai_widgets() {
+        let w = |id: &str| WidgetInst { id: id.into(), instance: format!("{id}-1"), size: "small".into(), settings: serde_json::Value::Null, enabled: true };
+        let mut c = Config::default();
+        c.version = 10;
+        c.profiles.get_mut("Default").unwrap().widgets = vec![w("music"), w("ai"), w("aiusage"), w("clock")];
+        let ids: Vec<String> = c.normalized().profiles["Default"].widgets.iter().map(|w| w.id.clone()).collect();
+        assert_eq!(ids, vec!["music", "clock"]);
     }
 
     #[test]

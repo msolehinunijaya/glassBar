@@ -47,16 +47,21 @@
   let surface = $state<HTMLElement>();
   let content = $state<HTMLElement>();
   let lastFit = 0;
+  /** Fit again from scratch: every open resets the window to its initial size. */
+  let refit: (() => void) | null = null;
   $effect(() => {
     if (!content || !surface || !instance) return;
     const cs = getComputedStyle(surface);
     const chrome = ['paddingTop', 'paddingBottom', 'borderTopWidth', 'borderBottomWidth'].reduce((s, k) => s + parseFloat(cs[k as any] as string), 0);
     const fit = () => {
-      const h = Math.ceil(content!.offsetHeight + chrome);
+      // The exact (fractional) height, rounded up: offsetHeight rounds, and a panel a fraction
+      // too short shows a scrollbar, which reflows it, which removes the scrollbar (a jiggle).
+      // The computed height, unlike the on-screen box, ignores the opening scale animation.
+      const h = Math.ceil(parseFloat(getComputedStyle(content!).height) + chrome);
       if (Math.abs(h - lastFit) > 1) { lastFit = h; ipc.popupFit(h); }
     };
-    lastFit = 0;
-    fit();
+    refit = () => { lastFit = 0; fit(); };
+    refit();
     const ro = new ResizeObserver(fit);
     ro.observe(content);
     return () => ro.disconnect();
@@ -66,6 +71,9 @@
     const offs = [
       events.popupShow(async (i) => {
         instance = i; stay();
+        // Reopening the same panel keeps this page as it was: fit it again all the same.
+        await tick();
+        refit?.();
         if (i !== FEEDBACK) return;
         // Draw the card (and decode its thumbnail) before the window appears.
         await tick();
