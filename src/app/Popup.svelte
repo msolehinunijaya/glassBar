@@ -14,6 +14,8 @@
   import { parsePartPanel } from '../widgets/productivity/parts';
   import { updateWidgetSettings } from '../lib/config.svelte';
   import WindowPreviews from './WindowPreviews.svelte';
+  import FolderPanel from '../widgets/folders/FolderPanel.svelte';
+  import { parseFolderKey } from '../widgets/folders/folders';
   import Feedback from '../widgets/ocr/Feedback.svelte';
   import type { CaptureDone } from '../lib/ipc';
 
@@ -32,7 +34,8 @@
   /** "__weather:<clock instance>" = the weather forecast, opened from the clock's weather part. */
   const WEATHER = '__weather:';
   const capMenu = $derived(parseCapMenu(instance));
-  const hover = $derived(!!instance && (instance.startsWith(WINDOWS) || instance.startsWith(HOVER) || !!capMenu));
+  const folder = $derived(parseFolderKey(instance));
+  const hover = $derived(!!instance && (instance.startsWith(WINDOWS) || instance.startsWith(HOVER) || !!capMenu || !!folder?.hover));
   const target = $derived(instance?.startsWith(HOVER) ? instance.slice(HOVER.length) : instance);
   const w = $derived(target ? profile().widgets.find((x) => x.instance === target) : undefined);
   const m = $derived(w ? widgets[w.id] : undefined);
@@ -102,6 +105,8 @@
     {#if cw}<CapMenu tab={capMenu.tab} instance={cw.instance} settings={settingsOf(widgets.ocr, cw)} />{/if}
   {:else if instance === FEEDBACK && feedback}
     {#key feedback}<Feedback data={feedback} {close} />{/key}
+  {:else if folder}
+    {#key instance}<FolderPanel instance={folder.instance} id={folder.id} {close} />{/key}
   {:else if instance && parsePartPanel(instance)}
     {@const pp = parsePartPanel(instance)!}
     {@const pw = profile().widgets.find((x) => x.instance === pp.instance)}
