@@ -146,6 +146,8 @@ export const ipc = {
   popupLeaveClose: () => invoke<void>('popup_leave_close'),
   /** Close a hover-opened panel now (a right-click on the dock); click-opened ones stay. */
   popupHoverHide: () => invoke<void>('popup_hover_hide'),
+  /** A popup menu (ours or another app's, e.g. a tray icon's) is on screen. */
+  menuOpen: () => invoke<boolean>('menu_open'),
   bannerFit: (width: number, height: number) => invoke<void>('banner_fit', { width, height }),
   bannerHide: () => invoke<void>('banner_hide'),
   jumpTo: (source: string, data: unknown) => invoke<void>('jump_to', { source, data }),

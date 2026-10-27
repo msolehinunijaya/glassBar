@@ -322,6 +322,9 @@ pub fn bar_drag(app: AppHandle, on: bool) { app.state::<AppState>().dragging.sto
 #[tauri::command]
 pub fn mouse_down() -> bool { shell().mouse_down() }
 
+#[tauri::command]
+pub fn menu_open() -> bool { shell().menu_open() }
+
 /// Native blur only when it's on and Windows' Transparency effects are on; otherwise the
 /// page draws the glass tint itself (else the bar is solid black in any theme).
 fn glass_native(wanted: bool) -> bool { wanted && shell().transparency_effects() }
