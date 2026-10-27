@@ -24,7 +24,7 @@ pub async fn bt_unpair(id: String) -> Res<()> { blocking(move || crate::platform
 /// Native fallbacks: the Windows network flyout / Bluetooth settings.
 #[tauri::command]
 pub fn open_settings_uri(uri: String) -> Res<()> {
-    if !uri.starts_with("ms-settings:") && !uri.starts_with("ms-availablenetworks:") { return Err("not a settings link".into()); }
+    if !["ms-settings:", "ms-availablenetworks:", "ms-settings-connectabledevices:"].iter().any(|p| uri.starts_with(p)) { return Err("not a settings link".into()); }
     shell().launch(&uri, "")
 }
 
@@ -63,6 +63,17 @@ pub async fn display_set_mode(mode: DisplayMode) -> Res<()> { blocking(move || d
 pub async fn brightness_get() -> Option<u32> { blocking(move || display().brightness()).await.ok().flatten() }
 #[tauri::command]
 pub async fn brightness_set(value: u32) -> Res<()> { blocking(move || display().set_brightness(value)).await? }
+
+#[tauri::command]
+pub async fn night_light_get() -> Res<bool> { blocking(move || crate::platform::toggles().night_light()).await? }
+#[tauri::command]
+pub async fn night_light_set(on: bool) -> Res<()> { blocking(move || crate::platform::toggles().set_night_light(on)).await? }
+#[tauri::command]
+pub async fn nearby_get() -> Res<u32> { blocking(move || crate::platform::toggles().nearby()).await? }
+#[tauri::command]
+pub async fn nearby_set(mode: u32) -> Res<()> { blocking(move || crate::platform::toggles().set_nearby(mode)).await? }
+#[tauri::command]
+pub async fn cast_get() -> Res<crate::platform::CastState> { blocking(move || crate::platform::toggles().cast()).await? }
 
 #[tauri::command]
 pub async fn hotspot_get() -> Res<Hotspot> { blocking(move || radios().hotspot()).await? }

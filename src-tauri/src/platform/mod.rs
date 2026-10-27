@@ -217,6 +217,25 @@ pub trait Radios: Send + Sync {
     fn set_hotspot(&self, on: bool) -> Res<()>;
 }
 
+/// Quick Settings toggles Windows has no public API for (windows/toggles.rs). Each reads the
+/// real state back; an error means "open the Windows page instead".
+pub trait Toggles: Send + Sync {
+    fn night_light(&self) -> Res<bool>;
+    fn set_night_light(&self, on: bool) -> Res<()>;
+    /// Nearby sharing: 0 off, 1 my devices only, 2 everyone nearby.
+    fn nearby(&self) -> Res<u32>;
+    fn set_nearby(&self, mode: u32) -> Res<()>;
+    /// Wireless displays nearby, and whether this PC is casting to one now.
+    fn cast(&self) -> Res<CastState>;
+}
+
+#[derive(Serialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct CastState { pub casting: bool, pub displays: Vec<CastDisplay> }
+#[derive(Serialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct CastDisplay { pub id: String, pub name: String }
+
 #[derive(Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Hotspot { pub on: bool, pub ssid: String, pub clients: u32, pub max_clients: u32 }
@@ -355,6 +374,8 @@ pub fn audio() -> &'static dyn Audio { &win::WinAudio }
 pub fn media() -> &'static dyn Media { &win::WinMedia }
 #[cfg(windows)]
 pub fn radios() -> &'static dyn Radios { &win::WinRadios }
+#[cfg(windows)]
+pub fn toggles() -> &'static dyn Toggles { &win::WinToggles }
 #[cfg(windows)]
 pub fn display() -> &'static dyn Display { &win::WinDisplay }
 #[cfg(windows)]

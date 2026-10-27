@@ -122,6 +122,8 @@ export interface MediaInfo {
 }
 export interface RadioInfo { kind: 'wifi' | 'bluetooth' | 'other'; name: string; on: boolean }
 export interface Hotspot { on: boolean; ssid: string; clients: number; maxClients: number }
+/** Wireless displays nearby (Miracast) and whether this PC is casting to one now. */
+export interface CastState { casting: boolean; displays: { id: string; name: string }[] }
 export type DisplayMode = 'internal' | 'clone' | 'extend' | 'external';
 
 export const ipc = {
@@ -273,6 +275,12 @@ export const ipc = {
   setRadio: (kind: RadioInfo['kind'], on: boolean) => invoke<void>('radio_set', { kind, on }),
   setAirplane: (on: boolean) => invoke<void>('airplane_set', { on }),
   hotspotGet: () => invoke<Hotspot>('hotspot_get'),
+  nightLightGet: () => invoke<boolean>('night_light_get'),
+  nightLightSet: (on: boolean) => invoke<void>('night_light_set', { on }),
+  /** Nearby sharing: 0 off, 1 my devices only, 2 everyone nearby. */
+  nearbyGet: () => invoke<number>('nearby_get'),
+  nearbySet: (mode: number) => invoke<void>('nearby_set', { mode }),
+  castGet: () => invoke<CastState>('cast_get'),
   hotspotSet: (on: boolean) => invoke<void>('hotspot_set', { on }),
   fxRates: (base: string, force = false) => invoke<Rates>('fx_rates', { base, force }),
   ocrSnapStart: (purpose: SnapView['purpose'] = 'ocr') => invoke<void>('ocr_snap_start', { purpose }),

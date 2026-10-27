@@ -19,6 +19,7 @@ mod snap;
 mod system;
 mod thermal;
 mod thumbs;
+mod toggles;
 pub(crate) mod tray;
 mod windows_list;
 mod wireless;
@@ -30,6 +31,7 @@ pub struct WinShell;
 pub struct WinAudio;
 pub struct WinMedia;
 pub struct WinRadios;
+pub struct WinToggles;
 pub struct WinDisplay;
 pub struct WinLocation;
 pub struct WinPower;
@@ -199,6 +201,14 @@ impl Radios for WinRadios {
     fn set(&self, kind: Option<RadioKind>, on: bool) -> Res<()> { radios::set(kind, on) }
     fn hotspot(&self) -> Res<Hotspot> { hotspot::state() }
     fn set_hotspot(&self, on: bool) -> Res<()> { hotspot::set(on) }
+}
+
+impl Toggles for WinToggles {
+    fn night_light(&self) -> Res<bool> { toggles::night_light() }
+    fn set_night_light(&self, on: bool) -> Res<()> { toggles::set_night_light(on) }
+    fn nearby(&self) -> Res<u32> { toggles::nearby() }
+    fn set_nearby(&self, mode: u32) -> Res<()> { toggles::set_nearby(mode) }
+    fn cast(&self) -> Res<CastState> { toggles::cast() }
 }
 
 impl Display for WinDisplay {
