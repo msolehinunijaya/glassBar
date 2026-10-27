@@ -13,10 +13,12 @@
   // The starting level (deliberately the first value only; the effect below follows changes).
   let shown = $state(untrack(() => (fromEmpty ? 0 : clamp(fill))));
   let slosh = $state(false);
+  /** The opening fill has begun: from then on the level follows `fill`. */
+  let started = untrack(() => !fromEmpty);
   let timer: ReturnType<typeof setTimeout>;
   onMount(() => {
     // Next frame, so the transition runs from empty.
-    if (untrack(() => fromEmpty)) requestAnimationFrame(() => requestAnimationFrame(() => (shown = clamp(fill))));
+    if (!started) requestAnimationFrame(() => requestAnimationFrame(() => { started = true; shown = clamp(fill); }));
     return () => clearTimeout(timer);
   });
   let last = untrack(() => clamp(fill));
@@ -29,7 +31,7 @@
       timer = setTimeout(() => (slosh = false), 1600);
     }
     last = f;
-    if (!fromEmpty || shown !== 0 || f === 0) shown = f;
+    if (started) shown = f; // before that, the opening fill sets it
   });
   const level = $derived(24 - shown * 20); // y of the surface in a 24-tall box
 </script>
