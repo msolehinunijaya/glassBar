@@ -3,21 +3,24 @@
 // the widget row (which stays mounted and fades). Pure, so the rules can be tested.
 import type { ChargerFlip } from '../lib/ipc';
 import { FLASH, fillOf, flashText, flashTone } from './chargeFlash';
+import { fmtWater, progressOf, type WaterUnit } from '../widgets/water/units';
 
 export type DockAlert =
   | ({ kind: 'charger' } & ChargerFlip)
   | { kind: 'volume'; percent: number; muted: boolean }
   | { kind: 'brightness'; percent: number }
-  | { kind: 'prayer'; name: string; at: number };
+  | { kind: 'prayer'; name: string; at: number }
+  /** A water reminder, or (`reached`) the day's goal just met. `test`: from Settings' Test button. */
+  | { kind: 'water'; total: number; goal: number; cup: number; unit?: WaterUnit; reached?: boolean; test?: boolean };
 export type AlertKind = DockAlert['kind'];
 export type AlertLength = 'short' | 'normal' | 'long';
 
 /** Settings › Dock alerts. The charger has its own older switch, `chargerFlash`. */
-export interface DockAlertsCfg { volume: boolean; brightness: boolean; prayer: boolean; reveal: boolean; length: AlertLength }
-export const ALERT_DEFAULTS: DockAlertsCfg = { volume: true, brightness: true, prayer: true, reveal: true, length: 'normal' };
+export interface DockAlertsCfg { volume: boolean; brightness: boolean; prayer: boolean; water: boolean; reveal: boolean; length: AlertLength }
+export const ALERT_DEFAULTS: DockAlertsCfg = { volume: true, brightness: true, prayer: true, water: true, reveal: true, length: 'normal' };
 
 /** Higher wins. Volume and brightness share a rank: the newer one is the one being changed. */
-const RANK: Record<AlertKind, number> = { prayer: 3, charger: 2, volume: 1, brightness: 1 };
+const RANK: Record<AlertKind, number> = { prayer: 4, water: 3, charger: 2, volume: 1, brightness: 1 };
 
 /**
  * What a new alert does to the one on screen. The same kind updates in place (five presses of
@@ -35,12 +38,12 @@ const SCALE: Record<AlertLength, number> = { short: 0.6, normal: 1, long: 1.6 };
 /** How long it stays readable after it has arrived (the part hovering pauses), in ms. Volume
  *  and brightness count from the last change. The prayer alert has a button, so it waits. */
 export function holdMs(kind: AlertKind, length: AlertLength): number {
-  const base = kind === 'prayer' ? 8000 : kind === 'charger' ? FLASH.fill + FLASH.hold : 1200;
+  const base = kind === 'prayer' || kind === 'water' ? 8000 : kind === 'charger' ? FLASH.fill + FLASH.hold : 1200;
   return Math.round(base * SCALE[length]);
 }
 
 export interface AlertView {
-  icon: 'plug' | 'unplug' | 'volume' | 'mute' | 'sun' | 'prayer';
+  icon: 'plug' | 'unplug' | 'volume' | 'mute' | 'sun' | 'prayer' | 'water';
   /** The big text. */
   value: string;
   label: string;
@@ -69,5 +72,8 @@ export function viewOf(a: DockAlert, time = (ms: number) => new Date(ms).toLocal
     }
     case 'prayer':
       return { icon: 'prayer', value: a.name, label: `${time(a.at)} · prayer time`, tone: 'var(--accent)', fill: null };
+    case 'water':
+      return { icon: 'water', value: fmtWater(a.total, a.unit), tone: '#40c8e0', fill: progressOf(a.total, a.goal),
+               label: a.reached ? `Goal of ${fmtWater(a.goal, a.unit)} reached today` : `Time to drink · goal ${fmtWater(a.goal, a.unit)}` };
   }
 }

@@ -209,6 +209,7 @@
           ['volume', 'Volume', 'When the volume changes outside GlassBar: keyboard keys, Windows or another app.'],
           ['brightness', 'Brightness', "When the built-in screen's brightness changes outside GlassBar. External monitors don't report it. If Windows changes it by itself (auto brightness), you'll see that too."],
           ['prayer', 'Prayer time', 'The prayer name and time when it begins (Waktu Solat widget, with its alerts on).'],
+          ['water', 'Water reminder', 'Time to drink, with buttons to log a cup or snooze (Water widget, with reminders on).'],
         ] as const as [k, label, hint] (k)}
           <div class="field"><span>{label}</span>
             <span class="row"><button class="btn ghost" onclick={() => ipc.dockAlertTest(k)}>Test</button>

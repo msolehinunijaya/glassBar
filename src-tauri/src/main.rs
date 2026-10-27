@@ -243,6 +243,7 @@ fn main() {
             widgets::quick::brightness_get, widgets::quick::brightness_set,
             widgets::quick::hotspot_get, widgets::quick::hotspot_set,
             widgets::quick::night_light_get, widgets::quick::night_light_set, widgets::quick::nearby_get, widgets::quick::nearby_set, widgets::quick::cast_get,
+            widgets::water::water_today, widgets::water::water_add, widgets::water::water_remove, widgets::water::water_snooze,
             widgets::currency::fx_rates,
             widgets::apps::app_pin_target, widgets::apps::app_browse, widgets::apps::apps_installed, widgets::apps::paths_exist,
             widgets::ocr::ocr_hotkey_status, widgets::ocr::ocr_snap_start, widgets::ocr::ocr_shot, widgets::ocr::ocr_snap_cancel, widgets::ocr::ocr_snap_show,

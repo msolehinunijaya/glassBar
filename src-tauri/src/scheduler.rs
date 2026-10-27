@@ -55,6 +55,7 @@ fn collect(app: &AppHandle) -> Vec<Due> {
     let mut v = crate::widgets::todo::due_items(app);
     v.extend(crate::widgets::focus::due_items(app));
     v.extend(crate::widgets::solat::due_items(app));
+    v.extend(crate::widgets::water::due_items(app));
     // Due "now" so it sorts after anything else that is due (alerts go first).
     v.push(Due {
         key: format!("house:{}", chrono::Local::now().format("%Y-%m-%d")),
@@ -66,6 +67,8 @@ fn collect(app: &AppHandle) -> Vec<Due> {
 fn handle(app: &AppHandle, d: &Due, missed: bool) {
     match d.source {
         "house" => housekeeping(app),
+        // A Dock alert only: no banner, no sound, nothing in the Notification Center.
+        "water" => crate::widgets::water::remind(app, missed),
         "timer" => {
             let id = crate::widgets::focus::timer_id(&d.key);
             if let Some(id) = id { crate::widgets::focus::on_timer_due(app, id); }

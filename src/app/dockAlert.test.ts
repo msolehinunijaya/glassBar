@@ -53,3 +53,15 @@ describe('viewOf', () => {
     expect(v).toMatchObject({ icon: 'prayer', value: 'Zohor', label: '1:15 PM · prayer time', fill: null });
   });
 });
+
+describe('the water alert', () => {
+  it('sits between prayer time and the charger', () => {
+    expect(arrive('charger', 'water')).toBe('show');
+    expect(arrive('water', 'charger')).toBe('drop');
+    expect(arrive('water', 'prayer')).toBe('show');
+  });
+  it('shows today so far against the goal', () => {
+    expect(viewOf({ kind: 'water', total: 750, goal: 2000, cup: 250 })).toMatchObject({ icon: 'water', value: '750 ml', label: 'Time to drink · goal 2,000 ml', fill: 0.375 });
+    expect(viewOf({ kind: 'water', total: 2000, goal: 2000, cup: 250, reached: true }).label).toBe('Goal of 2,000 ml reached today');
+  });
+});

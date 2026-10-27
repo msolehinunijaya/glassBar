@@ -123,6 +123,8 @@ export interface MediaInfo {
 export interface RadioInfo { kind: 'wifi' | 'bluetooth' | 'other'; name: string; on: boolean }
 export interface Hotspot { on: boolean; ssid: string; clients: number; maxClients: number }
 /** Wireless displays nearby (Miracast) and whether this PC is casting to one now. */
+/** Today's water: total and goal in ml, each drink, the last 7 days (oldest first). */
+export interface WaterToday { total: number; goal: number; cup: number; entries: { at: number; ml: number }[]; week: { day0: number; ml: number }[]; hot: boolean }
 export interface CastState { casting: boolean; displays: { id: string; name: string }[] }
 export type DisplayMode = 'internal' | 'clone' | 'extend' | 'external';
 
@@ -281,6 +283,11 @@ export const ipc = {
   nearbyGet: () => invoke<number>('nearby_get'),
   nearbySet: (mode: number) => invoke<void>('nearby_set', { mode }),
   castGet: () => invoke<CastState>('cast_get'),
+  waterToday: () => invoke<WaterToday>('water_today'),
+  waterAdd: (ml: number) => invoke<WaterToday>('water_add', { ml }),
+  waterRemove: (at: number) => invoke<WaterToday>('water_remove', { at }),
+  /** 'Later': no water reminder for this many minutes. */
+  waterSnooze: (minutes: number) => invoke<void>('water_snooze', { minutes }),
   hotspotSet: (on: boolean) => invoke<void>('hotspot_set', { on }),
   fxRates: (base: string, force = false) => invoke<Rates>('fx_rates', { base, force }),
   ocrSnapStart: (purpose: SnapView['purpose'] = 'ocr') => invoke<void>('ocr_snap_start', { purpose }),
@@ -357,6 +364,7 @@ export const events = {
   sysmonSample: (cb: (s: Sample) => void) => listen<Sample>('sysmon:sample', (e) => cb(e.payload)),
   soundPlay: (cb: (s: Sound) => void) => listen<Sound>('sound:play', (e) => cb(e.payload)),
   chargerFlip: (cb: (f: ChargerFlip) => void) => listen<ChargerFlip>('charger:flip', (e) => cb(e.payload)),
+  waterChanged: (cb: (t: WaterToday) => void) => listen<WaterToday>('water:changed', (e) => cb(e.payload)),
   dockAlert: (cb: (a: import('../app/dockAlert').DockAlert) => void) => listen<import('../app/dockAlert').DockAlert>('dock:alert', (e) => cb(e.payload)),
   shelfDropped: (cb: (d: { instance: string; paths: string[] }) => void) =>
     listen<{ instance: string; paths: string[] }>('shelf:dropped', (e) => cb(e.payload)),

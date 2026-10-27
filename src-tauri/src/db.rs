@@ -27,6 +27,9 @@ CREATE TABLE clipboard(id INTEGER PRIMARY KEY, at INT NOT NULL, kind TEXT NOT NU
 ALTER TABLE alerts ADD COLUMN data TEXT;
 ", r"
 ALTER TABLE clipboard ADD COLUMN pinned INT NOT NULL DEFAULT 0;
+", r"
+CREATE TABLE water(at INT NOT NULL, ml INT NOT NULL);
+CREATE INDEX water_at ON water(at);
 "];
 
 pub fn migrate(c: &Connection) -> rusqlite::Result<()> {

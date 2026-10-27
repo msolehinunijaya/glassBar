@@ -2,11 +2,12 @@
   import { availableMonitors, getCurrentWindow, primaryMonitor } from '@tauri-apps/api/window';
   import { flip } from 'svelte/animate';
   import { onMount } from 'svelte';
-  import { Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Maximize2, MoonStar, Plus, Square, PlugZap, Sun, Unplug, Volume2, VolumeX, X } from '@lucide/svelte';
+  import { Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Droplet, Maximize2, MoonStar, Plus, Square, PlugZap, Sun, Unplug, Volume2, VolumeX, X } from '@lucide/svelte';
   import { profile, store, update } from '../lib/config.svelte';
   import { events, ipc, type WidgetInst, type WidgetSize } from '../lib/ipc';
   import { FLASH } from './chargeFlash';
   import { ALERT_DEFAULTS, arrive, holdMs, viewOf, type AlertKind, type DockAlert } from './dockAlert';
+  import { fmtWater } from '../widgets/water/units';
   import { hiddenCounts, insertIndex, snap } from '../lib/geometry';
   import { GALLERY, openPopup } from '../lib/popup';
   import { chargerTone, chime, deviceTone, playAdzan, shutter, stopSound, tick } from '../lib/sound';
@@ -90,6 +91,21 @@
     if (how === 'show') alertSeq++;
     holdFor((how === 'show' ? FLASH.enter : 0) + hold);
   }
+  // Water: "+ cup" logs it, the fill rises to the new total, then the alert goes; "Later"
+  // snoozes reminders for 15 minutes. A Settings test only pretends.
+  async function drink() {
+    if (alert?.kind !== 'water') return;
+    const a = alert;
+    const total = a.test ? a.total + a.cup : (await ipc.waterAdd(a.cup).catch(() => null))?.total;
+    if (total === undefined || alert !== a) return;
+    alert = { ...a, total, reached: total >= a.goal };
+    holdFor(1400);
+  }
+  function later() {
+    if (alert?.kind === 'water' && !alert.test) ipc.waterSnooze(15).catch(() => {});
+    dismissAlert();
+  }
+
   // Hovering holds it; moving away gives it a short moment more. A click dismisses it.
   const pauseAlert = () => { if (alert && !leaving) clearAlertTimers(); };
   const resumeAlert = () => { if (alert && !leaving) holdFor(1200); };
@@ -448,9 +464,15 @@
          onpointerenter={pauseAlert} onpointerleave={resumeAlert} onpointerdown={(e) => e.stopPropagation()} onclick={dismissAlert}>
       {#if view.fill !== null}<div class="flash-fill"></div>{/if}
       <div class="flash-body">
-        {#if view.icon === 'plug'}<PlugZap size={16} />{:else if view.icon === 'unplug'}<Unplug size={16} />{:else if view.icon === 'volume'}<Volume2 size={16} />{:else if view.icon === 'mute'}<VolumeX size={16} />{:else if view.icon === 'sun'}<Sun size={16} />{:else}<MoonStar size={16} />{/if}
+        {#if view.icon === 'plug'}<PlugZap size={16} />{:else if view.icon === 'unplug'}<Unplug size={16} />{:else if view.icon === 'volume'}<Volume2 size={16} />{:else if view.icon === 'mute'}<VolumeX size={16} />{:else if view.icon === 'sun'}<Sun size={16} />{:else if view.icon === 'water'}<Droplet size={16} />{:else}<MoonStar size={16} />{/if}
         <strong>{view.value}</strong>
         <span class="flash-label">{view.label}</span>
+        {#if alert.kind === 'water' && !alert.reached}
+          <button class="flash-act" onclick={(e) => { e.stopPropagation(); drink(); }} aria-label="Log a drink of {fmtWater(alert.cup, alert.unit)}">
+            <Plus size={11} /><span>{fmtWater(alert.cup, alert.unit)}</span>
+          </button>
+          <button class="flash-act quiet" onclick={(e) => { e.stopPropagation(); later(); }} aria-label="Remind me in 15 minutes"><span>Later</span></button>
+        {/if}
         {#if alert.kind === 'prayer' && adhanOn}
           <button class="flash-act" onclick={(e) => { e.stopPropagation(); stopSound(); }} aria-label="Stop the adhan">
             <Square size={10} fill="currentColor" /><span>Stop adhan</span>
@@ -615,6 +637,7 @@
     animation: flash-in var(--f-enter) var(--ease);
   }
   .flash-act:hover { background: var(--pill-hover); }
+  .flash-act.quiet { background: transparent; border-color: transparent; color: var(--fg-dim); }
   .flash-act:active { transform: scale(0.96); }
   .flash-act :global(svg) { color: inherit; }
   .bar[data-size='compact'] .flash-body strong { font-size: 16px; }
@@ -626,6 +649,7 @@
   /* No room for words in a side column: the stop icon alone. */
   .vertical .flash-act { margin: 2px 0 0; padding: 0; width: 26px; justify-content: center; }
   .vertical .flash-act span { display: none; }
+  .vertical .flash-act.quiet { display: none; }
   .bar.vertical .flash-body strong { font-size: 16px; }
   .bar.vertical[data-side='slim'] .flash-body strong { font-size: 13px; }
 
