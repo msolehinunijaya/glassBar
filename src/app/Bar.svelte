@@ -1,7 +1,7 @@
 <script lang="ts">
   import { availableMonitors, getCurrentWindow, primaryMonitor } from '@tauri-apps/api/window';
   import { flip } from 'svelte/animate';
-  import { onMount, untrack } from 'svelte';
+  import { onMount } from 'svelte';
   import { adhan, setAdhanPlaying, stopAdhan } from '../lib/adhan.svelte';
   import { Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Droplet, Maximize2, MoonStar, Plus, Square, PlugZap, Sun, Unplug, Volume2, VolumeX, X } from '@lucide/svelte';
   import { profile, store, update } from '../lib/config.svelte';
@@ -60,13 +60,8 @@
   let alertTimers: ReturnType<typeof setTimeout>[] = [];
   const alertCfg = $derived({ ...ALERT_DEFAULTS, ...(store.config?.dockAlerts ?? {}) });
   const view = $derived(alert ? viewOf(alert) : null);
-  // While the adzan plays, the prayer alert stays on the dock (with Stop adhan); when it
-  // ends, the alert leaves a few seconds later.
-  $effect(() => {
-    const on = adhan.playing;
-    if (untrack(() => alert?.kind !== 'prayer' || leaving)) return;
-    if (on) clearAlertTimers(); else holdFor(4000);
-  });
+  // The prayer alert says it for a few seconds (holdMs), with Stop adhan while the adzan
+  // plays; the adzan goes on after it, and the prayer widget and its panel can stop it too.
 
   // The charger's switch is the older `chargerFlash`; the Companion also rides the charger
   // event, so the switch is checked here rather than in Rust.
@@ -95,8 +90,7 @@
     alert = a;
     leaving = false;
     if (how === 'show') alertSeq++;
-    if (a.kind === 'prayer' && adhan.playing) clearAlertTimers(); // stays until the adzan ends
-    else holdFor((how === 'show' ? FLASH.enter : 0) + hold);
+    holdFor((how === 'show' ? FLASH.enter : 0) + hold);
   }
   // Water: "+ cup" logs it, the fill rises to the new total, then the alert goes; "Later"
   // snoozes reminders for 15 minutes. A Settings test only pretends.
@@ -115,7 +109,7 @@
 
   // Hovering holds it; moving away gives it a short moment more. A click dismisses it.
   const pauseAlert = () => { if (alert && !leaving) clearAlertTimers(); };
-  const resumeAlert = () => { if (alert && !leaving && !(alert.kind === 'prayer' && adhan.playing)) holdFor(1200); };
+  const resumeAlert = () => { if (alert && !leaving) holdFor(1200); };
   function dismissAlert() {
     if (!alert || leaving) return;
     clearAlertTimers();
