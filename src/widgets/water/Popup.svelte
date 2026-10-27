@@ -1,11 +1,11 @@
 <script lang="ts">
   // Water: today's progress ring, one-tap cups (with Undo), today's drinks, the last 7 days,
   // and the goal / reminder settings behind the gear.
-  import { Droplet, Plus, Settings2, Undo2, X } from '@lucide/svelte';
+  import { Plus, Settings2, Undo2, X } from '@lucide/svelte';
   import { ipc } from '../../lib/ipc';
   import { updateWidgetSettings } from '../../lib/config.svelte';
   import OptionsPopover from '../../lib/OptionsPopover.svelte';
-  import Ring from '../../lib/Ring.svelte';
+  import Drop from './Drop.svelte';
   import type { PopupProps } from '../types';
   import { WATER_DEFAULTS, type WaterSettings } from './settings';
   import { fmtWater, progressOf } from './units';
@@ -70,13 +70,13 @@
 
 {#if w.v}
   <div class="hero">
-    <Ring value={p} size={132} stroke={10} color="#40c8e0">
-      <span class="in">
-        <Droplet size={16} color="#40c8e0" />
-        <b>{fmtWater(w.v.total, s.unit)}</b>
-        <span class="dim">of {fmtWater(w.v.goal, s.unit)}</span>
-      </span>
-    </Ring>
+    <!-- Fills up from empty as the panel opens, keeps moving while it is open, and rises
+         with a splash when a drink is logged. -->
+    <Drop fill={p} size={112} fromEmpty live />
+    <span class="in">
+      <b>{fmtWater(w.v.total, s.unit)}</b>
+      <span class="dim">of {fmtWater(w.v.goal, s.unit)} · {Math.round(p * 100)}%</span>
+    </span>
     {#if p >= 1}<p class="done">Goal reached today</p>{:else if w.v.hot}<p class="dim small">Hot day: goal +10 %</p>{/if}
   </div>
 
