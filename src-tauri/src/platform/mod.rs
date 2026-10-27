@@ -343,6 +343,10 @@ pub trait Power: Send + Sync {
 pub trait Gpu: Send + Sync {
     /// GPU utilization 0..100, None if counters are unavailable.
     fn usage(&self) -> Option<f32>;
+    /// GPU utilization of just these processes, 0..100; None if counters are unavailable.
+    fn usage_for(&self, pids: &[u32]) -> Option<f32>;
+    /// A process's private (committed) memory in bytes; None if it can't be read.
+    fn private_bytes(&self, pid: u32) -> Option<u64>;
     /// CPU/thermal-zone temperature in °C; None when the PC exposes no sensor.
     fn cpu_temp_c(&self) -> Option<f32>;
 }

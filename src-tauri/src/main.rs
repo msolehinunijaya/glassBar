@@ -10,6 +10,7 @@ mod bar;
 mod config;
 mod db;
 mod net;
+mod perf;
 mod platform;
 mod widgets;
 

@@ -1,4 +1,5 @@
 //! One shared HTTP client for all widget fetches (weather, prayer times, IPU, location).
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::OnceLock;
 use std::time::Duration;
 
@@ -13,11 +14,23 @@ fn client() -> &'static reqwest::blocking::Client {
     })
 }
 
+/// Bytes downloaded through this client since start (Settings › Performance).
+static RX: AtomicU64 = AtomicU64::new(0);
+pub fn bytes_received() -> u64 { RX.load(Ordering::Relaxed) }
+
+/// Read a whole body, counting it toward `bytes_received`.
+fn read_body(r: reqwest::blocking::Response) -> reqwest::Result<impl AsRef<[u8]>> {
+    let b = r.bytes()?;
+    RX.fetch_add(b.len() as u64, Ordering::Relaxed);
+    Ok(b)
+}
+
 /// GET a URL and parse JSON. Blocking: call from the blocking pool or a worker thread.
 pub fn get_json(url: &str) -> Result<serde_json::Value, String> {
     let r = client().get(url).send().map_err(|e| format!("network: {e}"))?;
     if !r.status().is_success() { return Err(format!("HTTP {}", r.status())); }
-    r.json().map_err(|e| format!("bad response: {e}"))
+    let b = read_body(r).map_err(|e| format!("bad response: {e}"))?;
+    serde_json::from_slice(b.as_ref()).map_err(|e| format!("bad response: {e}"))
 }
 
 /// GET JSON with extra headers: (HTTP status, body). The body is Null when it isn't JSON.
@@ -26,7 +39,7 @@ pub fn get_json_h(url: &str, headers: &[(&str, &str)]) -> Result<(u16, serde_jso
     for (k, v) in headers { rq = rq.header(*k, *v); }
     let r = rq.send().map_err(|e| format!("network: {}", e.without_url()))?;
     let status = r.status().as_u16();
-    Ok((status, r.json().unwrap_or(serde_json::Value::Null)))
+    Ok((status, read_body(r).ok().and_then(|b| serde_json::from_slice(b.as_ref()).ok()).unwrap_or(serde_json::Value::Null)))
 }
 
 /// POST JSON with extra headers; returns the JSON body even for HTTP errors (APIs put the
@@ -36,10 +49,7 @@ pub fn post_json(url: &str, headers: &[(&str, &str)], body: &serde_json::Value, 
     for (k, v) in headers { rq = rq.header(*k, *v); }
     let r = rq.send().map_err(|e| format!("network: {e}"))?;
     let status = r.status();
-    match r.json::<serde_json::Value>() {
-        Ok(v) => Ok(v),
-        Err(_) => Err(format!("HTTP {status}")),
-    }
+    read_body(r).ok().and_then(|b| serde_json::from_slice(b.as_ref()).ok()).ok_or(format!("HTTP {status}"))
 }
 
 /// Percent-encode a query value.
