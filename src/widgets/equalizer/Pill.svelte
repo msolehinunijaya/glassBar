@@ -22,12 +22,27 @@
   const media = liveMedia();
   const paused = () => s.batterySaver && !!bat.v && !bat.v.onAc;
 
+  // The bands arrive on a local live stream: Tauri events wait behind a right-click menu (it
+  // holds GlassBar's main thread), which froze the bars until the menu closed. Open while
+  // visible and not paused for battery; the old event path is the fallback.
   $effect(() => {
-    const lease = () => { if (document.visibilityState === 'visible' && !paused()) ipc.audioSpectrum(); };
-    lease();
-    const t = setInterval(lease, 2000);
-    const off = listen<number[]>('audio:spectrum', (e) => { src = e.payload.map((v) => v / 255); lastData = performance.now(); });
-    return () => { clearInterval(t); off.then((f) => f()); };
+    let es: EventSource | null = null;
+    let url: string | null | undefined;
+    const want = () => document.visibilityState === 'visible' && !paused();
+    const take = (b: ArrayLike<number>) => { src = Array.from(b, (v) => v / 255); lastData = performance.now(); };
+    const sync = async () => {
+      if (url === undefined) url = await ipc.audioSpectrumStream().catch(() => null);
+      if (!url) { if (want()) ipc.audioSpectrum(); return; } // fallback: keep the event lease alive
+      if (want() && !es) {
+        es = new EventSource(url);
+        es.onmessage = (e) => { const b = atob(e.data); take(Array.from(b, (c) => c.charCodeAt(0))); };
+      } else if (!want() && es) { es.close(); es = null; }
+    };
+    sync();
+    const t = setInterval(sync, 2000);
+    document.addEventListener('visibilitychange', sync);
+    const off = listen<number[]>('audio:spectrum', (e) => take(e.payload));
+    return () => { clearInterval(t); document.removeEventListener('visibilitychange', sync); es?.close(); off.then((f) => f()); };
   });
 
   // Album colours: two vivid colours from the cover, re-read when the cover changes.
@@ -75,8 +90,12 @@
       step(st, target, dt, now, s.fall * 0.5, s.peaks ? s.peakHold : 0);
       quiet = !signal && st.cur.every((v) => v < 0.01) && st.peak.every((v) => v < 0.01);
 
+      // Clear every pixel of the canvas. Cleared in CSS pixels, a length that isn't a whole
+      // number of screen pixels (e.g. 150 px at 125 %) left the last column half-cleared, and
+      // frames piled up there into a bright line on the right.
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.clearRect(0, 0, w, h);
       if (vertical) { ctx.translate(w, 0); ctx.rotate(Math.PI / 2); } // draw along the length, bars grow right
       if (now - accentAt > 1000) { accent = getComputedStyle(canvas).getPropertyValue('--accent').trim(); accentAt = now; }
       paint(ctx, s, { cur: st.cur, peak: st.peak, quiet, now }, vertical ? h : w, vertical ? w : h, accent, album);

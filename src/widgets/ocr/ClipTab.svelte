@@ -55,7 +55,7 @@
     <p class="dim small empty">{q ? 'No match.' : 'Copy something and it shows up here.'}</p>
   {/each}
 </div>
-<p class="dim small">Keeps the last 200 copies; pinned ones stay at the top and are never removed, not even by Clear. Passwords copied from password managers are skipped.</p>
+<p class="dim small">Keeps your 20 latest copies; pinned ones stay at the top and are never removed, not even by Clear. Passwords copied from password managers are skipped.</p>
 </div>
 
 <style>

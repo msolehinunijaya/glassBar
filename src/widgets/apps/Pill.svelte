@@ -5,6 +5,14 @@
   import { events, ipc, type AppWindow } from '../../lib/ipc';
   import type { PillProps } from '../types';
   import { flip } from 'svelte/animate';
+  import { slide, type SlideParams } from 'svelte/transition';
+  import { cubicOut } from 'svelte/easing';
+  // Icons that appear or go (hover shows the ones behind "+N", apps open or close): slide
+  // open along the dock and fade in, the reverse when collapsing.
+  function reveal(node: Element, o: SlideParams) {
+    const s = slide(node, o);
+    return { ...s, css: (t: number, u: number) => `${s.css?.(t, u) ?? ''};opacity:${t}` };
+  }
   import { insertIndex } from '../../lib/geometry';
   import { group, isWebApp, keyFor, keyOf, limitIcons, moveKey, nextWindow, pinsInOrder, stableOrder, type Group } from './groups';
   import type { AppsSettings } from './index';
@@ -42,7 +50,11 @@
   let collapseTimer: ReturnType<typeof setTimeout> | undefined;
   const expand = () => { clearTimeout(collapseTimer); expanded = true; };
   const collapse = () => { clearTimeout(collapseTimer); collapseTimer = setTimeout(() => (expanded = false), 400); };
+  // Every icon stays in the row; the ones behind "+N" fold to zero width (a CSS transition),
+  // so expanding and collapsing both animate in place. (Removing them instead made the leaving
+  // icons float over the next widgets while the row shrank.)
   const limited = $derived(expanded || dragKey ? { shown: groups, hidden: 0 } : limitIcons(groups, settings.maxIcons ?? 0, (g) => g.windows.some((w) => w.active)));
+  const visibleKeys = $derived(new Set(limited.shown.map((g) => g.key)));
   let swallow = false;
   let row: HTMLElement;
   function onDown(e: PointerEvent, g: Group) {
@@ -191,7 +203,7 @@
     <StartButtons searchStyle={settings.searchStyle} />
     <span class="sep"></span>
   {/if}
-  {#each limited.shown as g (g.key)}
+  {#each groups as g (g.key)}
     {@const active = g.windows.some((w) => w.active)}
     {@const gone = !g.windows.length && missing[g.key]}
     <button
@@ -201,6 +213,10 @@
       class:gone
       class:failed={failed === g.key}
       animate:flip={{ duration: 220 }}
+      class:hid={!visibleKeys.has(g.key)}
+      aria-hidden={!visibleKeys.has(g.key)}
+      tabindex={visibleKeys.has(g.key) ? 0 : -1}
+      in:reveal={{ axis: vertical ? 'y' : 'x', duration: 240, easing: cubicOut }}
       title={failed === g.key ? `Couldn't start ${g.name}. Right-click to unpin.` : gone ? `${g.name} wasn't found at ${g.path}. Right-click to unpin.`
         : g.windows.length ? g.windows.map((w) => w.title).join('\n') : `${g.name} (pinned)`}
       onpointerdown={(e) => onDown(e, g)}
@@ -224,7 +240,7 @@
     </button>
   {/each}
   {#if limited.hidden}
-    <button class="more-apps" title="{limited.hidden} more apps" onpointerdown={(e) => e.stopPropagation()} onclick={(e) => { e.stopPropagation(); expand(); }}>+{limited.hidden}</button>
+    <button class="more-apps" transition:reveal={{ axis: vertical ? 'y' : 'x', duration: 280, easing: cubicOut }} title="{limited.hidden} more apps" onpointerdown={(e) => e.stopPropagation()} onclick={(e) => { e.stopPropagation(); expand(); }}>+{limited.hidden}</button>
   {/if}
   {#if groups.length === 0}<span class="dim">No apps</span>{/if}
   {#if settings.startPlacement === 'after'}
@@ -241,8 +257,18 @@
   .app {
     position: relative; display: flex; align-items: center; gap: 6px;
     height: 100%; padding: 0 6px; border-radius: calc(10px * var(--rs));
-    transition: background 0.2s var(--ease), transform 0.3s var(--spring);
+    max-width: 400px; max-height: 400px;
+    overflow: hidden; /* while a slot widens or folds, its icon doesn't spill over the next one */
+    transition: background 0.2s var(--ease), transform 0.3s var(--spring),
+      max-width 0.28s var(--ease), max-height 0.28s var(--ease), padding 0.28s var(--ease), margin 0.28s var(--ease), opacity 0.22s var(--ease);
   }
+  /* An icon is ~40 px: fold from about that, so the motion is even (from 400 px it would sit
+     still for most of the time). Only the active app shows a title, and it's never folded. */
+  .app:not(.active) { max-width: 48px; }
+  .vertical .app:not(.active) { max-width: 400px; max-height: 48px; }
+  /* Behind "+N": folded away (the row's 2 px gap is taken back too). */
+  .app.hid { max-width: 0; padding-left: 0; padding-right: 0; margin-right: -2px; opacity: 0; overflow: hidden; pointer-events: none; }
+  .vertical .app.hid { max-width: 400px; max-height: 0; padding-top: 0; padding-bottom: 0; margin-right: 0; margin-bottom: -2px; }
   .vertical .app { height: auto; padding: 5px; }
   .app:hover { background: var(--pill-hover); }
   .app:active { transform: scale(0.88); }

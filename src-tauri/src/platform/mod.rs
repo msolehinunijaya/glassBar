@@ -332,6 +332,8 @@ pub trait Location: Send + Sync {
 pub trait Display: Send + Sync {
     fn mode(&self) -> Option<DisplayMode>;
     fn set_mode(&self, m: DisplayMode) -> Res<()>;
+    /// Displays plugged in (also ones switched off by "PC only").
+    fn connected(&self) -> u32 { 1 }
     fn brightness(&self) -> Option<u32>;
     fn set_brightness(&self, v: u32) -> Res<()>;
 }

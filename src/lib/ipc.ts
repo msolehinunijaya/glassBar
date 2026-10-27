@@ -277,6 +277,7 @@ export const ipc = {
   /** Keep the live output-level meter running ~3 s more (the music visualizer calls this every 2 s). */
   audioMeter: () => invoke<void>('audio_meter'),
   audioSpectrum: () => invoke<void>('audio_spectrum'),
+  audioSpectrumStream: () => invoke<string | null>('audio_spectrum_stream'),
   trayRefresh: () => invoke<void>('tray_refresh'),
   trayIcons: () => invoke<TrayIcon[]>('tray_icons'),
   trayClick: (id: string, button: 'left' | 'right' | 'double') => invoke<boolean>('tray_click', { id, button }),
@@ -289,6 +290,7 @@ export const ipc = {
   windowsNotifications: () => invoke<void>('windows_notifications'),
   showDesktop: () => invoke<void>('show_desktop'),
   displayMode: () => invoke<DisplayMode | null>('display_mode'),
+  displayCount: () => invoke<number>('display_count'),
   setDisplayMode: (mode: DisplayMode) => invoke<void>('display_set_mode', { mode }),
   brightness: () => invoke<number | null>('brightness_get'),
   setBrightness: (value: number) => invoke<void>('brightness_set', { value }),

@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.7 — 2026-10-27
+
+### New
+- **App Launcher:** the icons behind "+N" slide open smoothly when you hover, and fold away just as smoothly when you leave.
+- **Quick Settings › Display:** with only one display connected, Duplicate, Extend and Second only are dimmed and say so, instead of failing with an error.
+- **Clipboard** keeps your 20 latest copies (pinned ones on top, not counted, never removed).
+
+### Fixed
+- The Equalizer keeps moving while a right-click menu is open (it froze until the menu closed).
+- A thin bright line on the Equalizer's right edge at some lengths (at 125 % display scaling).
+- Pomodoro on the dock: the play/pause button starts and pauses straight away, without opening the panel.
+- Leftover clipboard images from older versions are cleaned up.
+
 ## 0.2.6 — 2026-10-27
 
 ### New

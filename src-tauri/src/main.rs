@@ -235,7 +235,7 @@ fn main() {
             widgets::sound::audio_set_session_volume, widgets::sound::audio_set_session_mute,
             widgets::media::media_info, widgets::media::media_control, widgets::media::media_seek, widgets::media::media_pause_playing, widgets::media::media_resume,
             widgets::quick::radios_list, widgets::quick::radio_set, widgets::quick::airplane_set,
-            widgets::quick::display_mode, widgets::quick::display_set_mode,
+            widgets::quick::display_mode, widgets::quick::display_set_mode, widgets::quick::display_count,
             widgets::quick::brightness_get, widgets::quick::brightness_set,
             widgets::quick::hotspot_get, widgets::quick::hotspot_set,
             widgets::currency::fx_rates,
@@ -245,7 +245,7 @@ fn main() {
             widgets::screenshots::shots_delete, widgets::screenshots::shots_open, widgets::screenshots::shot_fullscreen, widgets::quick::record_screen, widgets::ocr::ocr_history, widgets::ocr::ocr_history_delete, widgets::ocr::ocr_copy,
             widgets::quick::wifi_list, widgets::quick::wifi_connect, widgets::quick::wifi_disconnect,
             widgets::quick::bt_list, widgets::quick::bt_pair, widgets::quick::bt_unpair, widgets::quick::open_settings_uri,
-            bar::popup_fit, widgets::quick::tray_icons, widgets::quick::tray_click, widgets::quick::tray_refresh, widgets::sound::audio_meter, widgets::spectrum::audio_spectrum,
+            bar::popup_fit, widgets::quick::tray_icons, widgets::quick::tray_click, widgets::quick::tray_refresh, widgets::sound::audio_meter, widgets::spectrum::audio_spectrum, widgets::spectrum::audio_spectrum_stream,
             widgets::quick::clock_system_12h, widgets::quick::lang_list, widgets::quick::lang_set, widgets::quick::windows_notifications, widgets::quick::show_desktop,
         ])
         .build(tauri::generate_context!())
