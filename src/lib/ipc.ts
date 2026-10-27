@@ -169,6 +169,8 @@ export const ipc = {
   jumpTo: (source: string, data: unknown) => invoke<void>('jump_to', { source, data }),
   /** Make the open popup exactly this tall (CSS px): panels size themselves to their content. */
   popupFit: (height: number) => invoke<void>('popup_fit', { height }),
+  /** Make the open popup this wide (CSS px), keeping its place: e.g. room for lyrics. */
+  popupWidth: (width: number) => invoke<void>('popup_width', { width }),
   // alerts
   alertsList: () => invoke<Alert[]>('alerts_list'),
   alertsMarkRead: () => invoke<void>('alerts_mark_read'),

@@ -303,7 +303,9 @@
   function onSlotClick(w: WidgetInst, el: HTMLElement) {
     if (swallowClick) { swallowClick = false; return; } // the click that ended a long-press
     const m = widgets[w.id];
-    if (!edit && m.Popup) openPopup(w.instance, el, m.Popup.width, m.Popup.height);
+    // A widget can ask for a wider panel right now (music with lyrics beside the player).
+    const want = Number(el.querySelector<HTMLElement>('[data-popup-width]')?.dataset.popupWidth) || 0;
+    if (!edit && m.Popup) openPopup(w.instance, el, want || m.Popup.width, m.Popup.height);
   }
 
   async function onContext(e: MouseEvent) {

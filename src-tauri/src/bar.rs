@@ -444,6 +444,24 @@ pub fn popup_fit(app: AppHandle, height: f64) {
     set_rect(&win, popup_rect(p.bar, p.anchor, p.width, h, p.edge, p.mon, p.gap));
 }
 
+/// A panel that needs a different width while open (the music panel with lyrics beside it):
+/// keep its side, height and anchor, change only the width.
+#[tauri::command]
+pub fn popup_width(app: AppHandle, width: f64) {
+    let p = {
+        let st = app.state::<AppState>();
+        let mut g = st.popup.lock().unwrap();
+        let Some(pl) = g.place.as_mut() else { return };
+        let w = ((width * pl.scale).round() as i32).clamp(200, pl.mon.w * 9 / 10);
+        if pl.width == w { return; }
+        pl.width = w;
+        *pl
+    };
+    let Some(win) = app.get_webview_window("popup") else { return };
+    let h = win.outer_size().map(|s| s.height as i32).unwrap_or(400);
+    set_rect(&win, popup_rect(p.bar, p.anchor, p.width, h, p.edge, p.mon, p.gap));
+}
+
 // ---- Popup ----
 
 #[derive(Default)]

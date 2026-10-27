@@ -42,7 +42,7 @@
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="mwrap" class:vertical class:lyr-left={lyr.side === 'left'} onpointerenter={enter} onpointerleave={hp.leave} onpointerdown={hp.cancel}>
+<div class="mwrap" class:vertical class:lyr-left={lyr.side === 'left'} data-popup-width={lyricShown ? 640 : 320} onpointerenter={enter} onpointerleave={hp.leave} onpointerdown={hp.cancel}>
 {#if settings.style === 'player' || settings.style === 'custom'}
   <!-- Custom is the Player pill with the parts the user chose; see settings.ts layoutOf(). -->
   <PlayerPill {size} {settings} {vertical} />

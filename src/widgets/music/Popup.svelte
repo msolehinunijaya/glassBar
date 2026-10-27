@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Music, Pause, Play, Settings2, SkipBack, SkipForward, Volume2, VolumeX } from '@lucide/svelte';
+  import { MicVocal, Music, Pause, Play, Settings2, SkipBack, SkipForward, Volume2, VolumeX } from '@lucide/svelte';
   import Visualizer from './Visualizer.svelte';
   import { events, type AudioState } from '../../lib/ipc';
   import { updateWidgetSettings } from '../../lib/config.svelte';
@@ -33,6 +33,11 @@
   // switch is on -- also on a side dock, where the dock itself has no room for the line.
   const lyrics = liveLyrics(media, () => lyr.on, () => lyr.lookup);
   const showList = $derived(lyr.on && lyrics.lines.length > 0);
+  // Lyrics go beside the player, however the panel was opened: wide while there are lyrics
+  // to show, narrow when they are off or the song has none. Nothing changes while they are
+  // still loading, so the panel doesn't shrink and grow again.
+  const want = $derived(!lyr.on ? 320 : lyrics.v === null ? null : showList ? 640 : 320);
+  $effect(() => { if (want !== null) ipc.popupWidth(want).catch(() => {}); });
   const frac = $derived(media.m?.durationMs ? pos / media.m.durationMs : 0);
 
   let audio = $state<AudioState | null>(null);
@@ -52,6 +57,11 @@
   }
 </script>
 
+<!-- Lyrics on/off at a glance, right where you look (the full lyric options are behind the gear). -->
+<button class="lyrtoggle" class:on={lyr.on} onclick={() => saveLyr({ on: !lyr.on })} aria-pressed={lyr.on}
+        title={lyr.on ? 'Hide lyrics (on the dock and here)' : 'Show lyrics (on the dock and here)'}>
+  <MicVocal size={14} /><span>Lyrics</span>
+</button>
 <button class="icon-btn gear" class:on={showOptions} onclick={() => (showOptions = !showOptions)} aria-label="Music widget options"><Settings2 size={16} /></button>
 {#if showOptions}
   <div class="optwrap">
@@ -163,6 +173,16 @@
     .cols.has-lyr { display: grid; grid-template-columns: 272px 1fr; gap: 20px; }
     .cols.has-lyr :global(.lyrics) { height: auto; margin-top: 0; contain: size; padding-top: 24px; }
   }
+  .lyrtoggle {
+    position: absolute; top: 12px; right: 46px; z-index: 2; display: inline-flex; align-items: center; gap: 5px;
+    height: 26px; padding: 0 10px; border-radius: var(--r-chip); font-size: 11.5px; font-weight: 500;
+    background: var(--pill); color: var(--fg-dim); border: 1px solid var(--line-soft);
+    transition: background 0.2s var(--ease), color 0.2s var(--ease), transform 0.15s var(--ease);
+  }
+  .lyrtoggle:hover { background: var(--pill-hover); color: var(--fg); }
+  .lyrtoggle:active { transform: scale(0.95); }
+  .lyrtoggle.on { background: var(--accent); color: var(--on-accent); border-color: transparent; }
+  .lyrtoggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .gear { position: absolute; top: 10px; right: 10px; z-index: 2; }
   .gear.on { color: var(--accent); }
   .optwrap { margin: 28px 0 8px; }
