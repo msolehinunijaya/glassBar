@@ -9,7 +9,7 @@
   import { FLASH } from './chargeFlash';
   import { ALERT_DEFAULTS, arrive, holdMs, viewOf, type AlertKind, type DockAlert } from './dockAlert';
   import { fmtWater } from '../widgets/water/units';
-  import { hiddenCounts, insertIndex, snap } from '../lib/geometry';
+  import { hiddenCounts, insertIndex, revealBy, snap } from '../lib/geometry';
   import { GALLERY, openPopup } from '../lib/popup';
   import { chargerTone, chime, deviceTone, playAdzan, shutter, tick } from '../lib/sound';
   // Bundled adzan: "Beautiful adhan" by Adam-synagda, Wikimedia Commons, CC0.
@@ -273,12 +273,25 @@
   $effect(() => {
     shown.length; vertical; // re-measure when widgets or the edge change
     measure();
-    const ro = new ResizeObserver(measure);
+    const ro = new ResizeObserver(() => { measure(); revealSoon(); });
     ro.observe(scroller);
     for (const s of scroller.children) ro.observe(s);
     scroller.addEventListener('scroll', measure, { passive: true });
-    return () => { ro.disconnect(); scroller.removeEventListener('scroll', measure); cancelAnimationFrame(measureRaf); };
+    return () => { ro.disconnect(); scroller.removeEventListener('scroll', measure); cancelAnimationFrame(measureRaf); clearTimeout(revealTimer); };
   });
+
+  // ---- A widget that opens up under the pointer (the File Shelf, the launcher's +N, tray
+  // icons) and now runs past the visible part of the dock: scroll so all of it shows, once it
+  // has finished growing. Only the hovered one, so nothing else moves the dock by itself. ----
+  let revealTimer: ReturnType<typeof setTimeout>;
+  function revealSoon() { clearTimeout(revealTimer); revealTimer = setTimeout(revealHovered, 140); }
+  function revealHovered() {
+    if (dragId || edit) return;
+    const slot = scroller.querySelector<HTMLElement>(':scope > .slot:hover');
+    if (!slot) return;
+    const by = revealBy(slot.getBoundingClientRect(), scroller.getBoundingClientRect(), vertical, 14);
+    if (by) scroller.scrollBy({ [vertical ? 'top' : 'left']: by, behavior: 'smooth' });
+  }
   function page(dir: -1 | 1) {
     const by = (vertical ? scroller.clientHeight : scroller.clientWidth) * 0.8 * dir;
     scroller.scrollBy({ [vertical ? 'top' : 'left']: by, behavior: 'smooth' });

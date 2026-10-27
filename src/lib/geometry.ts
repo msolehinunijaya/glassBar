@@ -64,3 +64,17 @@ export function hiddenCounts(items: Box[], view: Box, vertical: boolean): { befo
     after: items.filter((r) => r[b] > view[b] + 2).length,
   };
 }
+
+/**
+ * How far to scroll a strip (`view`) so the whole of `item` shows, with `margin` px to spare
+ * (the cut-off fade and "more" chip sit at the ends). 0 = it already shows. Wider than the
+ * strip: line its start up with the strip's start, so the beginning is what you see.
+ */
+export function revealBy(item: { left: number; right: number; top: number; bottom: number },
+                         view: { left: number; right: number; top: number; bottom: number }, vertical: boolean, margin = 0): number {
+  const [a, b, va, vb] = vertical ? [item.top, item.bottom, view.top, view.bottom] : [item.left, item.right, view.left, view.right];
+  if (b - a > vb - va - 2 * margin) return a - (va + margin);
+  if (b > vb - margin) return b - (vb - margin);
+  if (a < va + margin) return a - (va + margin);
+  return 0;
+}
