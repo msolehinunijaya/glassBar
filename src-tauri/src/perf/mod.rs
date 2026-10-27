@@ -2,6 +2,7 @@
 //! A sampler measures the process tree every 5 s (1 s while the page is open), keeps an hour
 //! of samples, and decides the effective mode: the manual choice, or Auto's pick.
 pub mod auto;
+pub mod suspend;
 pub mod usage;
 
 use crate::config::{PerfMode, Performance};

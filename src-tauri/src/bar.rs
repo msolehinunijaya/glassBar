@@ -500,6 +500,7 @@ pub fn popup_hidden(app: &AppHandle) {
     if let Some(p) = app.get_webview_window("popup") {
         let _ = p.hide();
         shell().hide_window(&p); // belt and braces: never leave an empty preview on screen
+        crate::perf::suspend::later(p);
     }
     app.state::<AppState>().popup.lock().unwrap().hidden_at = Some(Instant::now());
     let _ = app.emit("popup:hide", ());
@@ -509,6 +510,7 @@ pub fn popup_hidden(app: &AppHandle) {
 #[tauri::command]
 pub fn popup_open(app: AppHandle, instance: String, x: f64, y: f64, w: f64, h: f64, width: f64, height: f64, focus: Option<bool>) -> Result<(), String> {
     let focus = focus.unwrap_or(true);
+    if let Some(p) = app.get_webview_window("popup") { crate::perf::suspend::wake(&p); } // Low may have freed it
     // A hover panel whose timer ran out while a context menu is up: the user is busy with the menu.
     if !focus && shell().menu_open() { return Ok(()); }
     let st = app.state::<AppState>();
@@ -639,6 +641,7 @@ static HOLD_UNTIL: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::
 /// itself with `banner_fit`). Never takes focus from the app you're typing in.
 pub fn banner_push(app: &AppHandle, note: crate::alerts::Note) {
     let Some(win) = app.get_webview_window("banner") else { return };
+    crate::perf::suspend::wake(&win); // Low may have freed it; before the push so it arrives
     let _ = app.emit_to("banner", "banner:push", &note);
     if !win.is_visible().unwrap_or(false) {
         if let Some(r) = banner_rect(app, 340.0, 96.0) { set_rect(&win, r); }
@@ -686,7 +689,7 @@ pub fn banner_fit(app: AppHandle, width: f64, height: f64) {
 /// Nothing left to show.
 #[tauri::command]
 pub fn banner_hide(app: AppHandle) {
-    if let Some(w) = app.get_webview_window("banner") { let _ = w.hide(); }
+    if let Some(w) = app.get_webview_window("banner") { let _ = w.hide(); crate::perf::suspend::later(w); }
 }
 
 /// Go to the widget that sent a notification (banner click, or the Notification Center
