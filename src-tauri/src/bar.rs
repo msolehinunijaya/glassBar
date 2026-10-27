@@ -341,17 +341,34 @@ pub fn alert_allowed(kind: &str, fullscreen: bool) -> bool { !fullscreen || kind
 /// the auto-hide loop slides it back once the pointer isn't on it.
 #[tauri::command]
 pub fn dock_alert_begin(app: AppHandle, kind: String, ms: u64) -> bool {
-    if !alert_allowed(&kind, FULLSCREEN.load(Ordering::Relaxed)) { return false; }
+    let fullscreen = FULLSCREEN.load(Ordering::Relaxed);
+    if !alert_allowed(&kind, fullscreen) { return false; }
+    // Over a full-screen app the dock is not on top (main.rs): for prayer time, come out
+    // above it for the alert; dock_alert_end puts it back.
+    if fullscreen {
+        if let Some(w) = app.get_webview_window("bar") { let _ = w.set_always_on_top(true); shell().raise_top(&w); }
+    }
     if app.state::<AppState>().config.lock().unwrap().dock_alerts.reveal {
-        HOLD_UNTIL.store(crate::db::now_ms() as u64 + ms.min(20_000), Ordering::Relaxed);
+        let until = crate::db::now_ms() as u64 + ms.min(20_000);
+        HOLD_UNTIL.fetch_max(until, Ordering::Relaxed);
+        ALERT_HOLD.store(until, Ordering::Relaxed);
         reveal(&app, true);
     }
     true
 }
 
+/// The hold the last dock alert set, so ending it never cuts a notification jump's short.
+static ALERT_HOLD: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
 /// The alert is gone: let an auto-hidden dock slide away again.
 #[tauri::command]
-pub fn dock_alert_end() { HOLD_UNTIL.store(0, Ordering::Relaxed); }
+pub fn dock_alert_end(app: AppHandle) {
+    if FULLSCREEN.load(Ordering::Relaxed) {
+        if let Some(w) = app.get_webview_window("bar") { let _ = w.set_always_on_top(false); }
+    }
+    let mine = ALERT_HOLD.swap(0, Ordering::Relaxed);
+    if mine != 0 { let _ = HOLD_UNTIL.compare_exchange(mine, 0, Ordering::Relaxed, Ordering::Relaxed); }
+}
 
 /// Settings › Dock alerts › Test: a sample of that kind (the charger with the real battery).
 /// Async: reading the brightness over DDC/CI is slow and must not block the main thread.

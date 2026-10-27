@@ -13,7 +13,7 @@
 
   let { instance, settings: raw }: PopupProps<WaterSettings> = $props();
   const s = $derived({ ...WATER_DEFAULTS, ...raw });
-  const w = liveWater();
+  const w = liveWater(() => raw);
   let showOptions = $state(false);
   const p = $derived(w.v ? progressOf(w.v.total, w.v.goal) : 0);
   const cup = $derived(Number(s.cup) || 250);

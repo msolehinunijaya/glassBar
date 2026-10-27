@@ -25,7 +25,9 @@
   // measured in px (not CSS auto) so the change in length can slide.
   let box = $state<DOMRectReadOnly>();
   const thick = $derived(Math.round((vertical ? box?.width : box?.height) ?? 0));
-  const len = $derived(gone ? 0 : s.style === 'radial' || shrunk ? thick : s.length);
+  // Hidden is 1 px, never 0: the frame loop skips a 0 px canvas before it checks for sound,
+  // so a hidden equalizer would never notice the music again.
+  const len = $derived(gone ? 1 : s.style === 'radial' || shrunk ? thick : s.length);
 </script>
 
 <!-- The vertical layout comes from `.dock.vertical .pill` in glass.css; the canvas gets it

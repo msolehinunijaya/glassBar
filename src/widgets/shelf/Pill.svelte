@@ -33,9 +33,12 @@
   let openTimer: ReturnType<typeof setTimeout>, closeTimer: ReturnType<typeof setTimeout>;
   const shown = $derived(files.slice(0, shownCount(files.length, unfolded || over, settings.collapse !== false)));
   const hidden = $derived(files.length - shown.length);
-  function enter() { clearTimeout(closeTimer); clearTimeout(openTimer); openTimer = setTimeout(() => (unfolded = true), 350); }
+  let hovering = false;
+  function enter() { hovering = true; clearTimeout(closeTimer); clearTimeout(openTimer); openTimer = setTimeout(() => (unfolded = true), 350); }
   function leave(e?: PointerEvent) {
     if (e && !reallyLeft(e, box)) return;
+    if (e) hovering = false;
+    else if (hovering) return; // after the menu, with the pointer still on the shelf
     clearTimeout(openTimer);
     clearTimeout(closeTimer);
     closeTimer = setTimeout(function fold() {

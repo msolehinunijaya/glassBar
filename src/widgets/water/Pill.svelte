@@ -7,7 +7,7 @@
   import Drop from './Drop.svelte';
 
   let { size, settings, vertical }: PillProps<WaterSettings> = $props();
-  const w = liveWater();
+  const w = liveWater(() => settings);
   const p = $derived(w.v ? progressOf(w.v.total, w.v.goal) : 0);
   const text = $derived(!w.v ? '' : settings.show === 'percent' ? `${Math.round(p * 100)}%` : fmtWater(w.v.total, settings.unit));
   const title = $derived(w.v ? `Water today: ${fmtWater(w.v.total, settings.unit)} of ${fmtWater(w.v.goal, settings.unit)}` : 'Water');

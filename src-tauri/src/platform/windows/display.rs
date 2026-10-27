@@ -207,6 +207,9 @@ pub fn set_brightness(v: u32) -> Res<()> {
     let v = v.min(100);
     OURS_AT.store(now_ms(), std::sync::atomic::Ordering::Relaxed);
     let ddc = ddc_set(v);
+    // Again here: DDC/CI to external monitors can take longer than the window, and the
+    // laptop panel's change event follows this call, not the first stamp.
+    OURS_AT.store(now_ms(), std::sync::atomic::Ordering::Relaxed);
     let laptop = wmi_set(v).is_ok();
     if ddc || laptop { Ok(()) } else { Err(err("No monitor here supports brightness control")) }
 }

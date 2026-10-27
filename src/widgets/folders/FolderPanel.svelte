@@ -76,7 +76,7 @@
       removeEventListener('pointerup', up);
       removeEventListener('keydown', esc);
       if (picked && keep && folder) {
-        swallow = true;
+        swallow = !outside; // released outside: no click follows to swallow
         save(outside ? removeApp(folder, dragKey!) : { ...folder, apps: order ?? folder.apps });
       }
       dragKey = null; order = null; outside = false;
