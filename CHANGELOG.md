@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.2.6 — 2026-10-27
+
+### New
+- **Clipboard:** pin copies. Pinned ones stay at the top and are never removed, not even by Clear. The hover menu shows pinned copies first.
+- **Screenshots and OCR** keep only your 5 latest (older screenshots are deleted from GlassBar's folder).
+
+### Removed
+- The **Ask Claude** and **AI Usage** widgets, and with them OCR's Claude engine (OCR now always uses Windows OCR, offline).
+
+### Fixed
+- Panels (the screenshot card, hover menus) could stay a little too short and show a scrollbar, or jiggle at 125 % display scaling. They now always fit their content, also when opened again.
+
 ## 0.2.5 — 2026-10-27
 
 ### Fixed

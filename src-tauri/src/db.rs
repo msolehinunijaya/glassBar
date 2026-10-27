@@ -25,6 +25,8 @@ CREATE TABLE screenshots(id INTEGER PRIMARY KEY, at INT NOT NULL, path TEXT NOT 
 CREATE TABLE clipboard(id INTEGER PRIMARY KEY, at INT NOT NULL, kind TEXT NOT NULL, text TEXT, path TEXT, thumb TEXT, w INT, h INT, hash TEXT NOT NULL);
 ", r"
 ALTER TABLE alerts ADD COLUMN data TEXT;
+", r"
+ALTER TABLE clipboard ADD COLUMN pinned INT NOT NULL DEFAULT 0;
 "];
 
 pub fn migrate(c: &Connection) -> rusqlite::Result<()> {

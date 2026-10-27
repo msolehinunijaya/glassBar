@@ -5,13 +5,13 @@
   // one; × closes without opening anything; a click jumps to the widget. The window never
   // takes focus. One timer at most, and only while something is counting down.
   import { onMount } from 'svelte';
-  import { AlarmClock, Bell, Check, Download, Gauge, Moon, Play, Timer, Wind, X, ListChecks } from '@lucide/svelte';
+  import { AlarmClock, Bell, Check, Download, Moon, Play, Timer, Wind, X, ListChecks } from '@lucide/svelte';
   import { profile, store, updateWidgetSettings } from '../lib/config.svelte';
   import { events, ipc, type Todo } from '../lib/ipc';
   import { dismiss, expire, nextDeadline, pause, push, resume, shown, SOURCE_WIDGET, type Banner, type Note } from '../lib/notify';
   import { stopSound } from '../lib/sound';
 
-  const ICON: Record<string, typeof Bell> = { timer: AlarmClock, pomodoro: Timer, todo: ListChecks, solat: Moon, ipu: Wind, downloads: Download, aiusage: Gauge };
+  const ICON: Record<string, typeof Bell> = { timer: AlarmClock, pomodoro: Timer, todo: ListChecks, solat: Moon, ipu: Wind, downloads: Download };
   const ms = $derived((store.config?.banners.seconds ?? 5) * 1000);
   let q = $state<Banner[]>([]);
   let hovered = $state<number | null>(null);

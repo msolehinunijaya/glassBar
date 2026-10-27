@@ -15,7 +15,7 @@
   const picking = $derived(view?.purpose === 'window' || view?.purpose === 'scroll');
   const k = () => (img && innerWidth ? img.naturalWidth / innerWidth : devicePixelRatio); // screenshot px per CSS px
   const hint = $derived(!view ? '' : view.purpose === 'ocr'
-    ? `Drag to grab text · ${ocr.mode ?? 'text'} · ${ocr.engine === 'ai' ? 'Claude' : 'Windows OCR'}`
+    ? `Drag to grab text · ${ocr.mode ?? 'text'}`
     : view.purpose === 'region' ? 'Drag to select an area'
     : view.purpose === 'window' ? 'Click a window to capture it'
     : 'Click a window to capture its whole scrolling page (it will scroll by itself)');

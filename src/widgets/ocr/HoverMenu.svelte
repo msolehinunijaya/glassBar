@@ -2,7 +2,7 @@
   // Quick menu shown while hovering a Capture button: the screenshot kinds, the recorders,
   // OCR Snap with its mode, or the last 5 copies. A click acts at once; the full panel is
   // still one click on the button away.
-  import { AppWindow, Check, Monitor, ScanText, ScrollText, SquareDashed } from '@lucide/svelte';
+  import { AppWindow, Check, Monitor, Pin, ScanText, ScrollText, SquareDashed } from '@lucide/svelte';
   import { updateWidgetSettings } from '../../lib/config.svelte';
   import { ipc, type ClipItem } from '../../lib/ipc';
   import { relTime } from '../../lib/time';
@@ -29,7 +29,7 @@
     copied = c.id;
     setTimeout(() => ipc.popupHide(), 500);
   }
-  const titles: Record<CaptureTab, string> = { shot: 'Screenshot', record: 'Screen recording', ocr: 'OCR Snap', clip: 'Recent copies' };
+  const titles: Record<CaptureTab, string> = { shot: 'Screenshot', record: 'Screen recording', ocr: 'OCR Snap', clip: 'Pinned and recent copies' };
 </script>
 
 <div class="menu">
@@ -58,7 +58,7 @@
       {#each clips ?? [] as c (c.id)}
         <button class="clip" onclick={() => copy(c)} title="Copy again">
           {#if c.kind === 'image' && c.thumb}<img src={c.thumb} alt="Copied image" />{:else}<span class="txt">{c.text}</span>{/if}
-          <span class="dim when">{#if copied === c.id}<Check size={12} /> Copied{:else}{relTime(c.at)}{/if}</span>
+          <span class="dim when">{#if copied === c.id}<Check size={12} /> Copied{:else}{#if c.pinned}<Pin size={11} class="pinned" />{/if}{relTime(c.at)}{/if}</span>
         </button>
       {:else}
         <p class="dim empty">{clips ? (settings.clipHistory ? 'Copy something and it shows up here.' : 'Clipboard history is off.') : ''}</p>
@@ -89,6 +89,7 @@
   .clip:hover { background: var(--pill-hover); }
   .txt { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
   .clip img { flex: 1; min-width: 0; max-height: 40px; object-fit: contain; object-position: left; border-radius: calc(4px * var(--rs)); }
+  .when :global(.pinned) { color: var(--accent); }
   .when { flex: none; display: flex; align-items: center; gap: 3px; font-size: 10px; }
   .empty { text-align: center; padding: 14px 0; font-size: 12px; margin: 0; }
 </style>

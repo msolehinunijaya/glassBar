@@ -83,27 +83,12 @@ export interface Rates { base: string; rates: Record<string, number>; rateTime: 
 export interface WinRect { id: number; title: string; x: number; y: number; w: number; h: number }
 export interface SnapView { img: string; purpose: 'ocr' | 'region' | 'window' | 'scroll'; windows: WinRect[] }
 export interface ShotItem { id: number; at: number; w: number; h: number; kind: 'full' | 'region' | 'window' | 'scroll'; thumb: string }
-export interface ClipItem { id: number; at: number; kind: 'text' | 'image'; text: string | null; thumb: string | null; w: number | null; h: number | null }
+export interface ClipItem { id: number; at: number; kind: 'text' | 'image'; text: string | null; thumb: string | null; w: number | null; h: number | null; pinned: boolean }
 export type CaptureDone =
   | { kind: 'shot'; id: number; thumb: string; w: number; h: number; shotKind: string }
   | { kind: 'ocr'; text: string; copied: boolean; lines: number }
   | { kind: 'error'; text: string };
-export interface OcrItem { id: number; at: number; text: string; mode: 'text' | 'code' | 'terminal'; engine: 'windows' | 'ai' }
-/** AI Usage widget: one source's reading (see src-tauri/src/widgets/aiusage.rs). */
-export type AiuSource = 'anthropic' | 'claudecode' | 'openai' | 'claudeplan' | 'claudeweb' | 'chatgptweb';
-export interface AiuTotals { input: number; output: number; cacheRead: number; cacheWrite: number }
-export interface AiuLimit { key: string; label: string; pct: number; resetsAt: number | null }
-export interface AiuNamed { name: string; tokens: number; full: string }
-export interface AiuReading {
-  source: AiuSource; connected: boolean; hint: string | null; updatedAt: number;
-  error: string | null; errorKind: 'auth' | 'offline' | 'broken' | 'other' | null;
-  hasUsage: boolean; limits: AiuLimit[];
-  session: { totals: AiuTotals; startedAt: number; resetsAt: number } | null;
-  today: AiuTotals; week: AiuTotals; month: AiuTotals;
-  daily: [string, number][]; models: AiuNamed[]; projects: AiuNamed[];
-  costToday: number | null; costMonth: number | null; costEstimated: boolean;
-}
-export interface AiUsage { day: string; dayIn: number; dayOut: number; dayRequests: number; month: string; monthIn: number; monthOut: number }
+export interface OcrItem { id: number; at: number; text: string; mode: 'text' | 'code' | 'terminal'; engine: string }
 export interface PinTarget { path: string; args: string }
 export interface InstalledApp { name: string; path: string; args: string }
 export interface WifiNetwork { ssid: string; bars: number; secured: boolean; security: string; connected: boolean; saved: boolean }
@@ -270,6 +255,7 @@ export const ipc = {
   recordScreen: (kind: 'area' | 'app') => invoke<void>('record_screen', { kind }),
   clipList: (query: string | null = null) => invoke<ClipItem[]>('clip_list', { query }),
   clipCopy: (id: number) => invoke<void>('clip_copy', { id }),
+  clipPin: (id: number, on: boolean) => invoke<void>('clip_pin', { id, on }),
   clipDelete: (id: number | null) => invoke<void>('clip_delete', { id }),
   ocrSnapCancel: () => invoke<void>('ocr_snap_cancel'),
   ocrSnapShow: () => invoke<void>('ocr_snap_show'),
@@ -277,15 +263,6 @@ export const ipc = {
   ocrHistoryDelete: (id: number | null) => invoke<void>('ocr_history_delete', { id }),
   ocrCopy: (text: string) => invoke<void>('ocr_copy', { text }),
   ocrHotkeyStatus: () => invoke<{ hotkey: string; error: string | null }>('ocr_hotkey_status'),
-  aiKeyStatus: () => invoke<boolean>('ai_key_status'),
-  aiKeySet: (key: string) => invoke<void>('ai_key_set', { key }),
-  aiKeyClear: () => invoke<void>('ai_key_clear'),
-  aiUsage: () => invoke<AiUsage>('ai_usage'),
-  aiuState: () => invoke<AiuReading[]>('aiu_state'),
-  aiuRefresh: () => invoke<void>('aiu_refresh'),
-  aiuConnect: (source: AiuSource, key?: string) => invoke<void>('aiu_connect', { source, key: key ?? null }),
-  aiuDisconnect: (source: AiuSource) => invoke<void>('aiu_disconnect', { source }),
-  aiAsk: (question: string) => invoke<string>('ai_ask', { question }),
   appPinTarget: (path: string) => invoke<PinTarget>('app_pin_target', { path }),
   appBrowse: () => invoke<PinTarget | null>('app_browse'),
   appsInstalled: () => invoke<InstalledApp[]>('apps_installed'),

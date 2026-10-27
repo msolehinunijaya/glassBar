@@ -7,7 +7,7 @@ import SettingsForm from './SettingsForm.svelte';
 export type CaptureTab = 'shot' | 'record' | 'ocr' | 'clip';
 
 export interface OcrSettings {
-  mode: 'text' | 'code' | 'terminal'; engine: 'windows' | 'ai'; autoCopy: boolean; toast: boolean; hotkey: string;
+  mode: 'text' | 'code' | 'terminal'; engine: 'windows'; autoCopy: boolean; toast: boolean; hotkey: string;
   /** Last tab opened, and how many days screenshots are kept. */
   tab: CaptureTab; keepDays: number;
   /** Order of the four buttons on the dock; clipboard history on/off. */

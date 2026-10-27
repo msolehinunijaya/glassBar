@@ -14,12 +14,6 @@ use tauri_plugin_clipboard_manager::ClipboardExt;
 
 fn dir() -> PathBuf { crate::data_dir().join("screenshots") }
 
-fn keep_days(app: &AppHandle) -> i64 {
-    let st = app.state::<crate::AppState>();
-    let c = st.config.lock().unwrap();
-    c.widget_settings("ocr")["keepDays"].as_i64().filter(|d| *d > 0).unwrap_or(7)
-}
-
 fn rgba(mut bgra: Vec<u8>) -> Vec<u8> { for p in bgra.chunks_mut(4) { p.swap(0, 2); } bgra }
 
 #[derive(Serialize, Clone)]
@@ -58,16 +52,28 @@ pub fn save(app: &AppHandle, bgra: Vec<u8>, w: u32, h: u32, kind: &str) -> Resul
     Ok(id)
 }
 
-/// Delete screenshots older than the retention period (files and history rows).
+/// How many screenshots are kept (files and history); older ones are deleted.
+pub const KEEP: i64 = 5;
+
+/// Keep only the latest `KEEP` screenshots (files and history rows).
 pub fn prune(app: &AppHandle) {
-    let cutoff = now_ms() - keep_days(app) * 86_400_000;
     let db = app.state::<Db>();
     let c = db.0.lock().unwrap();
-    let old: Vec<String> = c.prepare("SELECT path FROM screenshots WHERE at < ?1").and_then(|mut s| {
-        s.query_map([cutoff], |r| r.get::<_, String>(0)).map(|rows| rows.filter_map(Result::ok).collect())
+    let old: Vec<String> = c.prepare("SELECT path FROM screenshots WHERE id NOT IN (SELECT id FROM screenshots ORDER BY at DESC, id DESC LIMIT ?1)").and_then(|mut s| {
+        s.query_map([KEEP], |r| r.get::<_, String>(0)).map(|rows| rows.filter_map(Result::ok).collect())
     }).unwrap_or_default();
     for p in &old { let _ = std::fs::remove_file(p); }
-    let _ = c.execute("DELETE FROM screenshots WHERE at < ?1", [cutoff]);
+    let _ = c.execute("DELETE FROM screenshots WHERE id NOT IN (SELECT id FROM screenshots ORDER BY at DESC, id DESC LIMIT ?1)", [KEEP]);
+    // Leftover files in GlassBar's own screenshots folder that aren't among them (an older
+    // delete removed the entry but not the file).
+    let keep: std::collections::HashSet<String> = c.prepare("SELECT path FROM screenshots").and_then(|mut s| {
+        s.query_map([], |r| r.get::<_, String>(0)).map(|rows| rows.filter_map(Result::ok).map(|p| p.to_lowercase()).collect())
+    }).unwrap_or_default();
+    for f in std::fs::read_dir(dir()).into_iter().flatten().flatten() {
+        let p = f.path();
+        let ours = p.extension().is_some_and(|e| e == "png") && p.file_name().is_some_and(|n| n.to_string_lossy().starts_with("Screenshot "));
+        if ours && !keep.contains(&p.to_string_lossy().to_lowercase()) { let _ = std::fs::remove_file(&p); }
+    }
 }
 
 fn path_of(app: &AppHandle, id: i64) -> Option<String> {
