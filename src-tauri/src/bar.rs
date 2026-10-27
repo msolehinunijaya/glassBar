@@ -12,9 +12,11 @@ use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, Webview
 
 /// Space between the bar and the screen edge, logical px.
 
-/// Window rect and reserved AppBar strip for a docked bar, all in physical px.
-pub fn place(mon: Rect, edge: Edge, length: f64, thick: i32, gap: i32) -> (Rect, Rect) {
-    let strip = thick + 2 * gap;
+/// Window rect and reserved AppBar strip for a docked bar, all in physical px. `gap` is the
+/// space between the bar and its screen edge; `inner` the space on its other side, between
+/// the bar and the apps' windows (it only widens the reserved strip).
+pub fn place(mon: Rect, edge: Edge, length: f64, thick: i32, gap: i32, inner: i32) -> (Rect, Rect) {
+    let strip = thick + gap + inner;
     let along = |total: i32| (total as f64 * length).round() as i32;
     match edge {
         Edge::Top | Edge::Bottom => {
@@ -97,8 +99,8 @@ fn bar_rect(app: &AppHandle, bar: &crate::config::BarCfg, length: f64) -> Option
     let mon = bar_monitor(app, bar.monitor)?;
     let s = mon.scale_factor();
     let thick = (bar.thickness() * s).round() as i32;
-    let gap = (bar.gap.clamp(0.0, 48.0) * s).round() as i32;
-    let (mut r, strip) = place(monitor_rect(&mon), bar.edge, length, thick, gap);
+    let px = |v: f64| (v.clamp(0.0, 48.0) * s).round() as i32;
+    let (mut r, strip) = place(monitor_rect(&mon), bar.edge, length, thick, px(bar.gap), px(bar.gap_inner.unwrap_or(bar.gap)));
     if let Some(p) = bar.floating { r.x = p.x; r.y = p.y; }
     Some((r, strip))
 }
@@ -767,26 +769,39 @@ mod tests {
 
     #[test]
     fn bottom_bar_is_centered_and_reserves_full_strip() {
-        let (win, res) = place(MON, Edge::Bottom, 0.5, 48, 6);
+        let (win, res) = place(MON, Edge::Bottom, 0.5, 48, 6, 6);
         assert_eq!(win, Rect { x: 480, y: 1080 - 6 - 48, w: 960, h: 48 });
         assert_eq!(res, Rect { x: 0, y: 1080 - 60, w: 1920, h: 60 });
     }
 
     #[test]
+    fn the_two_gaps_are_set_apart_on_every_edge() {
+        // 4 px from the screen edge, 20 px towards the windows.
+        let (win, res) = place(MON, Edge::Bottom, 0.5, 48, 4, 20);
+        assert_eq!((win.y, res), (1080 - 4 - 48, Rect { x: 0, y: 1080 - 72, w: 1920, h: 72 }));
+        let (win, res) = place(MON, Edge::Top, 0.5, 48, 4, 20);
+        assert_eq!((win.y, res), (4, Rect { x: 0, y: 0, w: 1920, h: 72 }));
+        let (win, res) = place(MON, Edge::Left, 0.5, 48, 4, 20);
+        assert_eq!((win.x, res), (4, Rect { x: 0, y: 0, w: 72, h: 1080 }));
+        let (win, res) = place(MON, Edge::Right, 0.5, 48, 4, 20);
+        assert_eq!((win.x, res), (1920 - 4 - 48, Rect { x: 1920 - 72, y: 0, w: 72, h: 1080 }));
+    }
+
+    #[test]
     fn hidden_bar_leaves_a_sliver_on_its_edge() {
-        let (win, _) = place(MON, Edge::Bottom, 0.5, 48, 6);
+        let (win, _) = place(MON, Edge::Bottom, 0.5, 48, 6, 6);
         assert_eq!(hidden_rect(win, Edge::Bottom, MON, 3), Rect { y: 1080 - 3, ..win });
-        let (win, _) = place(MON, Edge::Top, 0.5, 48, 6);
+        let (win, _) = place(MON, Edge::Top, 0.5, 48, 6, 6);
         assert_eq!(hidden_rect(win, Edge::Top, MON, 3), Rect { y: 3 - 48, ..win });
-        let (win, _) = place(MON, Edge::Left, 0.5, 48, 6);
+        let (win, _) = place(MON, Edge::Left, 0.5, 48, 6, 6);
         assert_eq!(hidden_rect(win, Edge::Left, MON, 3), Rect { x: 3 - 48, ..win });
-        let (win, _) = place(MON, Edge::Right, 0.5, 48, 6);
+        let (win, _) = place(MON, Edge::Right, 0.5, 48, 6, 6);
         assert_eq!(hidden_rect(win, Edge::Right, MON, 3), Rect { x: 1920 - 3, ..win });
     }
 
     #[test]
     fn left_bar_is_vertical() {
-        let (win, res) = place(MON, Edge::Left, 1.0, 48, 6);
+        let (win, res) = place(MON, Edge::Left, 1.0, 48, 6, 6);
         assert_eq!(win, Rect { x: 6, y: 0, w: 48, h: 1080 });
         assert_eq!(res, Rect { x: 0, y: 0, w: 60, h: 1080 });
     }
@@ -794,10 +809,10 @@ mod tests {
     #[test]
     fn second_monitor_offsets_apply() {
         let m2 = Rect { x: 1920, y: -200, w: 2560, h: 1440 };
-        let (win, res) = place(m2, Edge::Top, 0.5, 36, 6);
+        let (win, res) = place(m2, Edge::Top, 0.5, 36, 6, 6);
         assert_eq!(win, Rect { x: 1920 + 640, y: -194, w: 1280, h: 36 });
         assert_eq!(res, Rect { x: 1920, y: -200, w: 2560, h: 48 });
-        let (win, _) = place(m2, Edge::Right, 0.5, 36, 6);
+        let (win, _) = place(m2, Edge::Right, 0.5, 36, 6, 6);
         assert_eq!(win, Rect { x: 1920 + 2560 - 42, y: -200 + 360, w: 36, h: 720 });
     }
 

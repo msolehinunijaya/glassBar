@@ -13,6 +13,8 @@ export interface BarCfg {
   sideWidth: SideWidth;
   /** Space between the dock and its screen edge (px). */
   gap: number;
+  /** Space on the other side, between the dock and the apps' windows (px); unset = `gap`. */
+  gapInner?: number | null;
 }
 export type SideWidth = 'slim' | 'regular' | 'wide';
 export const SIDE_PX: Record<SideWidth, number> = { slim: 56, regular: 72, wide: 96 };

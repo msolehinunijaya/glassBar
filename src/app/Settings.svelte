@@ -5,6 +5,8 @@
   import { profile, store, update } from '../lib/config.svelte';
   import { events, ipc, type Config } from '../lib/ipc';
   import { ALERT_DEFAULTS, type DockAlertsCfg } from './dockAlert';
+  /** The two sides of the dock, named for the edge it is on: screen-edge side, windows side. */
+  const GAP_SIDES = { bottom: ['below', 'above'], top: ['above', 'below'], left: ['left of', 'right of'], right: ['right of', 'left of'] } as const;
   import Updates from './Updates.svelte';
   import LocationSettings from './LocationSettings.svelte';
   import WidgetManager from './widgets/WidgetManager.svelte';
@@ -24,6 +26,9 @@
 
   const c = $derived(store.config!);
   const bar = $derived(profile().bar);
+  const sides = $derived(GAP_SIDES[bar.edge]);
+  const outer = $derived(bar.gap ?? 6);
+  const inner = $derived(bar.gapInner ?? outer);
   const set = (f: (c: Config) => void) => update(f);
   const setBar = (f: (b: Config['profiles'][string]['bar']) => void) => set((c) => f(c.profiles[c.activeProfile].bar));
 
@@ -99,10 +104,15 @@
         <div class="field"><span>Length {Math.round(bar.length * 100)}%</span>
           <input type="range" min="0.2" max="1" step="0.01" value={bar.length} onchange={(e) => setBar((b) => (b.length = +e.currentTarget.value))} />
         </div>
-        <div class="field"><span>Space from the edge {bar.gap ?? 6}px</span>
-          <input type="range" min="0" max="48" step="1" value={bar.gap ?? 6} onchange={(e) => setBar((b) => (b.gap = +e.currentTarget.value))} />
+        <div class="field"><span>Space {sides[0]} the dock {outer}px</span>
+          <input type="range" min="0" max="48" step="1" value={outer} aria-label="Space between the dock and the screen edge"
+                 onchange={(e) => setBar((b) => { b.gapInner = inner; b.gap = +e.currentTarget.value; })} />
         </div>
-        <p class="hint">Gap between the dock and the screen edge it sits on, in any position.</p>
+        <div class="field"><span>Space {sides[1]} the dock {inner}px</span>
+          <input type="range" min="0" max="48" step="1" value={inner} aria-label="Space between the dock and your windows"
+                 onchange={(e) => setBar((b) => (b.gapInner = +e.currentTarget.value))} />
+        </div>
+        <p class="hint">The first is towards the screen edge, the second towards your windows (with "Reserve screen space" on, maximised windows stop there). They follow the dock to any edge.</p>
         <label class="field"><span>Auto-hide</span>
           <input type="checkbox" checked={bar.autoHide} onchange={(e) => setBar((b) => { b.autoHide = e.currentTarget.checked; b.floating = null; })} />
         </label>
