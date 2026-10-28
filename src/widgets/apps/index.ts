@@ -19,6 +19,16 @@ export interface AppsSettings {
   startCustom?: string;
   /** Icon order chosen by dragging (program keys = lower-case paths). */
   order: string[];
+  /** Mac-style: icons grow under the pointer, neighbours less (off by default). */
+  magnify?: boolean;
+  /** Largest size while magnified, 1.2-2.0. */
+  magnifyScale?: number;
+  /** Effect drawn when a window minimizes or is restored from the dock. */
+  minimizeEffect?: 'genie' | 'scale' | 'suck' | 'none';
+  /** The icon bounces while its app starts. */
+  bounce?: boolean;
+  /** Minimized windows fly into their app's icon; off = their own spot at the end. */
+  minimizeToIcon?: boolean;
 }
 
 export default defineWidget<AppsSettings>({
@@ -29,7 +39,8 @@ export default defineWidget<AppsSettings>({
   icon: LayoutGrid,
   sizes: ['small', 'medium', 'large'],
   defaultSize: 'large',
-  defaults: { pinned: [], showTitles: false, startPlacement: 'inline', searchStyle: 'icon', order: [], maxIcons: 0 },
+  defaults: { pinned: [], showTitles: false, startPlacement: 'inline', searchStyle: 'icon', order: [], maxIcons: 0,
+    magnify: false, magnifyScale: 1.6, minimizeEffect: 'genie', bounce: true, minimizeToIcon: true },
   Pill,
   SettingsForm,
 });
