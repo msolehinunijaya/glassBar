@@ -2,6 +2,7 @@
 mod appbar;
 mod audio;
 mod display;
+mod effects;
 mod files;
 mod gpu;
 mod procmem;
@@ -102,8 +103,11 @@ impl Shell for WinShell {
     }
     fn appbar_set(&self, edge: Edge, strip: Rect) -> Rect { appbar::set(edge, strip) }
     fn appbar_remove(&self) { appbar::remove() }
+    fn appbar_set_window(&self, win: isize, edge: Edge, strip: Rect) -> Rect { appbar::set_for(win, edge, strip) }
+    fn appbar_remove_window(&self, win: isize) { appbar::remove_for(win) }
+    fn appbar_remove_windows(&self) { appbar::remove_extras() }
     fn thumbs_show(&self, dest: isize, items: &[(isize, Rect)]) -> Vec<isize> { thumbs::show(dest, items) }
-    fn thumbs_clear(&self) { thumbs::clear() }
+    fn thumbs_clear(&self, dest: isize) { thumbs::clear(dest) }
     fn clipboard_is_private(&self) -> bool { system::clipboard_is_private() }
     fn press_keys(&self, keys: &[u16]) {
         use windows::Win32::UI::Input::KeyboardAndMouse::*;
@@ -164,6 +168,10 @@ impl Shell for WinShell {
     fn set_starts_with_windows(&self, on: bool) { appbar::KEEP_ON_RESTART.store(on, std::sync::atomic::Ordering::Relaxed) }
     fn list_windows(&self) -> Vec<AppWindow> { windows_list::list() }
     fn watch_windows(&self, f: Box<dyn Fn() + Send>) { windows_list::watch(f) }
+    fn watch_minimize(&self, f: Box<dyn Fn(isize, Rect) + Send>) { effects::watch(f) }
+    fn restore_rect(&self, id: isize) -> Option<Rect> { effects::visible_rect(id) }
+    fn effect_play(&self, src: isize, run: u64, frames: Box<dyn Fn(f64) -> Vec<(Rect, Rect)> + Send>, ms: u32, then: Box<dyn FnOnce() + Send>) { effects::play(src, run, frames, ms, then) }
+    fn suppress_native_animations(&self, on: bool) { effects::suppress(on) }
     fn windows_osd(&self, hide: bool) { osd::set(hide) }
     fn windows_osd_nudge(&self) { osd::nudge() }
     fn windows_osd_restore(&self) { osd::restore_now() }

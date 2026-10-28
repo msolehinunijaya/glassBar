@@ -85,3 +85,13 @@ Rust reads widget settings with `Config::widget_settings(id)`. A bad file is cop
 ## Safety
 
 The native taskbar is restored on Quit, on a panic (panic hook), and from the tray item "Restore Windows taskbar". A force-kill (Task Manager, or Ctrl+C on `tauri dev`) skips restore. In that case, restart Explorer or start GlassBar and choose the tray item.
+
+## Dock effects
+
+- **Magnification:** the enlarged App Launcher icons are drawn in their own small window, `magnify` (`src-tauri/src/magnify.rs`, `src/app/Magnify.svelte`). It is transparent, never focusable, and lets clicks through. This is needed because the dock's native glass covers its whole window. The dock itself only widens the icon slots, and gets longer (`bar_grow`) only when they no longer fit.
+- **Minimize effects:** Genie, Scale and Suck are live DWM thumbnails of the window, drawn on a transparent, click-through overlay (`platform/windows/effects.rs`). Genie and Suck cut the window into 40 strips. The geometry is pure and unit tested (`src-tauri/src/effects.rs`). The first App Launcher tells Rust where each window flies to (`effects_targets`).
+- **What we checked on Windows 11 26200:**
+  - At `EVENT_SYSTEM_MINIMIZESTART` the window is already iconic, so its old place comes from `GetWindowPlacement`.
+  - DWM doesn't draw thumbnails on such an overlay when it covers a whole monitor, so the overlay is sized to the effect's path and kept one pixel short of the screen.
+  - `DWMWA_TRANSITIONS_FORCEDISABLED` is accepted on other apps' windows. GlassBar sets it while effects are on, and clears it on Quit.
+- **Restore:** the reverse effect plays only when GlassBar itself restores the window, by a click on its icon or its spot.

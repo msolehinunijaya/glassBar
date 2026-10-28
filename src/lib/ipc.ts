@@ -1,6 +1,12 @@
 // The only file that talks to Rust. Types mirror src-tauri structs (camelCase).
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import { getCurrentWindow } from '@tauri-apps/api/window';
+
+// Events Rust sends to one dock window only (sounds, alerts, auto-hide...). A plain listen()
+// also hears events aimed at other windows, so with a dock on every monitor each sound
+// would play once per dock.
+const own = <T>(name: string, cb: (p: T) => void) => listen<T>(name, (e) => cb(e.payload), { target: getCurrentWindow().label });
 import type { Edge } from './geometry';
 
 export type WidgetSize = 'small' | 'medium' | 'large';
@@ -15,6 +21,8 @@ export interface BarCfg {
   gap: number;
   /** Space on the other side, between the dock and the apps' windows (px); unset = `gap`. */
   gapInner?: number | null;
+  /** A copy of the dock on every other monitor too. */
+  allDisplays?: boolean;
 }
 export type SideWidth = 'slim' | 'regular' | 'wide';
 export const SIDE_PX: Record<SideWidth, number> = { slim: 56, regular: 72, wide: 96 };
@@ -148,6 +156,17 @@ export const ipc = {
   applyBar: () => invoke<void>('apply_bar'),
   barPreview: (length: number) => invoke<void>('bar_preview', { length }),
   barDrag: (on: boolean) => invoke<void>('bar_drag', { on }),
+  /** Magnification: lengthen this dock by `along` CSS px (0 = normal). */
+  barGrow: (along: number) => invoke<void>('bar_grow', { along }),
+  magnifyPrepare: () => invoke<void>('magnify_prepare'),
+  /** Show the magnifier over `r` (this dock's CSS px). */
+  magnifyShow: (r: { x: number; y: number; width: number; height: number }) => invoke<void>('magnify_show', { x: r.x, y: r.y, w: r.width, h: r.height }),
+  magnifyFrame: (icons: MagIcon[]) => invoke<void>('magnify_frame', { icons }),
+  magnifyHide: () => invoke<void>('magnify_hide'),
+  /** Minimize effects: the effect to play and where each window goes (this dock's CSS px). */
+  effectsTargets: (t: EffectTargets) => invoke<void>('effects_targets', { t }),
+  /** Restore a minimized window with the effect played in reverse, out of the dock. */
+  appRestoreAnimated: (id: number) => invoke<void>('app_restore_animated', { id }),
   mouseDown: () => invoke<boolean>('mouse_down'),
   restoreTaskbar: () => invoke<void>('restore_taskbar'),
   setEditMode: (on: boolean) => invoke<void>('set_edit_mode', { on }),
@@ -157,6 +176,8 @@ export const ipc = {
   popupLeave: () => invoke<void>('popup_leave'),
   thumbsShow: (items: { id: number; x: number; y: number; w: number; h: number }[]) => invoke<number[]>('thumbs_show', { items }),
   thumbsClear: () => invoke<void>('thumbs_clear'),
+  /** Live window pictures drawn into this dock window (minimized-window spots); [] clears them. */
+  barThumbs: (items: { id: number; x: number; y: number; w: number; h: number }[]) => invoke<number[]>('bar_thumbs', { items }),
   barReveal: (show: boolean) => invoke<void>('bar_reveal', { show }),
   popupHide: () => invoke<void>('popup_hide'),
   popupReveal: () => invoke<void>('popup_reveal'),
@@ -372,7 +393,7 @@ export const events = {
   materialChanged: (cb: (m: AppearanceSupport['applied']) => void) => listen<AppearanceSupport['applied']>('appearance:material', (e) => cb(e.payload)),
   captureDone: (cb: (d: CaptureDone) => void) => listen<CaptureDone>('capture:done', (e) => cb(e.payload)),
   editMode: (cb: (on: boolean) => void) => listen<boolean>('editmode', (e) => cb(e.payload)),
-  healthPing: (cb: (seq: number) => void) => listen<number>('health:ping', (e) => cb(e.payload)),
+  healthPing: (cb: (seq: number) => void) => own<number>('health:ping', cb),
   popupShow: (cb: (instance: string) => void) => listen<string>('popup:show', (e) => cb(e.payload)),
   popupHide: (cb: () => void) => listen('popup:hide', () => cb()),
   popupLeave: (cb: () => void) => listen('popup:leave', () => cb()),
@@ -382,20 +403,25 @@ export const events = {
   alertsChanged: (cb: () => void) => listen('alerts:changed', () => cb()),
   downloadsNew: (cb: (i: DlItem) => void) => listen<DlItem>('downloads:new', (e) => cb(e.payload)),
   bannerPush: (cb: (n: import('./notify').Note) => void) => listen<import('./notify').Note>('banner:push', (e) => cb(e.payload)),
-  barJump: (cb: (j: { source: string; data: unknown; open: boolean }) => void) => listen<{ source: string; data: unknown; open: boolean }>('bar:jump', (e) => cb(e.payload)),
+  barJump: (cb: (j: { source: string; data: unknown; open: boolean }) => void) => own<{ source: string; data: unknown; open: boolean }>('bar:jump', cb),
   location: (cb: (s: LocationStatus) => void) => listen<LocationStatus>('location:status', (e) => cb(e.payload)),
   settingsSection: (cb: (s: string) => void) => listen<string>('settings:section', (e) => cb(e.payload)),
   sysmonSample: (cb: (s: Sample) => void) => listen<Sample>('sysmon:sample', (e) => cb(e.payload)),
   perfSample: (cb: (s: PerfSample) => void) => listen<PerfSample>('perf:sample', (e) => cb(e.payload)),
   /** The auto-hidden bar slid away (true) or back in (false). */
-  barAway: (cb: (away: boolean) => void) => listen<boolean>('bar:away', (e) => cb(e.payload)),
-  soundPlay: (cb: (s: Sound) => void) => listen<Sound>('sound:play', (e) => cb(e.payload)),
-  chargerFlip: (cb: (f: ChargerFlip) => void) => listen<ChargerFlip>('charger:flip', (e) => cb(e.payload)),
+  magnifyFrame: (cb: (icons: MagIcon[]) => void) => listen<MagIcon[]>('magnify:frame', (e) => cb(e.payload)),
+  magnifyReset: (cb: () => void) => own<null>('magnify:reset', () => cb()),
+  barAway: (cb: (away: boolean) => void) => own<boolean>('bar:away', cb),
+  soundPlay: (cb: (s: Sound) => void) => own<Sound>('sound:play', cb),
+  chargerFlip: (cb: (f: ChargerFlip) => void) => own<ChargerFlip>('charger:flip', cb),
   waterChanged: (cb: (t: WaterToday) => void) => listen<WaterToday>('water:changed', (e) => cb(e.payload)),
-  dockAlert: (cb: (a: import('../app/dockAlert').DockAlert) => void) => listen<import('../app/dockAlert').DockAlert>('dock:alert', (e) => cb(e.payload)),
-  shelfDropped: (cb: (d: { instance: string; paths: string[] }) => void) =>
-    listen<{ instance: string; paths: string[] }>('shelf:dropped', (e) => cb(e.payload)),
+  dockAlert: (cb: (a: import('../app/dockAlert').DockAlert) => void) => own<import('../app/dockAlert').DockAlert>('dock:alert', cb),
+  shelfDropped: (cb: (d: { instance: string; paths: string[] }) => void) => own<{ instance: string; paths: string[] }>('shelf:dropped', cb),
   /** Any "<name>:changed" event from Rust (todos, notes, timers, ...). */
   changed: (name: string, cb: () => void) => listen(`${name}:changed`, () => cb()),
 };
 export type { UnlistenFn };
+/** One enlarged dock icon, in the magnifier window's CSS px (x, y = top-left). */
+type CssRect = { x: number; y: number; w: number; h: number };
+export interface EffectTargets { effect: 'genie' | 'scale' | 'suck' | 'none'; toIcon: boolean; perWindow: Record<number, CssRect>; end: CssRect | null; dock: CssRect }
+export interface MagIcon { src: string; x: number; y: number; size: number }

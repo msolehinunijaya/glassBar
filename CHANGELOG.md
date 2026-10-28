@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.6.0 — 2026-10-28
+
+### New
+- **Magnification (App Launcher):** icons grow under your pointer and their neighbours a little less, popping out above the dock like on a Mac. The dock gets longer while you hover if they need the room. Off by default; turn it on and set the size in the App Launcher's options.
+- **Minimize windows using Genie, Scale or Suck:** a minimizing window flies into its app's icon, and comes back out when you restore it from the dock. Genie curves it in; Scale simply shrinks it; Suck pulls it in from a corner. On by default, or Off.
+- **Animate opening applications:** an app's icon bounces until its window appears (at most 10 s). On by default.
+- **Minimize windows into application icon:** turn it off and each minimized window gets its own spot at the end of the launcher, with a live picture of the window.
+- **Settings › Bar › Display:** Main display, **All displays** (a dock on every screen), or one display you choose.
+
+### Changed
+- Changing the volume no longer makes the Equalizer bars jump: they skip GlassBar's own volume tick.
+- Settings › Performance marks the active mode clearly, and the graph shows the reading under your pointer.
+
+### Notes
+- Windows can't bend other apps' windows, so the effects are drawn by GlassBar over the screen using Windows' live window pictures. Genie is made of thin strips, so very close up its curve is slightly stepped.
+- While a minimize effect is on, Windows' own minimize, restore and maximize animations are switched off so they don't play under GlassBar's. Set the effect to **Off** to get them back.
+- The reverse effect plays when you restore a window from GlassBar; restoring from Alt-Tab or elsewhere doesn't animate.
+- Windows of apps running as administrator (when GlassBar isn't) minimize without the effect.
+- In Low performance mode the minimize effect is always Scale, icons don't bounce (the dot blinks) and magnification follows without easing.
+
 ## 0.5.0 — 2026-10-28
 
 ### New

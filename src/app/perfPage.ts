@@ -57,3 +57,16 @@ export function fmtBytes(n: number): string {
 }
 
 export const fmtPct = (v: number | null): string => (v === null ? '—' : `${v.toFixed(1)}%`);
+
+/** Graph hover: the point nearest pointer `x` on a graph `width` wide with `n` points. */
+export const pointAt = (x: number, width: number, n: number): number =>
+  n < 2 ? 0 : Math.min(n - 1, Math.max(0, Math.round((x / width) * (n - 1))));
+
+/** One graph point in its unit (network points are bytes per 30 s bucket). */
+export function fmtMetric(metric: Metric, v: number): string {
+  if (metric === 'ram') return `${Math.round(v)} MB`;
+  if (metric === 'net') return `${fmtBytes(v)} in 30 s`;
+  return fmtPct(v);
+}
+
+export const ago = (ms: number): string => (ms < 60_000 ? 'just now' : `${Math.floor(ms / 60_000)} min ago`);
