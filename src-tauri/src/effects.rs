@@ -1,0 +1,149 @@
+//! Minimize / restore effects: pure geometry, no Windows calls (those are in
+//! platform/windows/effects.rs). Each frame is a list of (source slice, destination) pairs:
+//! the slice is in the source window's own pixels, the destination in screen pixels.
+
+use crate::config::Edge;
+use crate::platform::Rect;
+use serde::Deserialize;
+
+#[derive(Deserialize, Clone, Copy, PartialEq, Eq, Debug, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum Effect { #[default] Genie, Scale, Suck, None }
+
+pub fn duration_ms(e: Effect) -> u32 {
+    match e { Effect::Genie => 450, Effect::Suck => 300, Effect::Scale => 250, Effect::None => 0 }
+}
+
+/// A rect turned so the dock is always "below": u runs along the dock, v grows toward it.
+#[derive(Clone, Copy)]
+struct Canon { u0: f64, u1: f64, v0: f64, v1: f64 }
+
+fn canon(r: Rect, edge: Edge) -> Canon {
+    let (x0, x1, y0, y1) = (r.x as f64, (r.x + r.w) as f64, r.y as f64, (r.y + r.h) as f64);
+    match edge {
+        Edge::Bottom => Canon { u0: x0, u1: x1, v0: y0, v1: y1 },
+        Edge::Top => Canon { u0: x0, u1: x1, v0: -y1, v1: -y0 },
+        Edge::Right => Canon { u0: y0, u1: y1, v0: x0, v1: x1 },
+        Edge::Left => Canon { u0: y0, u1: y1, v0: -x1, v1: -x0 },
+    }
+}
+
+/// Back to a screen rect. Edges are rounded (not sizes), so neighbouring strips still tile.
+fn uncanon(c: Canon, edge: Edge) -> Rect {
+    let r = |a: f64, b: f64| { let (a, b) = (a.round() as i32, b.round() as i32); (a.min(b), (a - b).abs()) };
+    let ((x, w), (y, h)) = match edge {
+        Edge::Bottom => (r(c.u0, c.u1), r(c.v0, c.v1)),
+        Edge::Top => (r(c.u0, c.u1), r(-c.v1, -c.v0)),
+        Edge::Right => (r(c.v0, c.v1), r(c.u0, c.u1)),
+        Edge::Left => (r(-c.v1, -c.v0), r(c.u0, c.u1)),
+    };
+    Rect { x, y, w, h }
+}
+
+fn lerp(a: f64, b: f64, t: f64) -> f64 { a + (b - a) * t }
+
+/// One frame of effect `e` at time `t` (0..1) flying `from` (the window) into `to` (the
+/// dock target). Restore plays the same frames with `t` running from 1 to 0.
+pub fn frame(e: Effect, from: Rect, to: Rect, edge: Edge, t: f64, strips: usize) -> Vec<(Rect, Rect)> {
+    let t = t.clamp(0.0, 1.0);
+    let whole = Rect { x: 0, y: 0, w: from.w, h: from.h };
+    if matches!(e, Effect::Scale | Effect::None) || strips < 2 {
+        let k = t * t; // ease in
+        let d = Rect { x: lerp(from.x as f64, to.x as f64, k).round() as i32, y: lerp(from.y as f64, to.y as f64, k).round() as i32,
+                       w: lerp(from.w as f64, to.w as f64, k).round() as i32, h: lerp(from.h as f64, to.h as f64, k).round() as i32 };
+        return vec![(whole, d)];
+    }
+    let (f, g, src) = (canon(from, edge), canon(to, edge), canon(whole, edge));
+    let suck = e == Effect::Suck;
+    let k = if suck { t * t } else { t * t * (3.0 - 2.0 * t) };
+    let a = (2.0 * k).min(1.0); // phase 1: the sides bend in toward the target
+    let c = (2.0 * k - 1.0).max(0.0); // phase 2: the column slides into the target
+    // Suck first pulls toward the target's corner nearest the window, then into the target.
+    let near = if (f.u0 + f.u1) / 2.0 < (g.u0 + g.u1) / 2.0 { g.u0 } else { g.u1 };
+    let (bu0, bu1) = if suck { (near, near) } else { (g.u0, g.u1) };
+    let (cv0, cv1) = (lerp(f.v0, g.v0, c), lerp(f.v1, g.v1, c));
+    let n = strips as f64;
+    (0..strips).map(|i| {
+        let (s0, s1) = (i as f64 / n, (i + 1) as f64 / n);
+        let p = 1.0 - (i as f64 + 0.5) / n; // 0 = the side nearest the dock
+        let curve = if suck { 1.0 - p } else { (1.0 - p) * (1.0 - p) };
+        let bend = a * curve;
+        let u0 = lerp(lerp(f.u0, bu0, bend), g.u0, c);
+        let u1 = lerp(lerp(f.u1, bu1, bend), g.u1, c);
+        let dest = Canon { u0, u1, v0: lerp(cv0, cv1, s0), v1: lerp(cv0, cv1, s1) };
+        let slice = Canon { u0: src.u0, u1: src.u1, v0: lerp(src.v0, src.v1, s0), v1: lerp(src.v0, src.v1, s1) };
+        (uncanon(slice, edge), uncanon(dest, edge))
+    }).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::Edge;
+    use crate::platform::Rect;
+
+    const FROM: Rect = Rect { x: 400, y: 100, w: 800, h: 600 };
+    const TO: Rect = Rect { x: 900, y: 1020, w: 40, h: 40 };
+
+    fn bbox(v: &[(Rect, Rect)]) -> Rect {
+        let x0 = v.iter().map(|p| p.1.x).min().unwrap();
+        let y0 = v.iter().map(|p| p.1.y).min().unwrap();
+        let x1 = v.iter().map(|p| p.1.x + p.1.w).max().unwrap();
+        let y1 = v.iter().map(|p| p.1.y + p.1.h).max().unwrap();
+        Rect { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }
+    }
+
+    #[test]
+    fn scale_goes_from_the_window_to_the_icon() {
+        assert_eq!(frame(Effect::Scale, FROM, TO, Edge::Bottom, 0.0, 1), vec![(Rect { x: 0, y: 0, w: 800, h: 600 }, FROM)]);
+        assert_eq!(frame(Effect::Scale, FROM, TO, Edge::Bottom, 1.0, 1)[0].1, TO);
+    }
+
+    #[test]
+    fn genie_starts_as_the_whole_window() {
+        let f = frame(Effect::Genie, FROM, TO, Edge::Bottom, 0.0, 30);
+        assert_eq!(f.len(), 30);
+        assert_eq!(bbox(&f), FROM);
+        assert_eq!(f.iter().map(|p| p.1.h).sum::<i32>(), FROM.h);
+        assert_eq!(f.iter().map(|p| p.0.h).sum::<i32>(), FROM.h);
+        assert!(f.iter().all(|p| p.0.w == FROM.w && p.0.x == 0));
+    }
+
+    #[test]
+    fn genie_ends_inside_the_icon() {
+        for p in frame(Effect::Genie, FROM, TO, Edge::Bottom, 1.0, 30) {
+            let d = p.1;
+            assert!(d.x >= TO.x - 1 && d.y >= TO.y - 1 && d.x + d.w <= TO.x + TO.w + 1 && d.y + d.h <= TO.y + TO.h + 1, "{d:?}");
+        }
+    }
+
+    #[test]
+    fn genie_bends_the_side_nearest_the_dock_first() {
+        let f = frame(Effect::Genie, FROM, TO, Edge::Bottom, 0.25, 30);
+        let near = f.iter().max_by_key(|p| p.1.y).unwrap().1;
+        let far = f.iter().min_by_key(|p| p.1.y).unwrap().1;
+        assert!(near.w < far.w, "near {near:?} far {far:?}");
+    }
+
+    #[test]
+    fn genie_on_a_side_dock_cuts_upright_strips() {
+        let to = Rect { x: 10, y: 500, w: 40, h: 40 };
+        let f = frame(Effect::Genie, FROM, to, Edge::Left, 0.0, 20);
+        assert_eq!(bbox(&f), FROM);
+        assert!(f.iter().all(|p| p.0.h == FROM.h && p.0.y == 0));
+    }
+
+    #[test]
+    fn suck_also_ends_inside_the_icon() {
+        for p in frame(Effect::Suck, FROM, TO, Edge::Bottom, 1.0, 30) {
+            let d = p.1;
+            assert!(d.x >= TO.x - 1 && d.x + d.w <= TO.x + TO.w + 1 && d.y >= TO.y - 1, "{d:?}");
+        }
+    }
+
+    #[test]
+    fn off_takes_no_time() {
+        assert_eq!(duration_ms(Effect::None), 0);
+        assert!(duration_ms(Effect::Genie) > duration_ms(Effect::Scale));
+    }
+}

@@ -8,6 +8,7 @@ mod autohide;
 mod backdrop;
 mod bar;
 mod magnify;
+mod effects;
 mod config;
 mod db;
 mod net;
