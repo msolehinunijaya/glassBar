@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.1 — 2026-10-28
+
+### Fixed
+- **Clicking an app on the dock now switches to that app.** With magnification on, a dock with more widgets than fit slid its icons under the pointer while you hovered, so a click often landed on the app next to the one you meant, and seemed to do nothing.
+- **Magnification:** the enlarged icons sit on their own icons again (they were drawn off to one side, leaving a gap). Icons now slide apart around the pointer like on a Mac, and the one under the pointer stays put. The dock no longer gets longer while you hover.
+- A window whose app icon is scrolled out of view minimizes into the middle of the dock instead of flying off-screen.
+
 ## 0.6.0 — 2026-10-28
 
 ### New

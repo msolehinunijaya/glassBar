@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bell, extraLength, magnifyScales } from './magnify';
+import { bell, magnifyScales, onScreen, spread } from './magnify';
 
 describe('bell', () => {
   it('is 1 at the pointer and 0 at or past the reach', () => {
@@ -31,8 +31,26 @@ describe('magnifyScales', () => {
   });
 });
 
-describe('extraLength', () => {
-  it('adds up how much longer the row gets', () => {
-    expect(extraLength([1, 1.5, 2], 40)).toBe(60);
+describe('spread', () => {
+  // R = how far the wave reaches, S = biggest size.
+  it('keeps the icon under the pointer where it is', () => {
+    expect(spread(0, 100, 1.6)).toBe(0);
+  });
+  it('pushes icons on each side away from the pointer, evenly', () => {
+    expect(spread(40, 100, 1.6)).toBeGreaterThan(0);
+    expect(spread(-40, 100, 1.6)).toBeCloseTo(-spread(40, 100, 1.6));
+    expect(spread(60, 100, 1.6)).toBeGreaterThan(spread(30, 100, 1.6));
+  });
+  it('moves icons past the wave by a fixed amount', () => {
+    expect(spread(150, 100, 1.6)).toBeCloseTo(0.6 * 50);
+    expect(spread(400, 100, 1.6)).toBeCloseTo(0.6 * 50);
+  });
+});
+
+describe('onScreen', () => {
+  it('tells whether an icon is inside the visible dock', () => {
+    expect(onScreen({ left: 10, right: 50 }, 800)).toBe(true);
+    expect(onScreen({ left: -300, right: -260 }, 800)).toBe(false);
+    expect(onScreen({ left: 790, right: 830 }, 800)).toBe(false);
   });
 });

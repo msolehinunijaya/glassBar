@@ -19,7 +19,7 @@
   import type { AppsSettings } from './index';
   import StartButtons from '../start/StartButtons.svelte';
   import { ADD_APP, APP_DRAG } from '../folders/folders';
-  import { extraLength, magnifyScales } from './magnify';
+  import { magnifyScales, onScreen, spread } from './magnify';
   import { barAway, perf } from '../../lib/perf.svelte';
   import { profile } from '../../lib/config.svelte';
   import { isDockWindow } from '../../lib/dock';
@@ -130,19 +130,22 @@
   const iconSize = $derived(size === 'small' ? 22 : 26);
 
   // ---- Magnification (Mac-style). The enlarged icons are drawn by the magnifier window over
-  // the dock (magnify.rs); here the slots only widen so the row spreads, and the real icons
-  // hide while their big copies show. ----
+  // the dock (magnify.rs). Here the icons slide apart around the pointer -- the one under it
+  // stays put, so a click lands on the icon you see -- and hide while their big copies show.
+  // The dock itself never changes size or moves (that slid everything under the pointer). ----
   let scales = $state<Record<string, number>>({});
+  let shifts = $state<Record<string, number>>({});
   let magnifying = false;
-  let grownBy = 0;
   let frameQueued = false;
   const slotPx = $derived(iconSize + 12); // icon + the slot's side padding
   const edge = $derived(profile().bar.edge);
   $effect(() => { if (settings.magnify) ipc.magnifyPrepare().catch(() => {}); });
   $effect(() => { if (barAway.v) unmagnify(); });
   // Rust's watchdog saw the pointer leave without the page noticing (magnify.rs).
-  onMount(() => { const off = events.magnifyReset(() => { if (magnifying) { magnifying = false; scales = {}; grownBy = 0; queueTargets(); } }); return () => { off.then((f) => f()); }; });
-  const along = (r: DOMRect) => (vertical ? r.top + r.height / 2 : r.left + r.width / 2);
+  onMount(() => { const off = events.magnifyReset(() => { if (magnifying) { magnifying = false; scales = {}; shifts = {}; queueTargets(); } }); return () => { off.then((f) => f()); }; });
+  // An icon's centre as laid out, before any slide (offsets ignore transforms; the row is
+  // the icons' offset parent).
+  const baseCentre = (b: HTMLElement) => (vertical ? b.offsetTop + b.offsetHeight / 2 : b.offsetLeft + b.offsetWidth / 2);
   function magnifyMove(e: PointerEvent) {
     if (!settings.magnify || edit || dragKey) return;
     const scale = settings.magnifyScale ?? 1.6;
@@ -153,33 +156,24 @@
       const r = row.getBoundingClientRect();
       const out = (scale - 1) * iconSize + 8;
       const side = (scale - 1) * slotPx * 3;
-      // The whole dock's length (plus room to grow): the row widens as "+N" icons unfold.
+      // The whole dock's length: the row widens as "+N" icons unfold.
       const area = vertical
         ? { x: edge === 'left' ? r.left : r.left - out, y: -side, width: r.width + out, height: innerHeight + 2 * side }
         : { x: -side, y: edge === 'top' ? r.top : r.top - out, width: innerWidth + 2 * side, height: r.height + out };
-      // Kept in screen terms: the dock window itself moves if it lengthens below.
       magOrigin = { x: screenX + area.x, y: screenY + area.y };
       ipc.magnifyShow(area).catch(() => {});
-      // Lengthen the dock only if the spread row won't fit in the glass's free space.
-      const scroller = row.closest<HTMLElement>('.scroller');
-      if (scroller) {
-        const kids = [...scroller.children] as HTMLElement[];
-        const gap = parseFloat(getComputedStyle(scroller)[vertical ? 'rowGap' : 'columnGap']) || 0;
-        const used = kids.reduce((n, k) => n + (vertical ? k.offsetHeight : k.offsetWidth), 0) + gap * Math.max(0, kids.length - 1);
-        const slack = (vertical ? scroller.clientHeight : scroller.clientWidth) - used;
-        const wave = extraLength(magnifyScales([-3, -2, -1, 0, 1, 2, 3].map((k) => k * slotPx), 0, slotPx, scale), slotPx);
-        const need = Math.ceil(Math.max(0, wave - slack));
-        if (need > 0) { grownBy = need; ipc.barGrow(need).catch(() => {}); }
-      }
     }
-    const p = vertical ? e.clientY : e.clientX;
+    const rr = row.getBoundingClientRect();
+    const p = vertical ? e.clientY - rr.top - row.clientTop : e.clientX - rr.left - row.clientLeft;
     const keys = btns.map((b) => b.dataset.key!);
-    const k = magnifyScales(btns.map((b) => along(b.getBoundingClientRect())), p, slotPx, scale);
+    const c = btns.map(baseCentre);
+    const k = magnifyScales(c, p, slotPx, scale);
     // Only icons that actually grow move to the magnifier; the rest stay in the dock.
     scales = Object.fromEntries(keys.flatMap((key, i) => (k[i] > 1.001 ? [[key, k[i]]] : [])));
+    shifts = Object.fromEntries(keys.map((key, i) => [key, spread(c[i] - p, 2.5 * slotPx, scale)]));
     if (!frameQueued) { frameQueued = true; requestAnimationFrame(sendFrame); }
   }
-  // Big icons: centred on their slot, their screen-edge side where the normal icon's is.
+  // Big icons: centred on their (slid) slot, their screen-edge side where the normal icon's is.
   // Coordinates go to magnify.rs relative to the magnifier, which starts at the area set above.
   let magOrigin = { x: 0, y: 0 }; // magnifier's top-left, screen CSS px
   function sendFrame() {
@@ -202,9 +196,9 @@
     if (!magnifying) return;
     magnifying = false;
     scales = {};
-    queueTargets(); // spots' live pictures come back
+    shifts = {};
+    queueTargets(); // targets and the spots' live pictures come back
     ipc.magnifyHide().catch(() => {});
-    if (grownBy) { grownBy = 0; ipc.barGrow(0).catch(() => {}); }
   }
 
   onMount(() => {
@@ -236,7 +230,7 @@
   let targetsQueued = false;
   function sendTargets() {
     targetsQueued = false;
-    if (!onDock || !isFirst || !row) return;
+    if (!onDock || !isFirst || !row || magnifying) return; // sent again when magnifying ends
     const toIcon = settings.minimizeToIcon ?? true;
     const btn = new Map([...row.querySelectorAll<HTMLElement>('.app')].map((b) => [b.dataset.key!, b]));
     const more = row.querySelector<HTMLElement>('.more-apps');
@@ -244,6 +238,8 @@
     for (const g of groups) {
       const b = btn.get(g.key);
       const r = b && visibleKeys.has(g.key) ? b.getBoundingClientRect() : more?.getBoundingClientRect();
+      // An icon scrolled out of view (paged dock): leave it out, the window flies to the dock's middle.
+      if (!vertical && r && !onScreen(r, innerWidth)) continue;
       if (!r) continue;
       for (const w of g.windows) {
         const spot = !toIcon && w.minimized ? row.querySelector<HTMLElement>(`.spot[data-id="${w.id}"]`) : null;
@@ -391,8 +387,7 @@
       class:mag={scales[g.key] !== undefined}
       class:bouncing={!!bounces[g.key]}
       data-key={g.key}
-      style:min-width={!vertical && scales[g.key] ? `${slotPx * scales[g.key]}px` : null}
-      style:min-height={vertical && scales[g.key] ? `${slotPx * scales[g.key]}px` : null}
+      style:transform={shifts[g.key] ? (vertical ? `translateY(${shifts[g.key]}px)` : `translateX(${shifts[g.key]}px)`) : null}
       animate:flip={{ duration: 220 }}
       class:hid={!visibleKeys.has(g.key)}
       aria-hidden={!visibleKeys.has(g.key)}
@@ -444,7 +439,7 @@
 </div>
 
 <style>
-  .apps { gap: 2px; padding: 0 4px; }
+  .apps { gap: 2px; padding: 0 4px; position: relative; /* the icons' offset parent (magnification) */ }
   .sep { width: 1px; align-self: stretch; margin: 8px 3px; background: var(--line-soft); flex: none; }
   .vertical .sep { width: auto; height: 1px; margin: 3px 8px; }
   .apps.vertical { flex-direction: column; height: auto; padding: 4px 0; }
@@ -454,7 +449,7 @@
     max-width: 400px; max-height: 400px;
     overflow: hidden; /* while a slot widens or folds, its icon doesn't spill over the next one */
     transition: background 0.2s var(--ease), transform 0.3s var(--spring),
-      max-width 0.28s var(--ease), max-height 0.28s var(--ease), min-width 0.18s var(--ease), min-height 0.18s var(--ease), padding 0.28s var(--ease), margin 0.28s var(--ease), opacity 0.22s var(--ease);
+      max-width 0.28s var(--ease), max-height 0.28s var(--ease), padding 0.28s var(--ease), margin 0.28s var(--ease), opacity 0.22s var(--ease);
   }
   /* An icon is ~40 px: fold from about that, so the motion is even (from 400 px it would sit
      still for most of the time). Only the active app shows a title, and it's never folded. */
@@ -474,7 +469,8 @@
   .dots i { width: 4px; height: 4px; border-radius: calc(2px * var(--rs)); background: var(--fg-dim); }
   .active .dots i:first-child { width: 12px; background: var(--accent); }
   /* Magnified: the big copy is in the magnifier window, the slot follows the pointer closely. */
-  .app.mag { transition: background 0.2s var(--ease), min-width 60ms linear, min-height 60ms linear; }
+  /* While magnified the icons follow the pointer exactly (the big copies are placed from them). */
+  .app.mag { transition: background 0.2s var(--ease); }
   .app.mag img { visibility: hidden; }
   :global(:root[data-perf='low']) .app.mag, :global(:root[data-perf='low']) .app { transition-property: background, max-width, max-height, padding, margin, opacity; }
   /* Launch bounce: hops away from the screen edge. Low mode: still, the dot blinks instead. */
