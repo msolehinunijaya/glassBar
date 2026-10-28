@@ -103,6 +103,15 @@ display" + each monitor): add **All displays**. Stored as a new `BarCfg` field
   `<html data-perf="low">` is the switch.
 
 **Popping out above the dock**
+
+> Planning update: the dock's native glass (acrylic/mica/blur) covers its whole window, so
+> growing the bar window outward would show glass in the "empty" strip. Instead the magnified
+> icons are drawn in a small transparent, click-through window (`magnify`) over the launcher;
+> the dock only spreads its icon slots. The glass already has free space around the centred
+> widgets, so the bar window only grows in length when the spread wouldn't fit. The bullets
+> below are kept for the intent (strip unchanged, nothing clickable added, works with
+> auto-hide and popups).
+
 - The bar window is only as thick as the bar. While magnifying, the bar window grows
   **outward** (away from the screen edge) by enough to fit the largest icon, and **along the
   edge** by the launcher's extra length, and shrinks back after the icons settle. The **reserved AppBar strip does not change** (`place()` strip
