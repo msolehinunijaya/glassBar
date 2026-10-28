@@ -133,11 +133,15 @@ impl Registry {
     pub fn end(&mut self, hwnd: isize, run: u64) { if self.current(hwnd, run) { self.runs.remove(&hwnd); } }
 }
 
-static TARGETS: Mutex<Option<Targets>> = Mutex::new(None);
+/// Per dock window (with "All displays" each dock's first launcher reports its own).
+static TARGETS: Mutex<Option<HashMap<String, Targets>>> = Mutex::new(None);
 pub static RUNS: Mutex<Option<Registry>> = Mutex::new(None);
 const STRIPS: usize = 40;
 
-fn effect_now() -> Effect { TARGETS.lock().unwrap().as_ref().map_or(Effect::None, |t| t.effect) }
+fn effect_now() -> Effect { TARGETS.lock().unwrap().as_ref().and_then(|m| m.values().next()).map_or(Effect::None, |t| t.effect) }
+
+/// A dock closed: windows no longer fly to it.
+pub fn forget(label: &str) { if let Some(m) = TARGETS.lock().unwrap().as_mut() { m.remove(label); } }
 
 #[tauri::command]
 pub fn effects_targets(app: tauri::AppHandle, window: WebviewWindow, t: EffectTargets) {
@@ -146,7 +150,7 @@ pub fn effects_targets(app: tauri::AppHandle, window: WebviewWindow, t: EffectTa
     let (Ok(pos), Ok(s)) = (window.outer_position(), window.scale_factor()) else { return };
     let o = (pos.x, pos.y);
     let was = effect_now();
-    *TARGETS.lock().unwrap() = Some(Targets {
+    TARGETS.lock().unwrap().get_or_insert_with(HashMap::new).insert(window.label().to_string(), Targets {
         effect: t.effect, to_icon: t.to_icon, edge,
         per_window: t.per_window.into_iter().map(|(k, r)| (k, to_screen(r, o, s))).collect(),
         end: t.end.map(|r| to_screen(r, o, s)), dock: to_screen(t.dock, o, s),
@@ -156,7 +160,13 @@ pub fn effects_targets(app: tauri::AppHandle, window: WebviewWindow, t: EffectTa
 
 /// Play effect `e` for window `hwnd` between its rect and its dock target, then run `then`.
 fn play(hwnd: isize, window: Rect, reverse: bool, then: Box<dyn FnOnce() + Send>) {
-    let Some(t) = TARGETS.lock().unwrap().clone() else { return then() };
+    // The dock nearest the window (its own monitor's, with "All displays").
+    let t = {
+        let map = TARGETS.lock().unwrap();
+        let docks: Vec<(String, Rect)> = map.iter().flatten().map(|(l, t)| (l.clone(), t.dock)).collect();
+        crate::docks::nearest_dock(&docks, window).and_then(|l| map.as_ref()?.get(l).cloned())
+    };
+    let Some(t) = t else { return then() };
     if t.effect == Effect::None || window.w <= 0 || window.h <= 0 { return then(); }
     let to = pick_target(&t, hwnd);
     let edge = t.edge;

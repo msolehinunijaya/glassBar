@@ -103,6 +103,9 @@ impl Shell for WinShell {
     }
     fn appbar_set(&self, edge: Edge, strip: Rect) -> Rect { appbar::set(edge, strip) }
     fn appbar_remove(&self) { appbar::remove() }
+    fn appbar_set_window(&self, win: isize, edge: Edge, strip: Rect) -> Rect { appbar::set_for(win, edge, strip) }
+    fn appbar_remove_window(&self, win: isize) { appbar::remove_for(win) }
+    fn appbar_remove_windows(&self) { appbar::remove_extras() }
     fn thumbs_show(&self, dest: isize, items: &[(isize, Rect)]) -> Vec<isize> { thumbs::show(dest, items) }
     fn thumbs_clear(&self, dest: isize) { thumbs::clear(dest) }
     fn clipboard_is_private(&self) -> bool { system::clipboard_is_private() }

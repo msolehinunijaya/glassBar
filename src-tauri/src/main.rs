@@ -9,6 +9,7 @@ mod backdrop;
 mod bar;
 mod magnify;
 mod effects;
+mod docks;
 mod config;
 mod db;
 mod net;
@@ -155,7 +156,7 @@ fn main() {
                 SystemEvent::Fullscreen(on) => {
                     let desktop = on && platform::shell().foreground_exe()
                         .is_some_and(|e| e.to_lowercase().ends_with("\\explorer.exe"));
-                    if let Some(w) = a.get_webview_window("bar") { let _ = w.set_always_on_top(!on || desktop); }
+                    for (l, w) in a.webview_windows() { if l == "bar" || l.starts_with("bar-") { let _ = w.set_always_on_top(!on || desktop); } }
                     bar::set_fullscreen(on && !desktop);
                 }
             }));
@@ -200,7 +201,7 @@ fn main() {
             ("bar", WindowEvent::ThemeChanged(_)) => bar::apply(w.app_handle()),
             // Windows applies its own DPI resize after this event returns, which would undo
             // a size set here; re-apply a moment later instead.
-            ("bar", WindowEvent::ScaleFactorChanged { .. }) => {
+            (l, WindowEvent::ScaleFactorChanged { .. }) if l == "bar" || l.starts_with("bar-") => {
                 let a = w.app_handle().clone();
                 std::thread::spawn(move || {
                     std::thread::sleep(std::time::Duration::from_millis(120));

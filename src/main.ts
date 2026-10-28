@@ -13,7 +13,8 @@ import Magnify from './app/Magnify.svelte';
 
 // One bundle, five windows: pick the root by window label.
 const label = getCurrentWindow().label;
-document.documentElement.dataset.window = label;
+// The docks on other monitors ("All displays", bar-<monitor>) look and behave as the dock.
+document.documentElement.dataset.window = label.startsWith('bar-') ? 'bar' : label;
 // No browser menu (Back/Refresh/Inspect) anywhere except in text fields.
 addEventListener('contextmenu', (e) => {
   if (!(e.target as HTMLElement).closest('input, textarea')) e.preventDefault();

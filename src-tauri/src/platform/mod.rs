@@ -133,6 +133,11 @@ pub trait Shell: Send + Sync {
     /// Live thumbnails of windows drawn into `dest` (client pixels). Returns the windows
     /// that got one; the caller shows a fallback for the rest.
     fn thumbs_show(&self, dest: isize, items: &[(isize, Rect)]) -> Vec<isize>;
+    /// Reserve `strip` for one of the extra docks, registered with that dock's own window.
+    fn appbar_set_window(&self, _win: isize, _edge: Edge, strip: Rect) -> Rect { strip }
+    fn appbar_remove_window(&self, _win: isize) {}
+    /// Release every extra dock's reserved strip (quitting).
+    fn appbar_remove_windows(&self) {}
     /// Remove every thumbnail (must run whenever the preview hides).
     fn thumbs_clear(&self, dest: isize);
     /// The current clipboard contents were marked private by the app that copied them.

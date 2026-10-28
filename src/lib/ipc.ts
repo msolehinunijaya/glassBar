@@ -1,6 +1,12 @@
 // The only file that talks to Rust. Types mirror src-tauri structs (camelCase).
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import { getCurrentWindow } from '@tauri-apps/api/window';
+
+// Events Rust sends to one dock window only (sounds, alerts, auto-hide...). A plain listen()
+// also hears events aimed at other windows, so with a dock on every monitor each sound
+// would play once per dock.
+const own = <T>(name: string, cb: (p: T) => void) => listen<T>(name, (e) => cb(e.payload), { target: getCurrentWindow().label });
 import type { Edge } from './geometry';
 
 export type WidgetSize = 'small' | 'medium' | 'large';
@@ -15,6 +21,8 @@ export interface BarCfg {
   gap: number;
   /** Space on the other side, between the dock and the apps' windows (px); unset = `gap`. */
   gapInner?: number | null;
+  /** A copy of the dock on every other monitor too. */
+  allDisplays?: boolean;
 }
 export type SideWidth = 'slim' | 'regular' | 'wide';
 export const SIDE_PX: Record<SideWidth, number> = { slim: 56, regular: 72, wide: 96 };
@@ -385,7 +393,7 @@ export const events = {
   materialChanged: (cb: (m: AppearanceSupport['applied']) => void) => listen<AppearanceSupport['applied']>('appearance:material', (e) => cb(e.payload)),
   captureDone: (cb: (d: CaptureDone) => void) => listen<CaptureDone>('capture:done', (e) => cb(e.payload)),
   editMode: (cb: (on: boolean) => void) => listen<boolean>('editmode', (e) => cb(e.payload)),
-  healthPing: (cb: (seq: number) => void) => listen<number>('health:ping', (e) => cb(e.payload)),
+  healthPing: (cb: (seq: number) => void) => own<number>('health:ping', cb),
   popupShow: (cb: (instance: string) => void) => listen<string>('popup:show', (e) => cb(e.payload)),
   popupHide: (cb: () => void) => listen('popup:hide', () => cb()),
   popupLeave: (cb: () => void) => listen('popup:leave', () => cb()),
@@ -395,20 +403,19 @@ export const events = {
   alertsChanged: (cb: () => void) => listen('alerts:changed', () => cb()),
   downloadsNew: (cb: (i: DlItem) => void) => listen<DlItem>('downloads:new', (e) => cb(e.payload)),
   bannerPush: (cb: (n: import('./notify').Note) => void) => listen<import('./notify').Note>('banner:push', (e) => cb(e.payload)),
-  barJump: (cb: (j: { source: string; data: unknown; open: boolean }) => void) => listen<{ source: string; data: unknown; open: boolean }>('bar:jump', (e) => cb(e.payload)),
+  barJump: (cb: (j: { source: string; data: unknown; open: boolean }) => void) => own<{ source: string; data: unknown; open: boolean }>('bar:jump', cb),
   location: (cb: (s: LocationStatus) => void) => listen<LocationStatus>('location:status', (e) => cb(e.payload)),
   settingsSection: (cb: (s: string) => void) => listen<string>('settings:section', (e) => cb(e.payload)),
   sysmonSample: (cb: (s: Sample) => void) => listen<Sample>('sysmon:sample', (e) => cb(e.payload)),
   perfSample: (cb: (s: PerfSample) => void) => listen<PerfSample>('perf:sample', (e) => cb(e.payload)),
   /** The auto-hidden bar slid away (true) or back in (false). */
   magnifyFrame: (cb: (icons: MagIcon[]) => void) => listen<MagIcon[]>('magnify:frame', (e) => cb(e.payload)),
-  barAway: (cb: (away: boolean) => void) => listen<boolean>('bar:away', (e) => cb(e.payload)),
-  soundPlay: (cb: (s: Sound) => void) => listen<Sound>('sound:play', (e) => cb(e.payload)),
-  chargerFlip: (cb: (f: ChargerFlip) => void) => listen<ChargerFlip>('charger:flip', (e) => cb(e.payload)),
+  barAway: (cb: (away: boolean) => void) => own<boolean>('bar:away', cb),
+  soundPlay: (cb: (s: Sound) => void) => own<Sound>('sound:play', cb),
+  chargerFlip: (cb: (f: ChargerFlip) => void) => own<ChargerFlip>('charger:flip', cb),
   waterChanged: (cb: (t: WaterToday) => void) => listen<WaterToday>('water:changed', (e) => cb(e.payload)),
-  dockAlert: (cb: (a: import('../app/dockAlert').DockAlert) => void) => listen<import('../app/dockAlert').DockAlert>('dock:alert', (e) => cb(e.payload)),
-  shelfDropped: (cb: (d: { instance: string; paths: string[] }) => void) =>
-    listen<{ instance: string; paths: string[] }>('shelf:dropped', (e) => cb(e.payload)),
+  dockAlert: (cb: (a: import('../app/dockAlert').DockAlert) => void) => own<import('../app/dockAlert').DockAlert>('dock:alert', cb),
+  shelfDropped: (cb: (d: { instance: string; paths: string[] }) => void) => own<{ instance: string; paths: string[] }>('shelf:dropped', cb),
   /** Any "<name>:changed" event from Rust (todos, notes, timers, ...). */
   changed: (name: string, cb: () => void) => listen(`${name}:changed`, () => cb()),
 };

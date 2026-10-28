@@ -70,11 +70,40 @@ pub fn set(edge: Edge, strip: Rect) -> Rect {
     let Some(h) = owner() else { return strip };
     let mut reg = REGISTERED.lock().unwrap();
     let mut abd = data(h);
+    if !*reg {
+        abd.uCallbackMessage = APPBAR_MSG;
+        *reg = abmsg(ABM_NEW, &mut abd) != 0;
+    }
+    position(abd, edge, strip)
+}
+
+/// Extra docks (one per other monitor) reserve their strip with their own window, which
+/// needs no notifications: fullscreen and Explorer restarts are handled for the main dock.
+static EXTRAS: Mutex<Vec<isize>> = Mutex::new(Vec::new());
+
+pub fn set_for(win: isize, edge: Edge, strip: Rect) -> Rect {
+    if win == 0 { return strip; }
+    let abd = data(HWND(win as *mut _));
+    let mut extras = EXTRAS.lock().unwrap();
+    if !extras.contains(&win) && abmsg(ABM_NEW, &mut data(HWND(win as *mut _))) != 0 { extras.push(win); }
+    position(abd, edge, strip)
+}
+
+pub fn remove_for(win: isize) {
+    let mut extras = EXTRAS.lock().unwrap();
+    if let Some(i) = extras.iter().position(|&w| w == win) {
+        extras.remove(i);
+        abmsg(ABM_REMOVE, &mut data(HWND(win as *mut _)));
+    }
+}
+
+pub fn remove_extras() {
+    for w in std::mem::take(&mut *EXTRAS.lock().unwrap()) { abmsg(ABM_REMOVE, &mut data(HWND(w as *mut _))); }
+}
+
+/// Ask Explorer for `strip` on `edge` and take it; returns what was granted.
+fn position(mut abd: APPBARDATA, edge: Edge, strip: Rect) -> Rect {
     unsafe {
-        if !*reg {
-            abd.uCallbackMessage = APPBAR_MSG;
-            *reg = abmsg(ABM_NEW, &mut abd) != 0;
-        }
         abd.uEdge = match edge { Edge::Left => ABE_LEFT, Edge::Top => ABE_TOP, Edge::Right => ABE_RIGHT, Edge::Bottom => ABE_BOTTOM };
         abd.rc = RECT { left: strip.x, top: strip.y, right: strip.x + strip.w, bottom: strip.y + strip.h };
         abmsg(ABM_QUERYPOS, &mut abd);

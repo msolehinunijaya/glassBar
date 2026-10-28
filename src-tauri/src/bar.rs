@@ -53,10 +53,10 @@ pub fn grown(r: Rect, edge: Edge, along: i32, mon: Rect, gap: i32) -> Rect {
 
 /// Extra length (physical px) per dock window while magnification needs it.
 static GROW: std::sync::Mutex<Option<(String, i32)>> = std::sync::Mutex::new(None);
-fn grow_of(label: &str) -> i32 { GROW.lock().unwrap().as_ref().filter(|g| g.0 == label).map_or(0, |g| g.1) }
+pub(crate) fn grow_of(label: &str) -> i32 { GROW.lock().unwrap().as_ref().filter(|g| g.0 == label).map_or(0, |g| g.1) }
 
 /// Pixels of an auto-hidden bar left on screen, so the mouse can find it.
-const PEEK: i32 = 3;
+pub(crate) const PEEK: i32 = 3;
 
 /// An auto-hidden bar: pushed past its edge with only `peek` pixels showing.
 pub fn hidden_rect(r: Rect, edge: Edge, mon: Rect, peek: i32) -> Rect {
@@ -86,12 +86,12 @@ pub fn popup_rect(bar: Rect, anchor: Rect, w: i32, h: i32, edge: Edge, mon: Rect
 
 /// Move first, then size: moving onto a monitor with another DPI rescales the
 /// window, and the size we set afterwards must win.
-fn set_rect(w: &WebviewWindow, r: Rect) {
+pub(crate) fn set_rect(w: &WebviewWindow, r: Rect) {
     let _ = w.set_position(PhysicalPosition::new(r.x, r.y));
     let _ = w.set_size(PhysicalSize::new(r.w.max(1) as u32, r.h.max(1) as u32));
 }
 
-fn monitor_rect(m: &tauri::Monitor) -> Rect {
+pub(crate) fn monitor_rect(m: &tauri::Monitor) -> Rect {
     Rect { x: m.position().x, y: m.position().y, w: m.size().width as i32, h: m.size().height as i32 }
 }
 
@@ -116,13 +116,18 @@ fn is_dark(app: &AppHandle, cfg: &Config) -> bool {
 /// Window rect for the bar with the given length; None if no monitor is found.
 fn bar_rect(app: &AppHandle, bar: &crate::config::BarCfg, length: f64) -> Option<(Rect, Rect)> {
     let mon = bar_monitor(app, bar.monitor)?;
+    Some(rect_on(bar, &mon, length, "bar"))
+}
+
+/// Window rect and reserved strip for dock `label` on monitor `mon`.
+pub(crate) fn rect_on(bar: &crate::config::BarCfg, mon: &tauri::Monitor, length: f64, label: &str) -> (Rect, Rect) {
     let s = mon.scale_factor();
     let thick = (bar.thickness() * s).round() as i32;
     let px = |v: f64| (v.clamp(0.0, 48.0) * s).round() as i32;
     let (mut r, strip) = place(monitor_rect(&mon), bar.edge, length, thick, px(bar.gap), px(bar.gap_inner.unwrap_or(bar.gap)));
     if let Some(p) = bar.floating { r.x = p.x; r.y = p.y; }
-    let r = grown(r, bar.edge, grow_of("bar"), monitor_rect(&mon), px(bar.gap));
-    Some((r, strip))
+    let r = grown(r, bar.edge, grow_of(label), monitor_rect(mon), px(bar.gap));
+    (r, strip)
 }
 
 /// Place, reserve and style the bar from the current config.
@@ -198,7 +203,9 @@ fn apply_now(app: &AppHandle) {
     // ignored there): pin it to GlassBar's theme, or follow Windows on Auto. Before
     // is_dark, which reads it on Auto.
     let theme = match cfg.theme.mode { ThemeMode::Auto => None, ThemeMode::Light => Some(tauri::Theme::Light), ThemeMode::Dark => Some(tauri::Theme::Dark) };
-    let windows: Vec<_> = ["bar", "popup", "banner"].into_iter().filter_map(|l| app.get_webview_window(l)).collect();
+    crate::docks::sync(app); // create or close the copies on other monitors first, so they are styled below
+    let windows: Vec<_> = app.webview_windows().into_values()
+        .filter(|w| matches!(w.label(), "bar" | "popup" | "banner") || w.label().starts_with("bar-")).collect();
     for w in &windows { let _ = w.set_theme(theme); }
     let glass = Glass { native: glass_native(cfg.theme.native_blur), dark: is_dark(app, &cfg),
                         material: cfg.theme.material.clone(), radius: cfg.theme.radius };
@@ -247,6 +254,7 @@ fn apply_now(app: &AppHandle) {
             set_rect(&win, r);
         }
     }
+    crate::docks::place_all(app);
     // While GlassBar auto-hides, the Windows taskbar must stay fully hidden: in its own
     // auto-hide mode it would pop up from the same edge whenever GlassBar is revealed.
     let native = if bar.auto_hide && bar.floating.is_none() && bar.native_taskbar == TaskbarMode::Autohide {
@@ -282,6 +290,7 @@ pub fn cleanup(_app: &AppHandle) {
     shell().suppress_native_animations(false); // give apps their own minimize animation back
     crate::platform::tray().stop();
     shell().appbar_remove();
+    shell().appbar_remove_windows();
     shell().set_taskbar(TaskbarMode::Show);
 }
 
@@ -301,6 +310,7 @@ pub fn bar_preview(app: AppHandle, length: f64) {
 pub fn bar_grow(app: AppHandle, window: WebviewWindow, along: f64) {
     let px = (along.max(0.0) * window.scale_factor().unwrap_or(1.0)).round() as i32;
     *GROW.lock().unwrap() = (px > 0).then(|| (window.label().to_string(), px));
+    if window.label() != "bar" { return crate::docks::place_one(&app, window.label()); }
     let cfg = app.state::<AppState>().config.lock().unwrap().profile().bar.clone();
     if away_now(&app, &cfg) { return; }
     let Some((mut r, _)) = bar_rect(&app, &cfg, cfg.length) else { return };
@@ -370,6 +380,7 @@ pub fn watch_autohide(app: &AppHandle) {
                 crate::autohide::Act::Hide => reveal(&app, false),
                 crate::autohide::Act::Stay => {}
             }
+            crate::docks::autohide_tick(&app, &cfg, (x, y), busy);
         }
     });
 }
@@ -563,7 +574,7 @@ pub fn popup_hidden(app: &AppHandle) {
 
 #[allow(clippy::too_many_arguments)]
 #[tauri::command]
-pub fn popup_open(app: AppHandle, instance: String, x: f64, y: f64, w: f64, h: f64, width: f64, height: f64, focus: Option<bool>) -> Result<(), String> {
+pub fn popup_open(app: AppHandle, window: WebviewWindow, instance: String, x: f64, y: f64, w: f64, h: f64, width: f64, height: f64, focus: Option<bool>) -> Result<(), String> {
     let focus = focus.unwrap_or(true);
     if let Some(p) = app.get_webview_window("popup") { crate::perf::suspend::wake(&p); } // Low may have freed it
     // A hover panel whose timer ran out while a context menu is up: the user is busy with the menu.
@@ -581,7 +592,8 @@ pub fn popup_open(app: AppHandle, instance: String, x: f64, y: f64, w: f64, h: f
         p.hover = !focus;
     }
     let e = |e: tauri::Error| e.to_string();
-    let (Some(bar), Some(popup)) = (app.get_webview_window("bar"), app.get_webview_window("popup")) else {
+    // Next to the dock that asked (with "All displays" there is one per monitor).
+    let (Some(bar), Some(popup)) = (Some(window), app.get_webview_window("popup")) else {
         return Err("windows not ready".into());
     };
     let s = bar.scale_factor().map_err(e)?;
