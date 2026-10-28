@@ -3,7 +3,8 @@
   import CastPanel from './CastPanel.svelte';
   import WifiPanel from './WifiPanel.svelte';
   import BtPanel from './BtPanel.svelte';
-  import { ipc, type DisplayMode, type Hotspot, type RadioInfo } from '../../lib/ipc';
+  import { events, ipc, type DisplayMode, type Hotspot, type RadioInfo } from '../../lib/ipc';
+  import { connectedText } from './tileText';
   import type { PopupProps } from '../types';
   import type { QuickSettings, TileKey } from './index';
   import LangList from '../lang/LangList.svelte';
@@ -53,6 +54,20 @@
   const modes: [DisplayMode, string][] = [['internal', 'PC only'], ['clone', 'Duplicate'], ['extend', 'Extend'], ['external', 'Second only']];
 
   const loadRadios = () => ipc.radios().then((r) => { radios = r; }).catch((e) => (error = String(e)));
+  // What Wi-Fi and Bluetooth are connected to, for the tiles (no scan: just Windows' current state).
+  let wifiNet = $state<string | null>(null);
+  let btNames = $state<string[]>([]);
+  const loadLinks = () => {
+    ipc.wifiList(false).then((r) => (wifiNet = r.current)).catch(() => (wifiNet = null));
+    ipc.btList(false).then((d) => (btNames = [...new Set(d.filter((x) => x.connected).map((x) => x.name))])).catch(() => (btNames = []));
+  };
+  const linked = (kind: 'wifi' | 'bluetooth') =>
+    kind === 'wifi' ? connectedText(wifiNet ? [wifiNet] : [], 'Not connected') : connectedText(btNames, 'No devices connected');
+  $effect(() => {
+    loadLinks();
+    const off = events.changed('wifi', loadLinks);
+    return () => { off.then((f) => f()); };
+  });
   $effect(() => {
     loadRadios();
     loadHotspot();
@@ -69,6 +84,7 @@
     try { await f(); } catch (e) { error = String(e); }
     await loadRadios();
     await loadHotspot();
+    loadLinks();
     busy = false;
   }
 
@@ -96,11 +112,13 @@
   {#each [['wifi', 'Wi-Fi', Wifi], ['bluetooth', 'Bluetooth', Bluetooth]] as const as [kind, label, Icon] (kind)}
     {#if showTile(kind)}
     {@const r = find(kind)}
+    {@const state = !r ? 'Not available' : r.on ? linked(kind) : 'Off'}
     <div class="tilewrap">
-      <button class="tile" class:on={r?.on} disabled={!r || busy} onclick={() => run(() => ipc.setRadio(kind, !r!.on))}>
+      <button class="tile" class:on={r?.on} disabled={!r || busy} onclick={() => run(() => ipc.setRadio(kind, !r!.on))}
+              title={kind === 'bluetooth' && r?.on && btNames.length > 1 ? btNames.join(', ') : state}>
         <Icon size={18} />
         <span>{label}</span>
-        <span class="state">{!r ? 'Not available' : r.on ? 'On' : 'Off'}</span>
+        <span class="state">{state}</span>
       </button>
       <button class="more" aria-label="{label} networks and devices" title={kind === 'wifi' ? 'Networks' : 'Devices'}
               onclick={() => (view = kind)}><ChevronRight size={16} /></button>
