@@ -22,6 +22,11 @@
   import { extraLength, magnifyScales } from './magnify';
   import { barAway, perf } from '../../lib/perf.svelte';
   import { profile } from '../../lib/config.svelte';
+  import { isDockWindow } from '../../lib/dock';
+  import { getCurrentWindow } from '@tauri-apps/api/window';
+  // The launcher also shows in Settings' previews: only a real dock reports where windows
+  // fly to or draws minimized windows' pictures.
+  const onDock = isDockWindow(getCurrentWindow().label);
 
   let { instance, size, settings, vertical }: PillProps<AppsSettings> = $props();
   let windows = $state<AppWindow[]>([]);
@@ -135,6 +140,8 @@
   const edge = $derived(profile().bar.edge);
   $effect(() => { if (settings.magnify) ipc.magnifyPrepare().catch(() => {}); });
   $effect(() => { if (barAway.v) unmagnify(); });
+  // Rust's watchdog saw the pointer leave without the page noticing (magnify.rs).
+  onMount(() => { const off = events.magnifyReset(() => { if (magnifying) { magnifying = false; scales = {}; grownBy = 0; queueTargets(); } }); return () => { off.then((f) => f()); }; });
   const along = (r: DOMRect) => (vertical ? r.top + r.height / 2 : r.left + r.width / 2);
   function magnifyMove(e: PointerEvent) {
     if (!settings.magnify || edit || dragKey) return;
@@ -229,7 +236,7 @@
   let targetsQueued = false;
   function sendTargets() {
     targetsQueued = false;
-    if (!isFirst || !row) return;
+    if (!onDock || !isFirst || !row) return;
     const toIcon = settings.minimizeToIcon ?? true;
     const btn = new Map([...row.querySelectorAll<HTMLElement>('.app')].map((b) => [b.dataset.key!, b]));
     const more = row.querySelector<HTMLElement>('.more-apps');
@@ -260,7 +267,7 @@
   const spotGroup = (id: number) => groups.find((g) => g.windows.some((w) => w.id === id));
   let spotsShown = false;
   function sendSpotThumbs() {
-    if (!row) return;
+    if (!onDock || !row) return;
     // ponytail: the picture hides while magnifying instead of following every frame; follow it if it's missed.
     const spots = spotsOn && !magnifying ? [...row.querySelectorAll<HTMLElement>('.spot .pic')] : [];
     if (!spots.length && !spotsShown) return;
@@ -269,6 +276,7 @@
   }
   $effect(() => { void [minimized, spotsOn]; queueTargets(); });
   function spotMenu(e: MouseEvent, id: number) {
+    unmagnify(); // the menu swallows the pointer leaving
     e.preventDefault();
     e.stopPropagation();
     showMenu([{ text: 'Close window', action: () => ipc.appClose(id) }]);
@@ -333,6 +341,7 @@
   const setPins = (pinned: AppsSettings['pinned']) => updateWidgetSettings(instance, { pinned });
 
   async function menu(e: MouseEvent, g: Group) {
+    unmagnify(); // the menu swallows the pointer leaving
     e.preventDefault();
     e.stopPropagation();
     const items: Item[] = [

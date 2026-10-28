@@ -413,6 +413,7 @@ pub fn app_quit(app: AppHandle) { cleanup(&app); app.exit(0); }
 /// A full-screen app (game, slideshow, video) is in front: dock alerts stay out of its way.
 static FULLSCREEN: AtomicBool = AtomicBool::new(false);
 pub fn set_fullscreen(on: bool) { FULLSCREEN.store(on, Ordering::Relaxed); }
+pub fn fullscreen() -> bool { FULLSCREEN.load(Ordering::Relaxed) }
 
 /// Pure: may a dock alert of this kind show now? Prayer time still shows over a full-screen app.
 pub fn alert_allowed(kind: &str, fullscreen: bool) -> bool { !fullscreen || kind == "prayer" }
@@ -794,6 +795,7 @@ pub fn thumbs_clear(app: AppHandle) {
 /// list clears them.
 #[tauri::command]
 pub fn bar_thumbs(window: WebviewWindow, items: Vec<ThumbArea>) -> Vec<isize> {
+    if !crate::docks::is_dock(window.label()) { return vec![]; }
     let (Ok(h), Ok(s)) = (window.hwnd(), window.scale_factor()) else { return vec![] };
     let px = |v: f64| (v * s).round() as i32;
     let items: Vec<(isize, Rect)> = items.iter().map(|a| (a.id, Rect { x: px(a.x), y: px(a.y), w: px(a.w), h: px(a.h) })).collect();

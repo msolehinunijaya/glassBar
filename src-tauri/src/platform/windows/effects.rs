@@ -6,7 +6,7 @@
 //! DWMWA_TRANSITIONS_FORCEDISABLED is accepted on other processes' windows.
 use super::super::Rect;
 use std::collections::{HashMap, HashSet};
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{channel, Sender};
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
@@ -110,8 +110,9 @@ pub fn watch(f: Box<dyn Fn(isize, Rect) + Send>) {
 // ---- The overlay ----
 
 static OVERLAY: OnceLock<isize> = OnceLock::new();
-/// Effects running now; the overlay hides when the last one ends.
-static ACTIVE: AtomicUsize = AtomicUsize::new(0);
+/// Effects running now; the overlay shows with the first and hides after the last. Shown and
+/// hidden under this lock, so one effect ending can't hide another that just started.
+static ACTIVE: Mutex<usize> = Mutex::new(0);
 
 unsafe extern "system" fn wndproc(w: HWND, m: u32, wp: WPARAM, lp: LPARAM) -> LRESULT { unsafe { DefWindowProcW(w, m, wp, lp) } }
 
@@ -136,23 +137,10 @@ fn overlay() -> Option<HWND> {
     (id != 0).then(|| h(id))
 }
 
-/// The overlay's area: everything the effect passes through (it stays between the window
-/// and its target). Never a whole monitor: DWM doesn't draw thumbnails on a click-through
-/// window that covers a full screen (checked on 26200), so then it is one pixel shorter.
-fn overlay_area(frames: &dyn Fn(f64) -> Vec<(Rect, Rect)>) -> Rect {
-    let all: Vec<Rect> = frames(0.0).into_iter().chain(frames(1.0)).map(|p| p.1).collect();
-    let (x0, y0) = (all.iter().map(|r| r.x).min().unwrap_or(0), all.iter().map(|r| r.y).min().unwrap_or(0));
-    let (x1, y1) = (all.iter().map(|r| r.x + r.w).max().unwrap_or(1), all.iter().map(|r| r.y + r.h).max().unwrap_or(1));
-    let mut a = Rect { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
-    unsafe {
-        let c = POINT { x: a.x + a.w / 2, y: a.y + a.h / 2 };
-        let mut mi = MONITORINFO { cbSize: std::mem::size_of::<MONITORINFO>() as u32, ..Default::default() };
-        if GetMonitorInfoW(MonitorFromPoint(c, MONITOR_DEFAULTTONEAREST), &mut mi).as_bool() {
-            let m = mi.rcMonitor;
-            if a.x <= m.left && a.y <= m.top && a.x + a.w >= m.right && a.y + a.h >= m.bottom { a.h = m.bottom - a.y - 1; }
-        }
-    }
-    a
+fn overlay_area() -> Rect {
+    let screen = unsafe { Rect { x: GetSystemMetrics(SM_XVIRTUALSCREEN), y: GetSystemMetrics(SM_YVIRTUALSCREEN),
+                                 w: GetSystemMetrics(SM_CXVIRTUALSCREEN), h: GetSystemMetrics(SM_CYVIRTUALSCREEN) } };
+    crate::effects::overlay_rect(screen)
 }
 
 /// Run one effect on its own thread (see `Shell::effect_play`).
@@ -160,16 +148,23 @@ pub fn play(src: isize, run: u64, frames: Box<dyn Fn(f64) -> Vec<(Rect, Rect)> +
     std::thread::spawn(move || {
         let current = || crate::effects::RUNS.lock().unwrap().as_ref().is_some_and(|r| r.current(src, run));
         if let Some(ov) = overlay() {
-            ACTIVE.fetch_add(1, Ordering::SeqCst);
-            animate(ov, src, &frames, ms, &current);
-            if ACTIVE.fetch_sub(1, Ordering::SeqCst) == 1 { unsafe { let _ = ShowWindow(ov, SW_HIDE); } }
+            let vs = overlay_area();
+            {
+                let mut n = ACTIVE.lock().unwrap();
+                if *n == 0 { unsafe { let _ = SetWindowPos(ov, Some(HWND_TOPMOST), vs.x, vs.y, vs.w, vs.h, SWP_NOACTIVATE | SWP_SHOWWINDOW); } }
+                *n += 1;
+            }
+            animate(ov, src, &frames, ms, &current, vs);
+            let mut n = ACTIVE.lock().unwrap();
+            *n -= 1;
+            if *n == 0 { unsafe { let _ = ShowWindow(ov, SW_HIDE); } }
         }
         if let Some(r) = crate::effects::RUNS.lock().unwrap().as_mut() { r.end(src, run); }
         then();
     });
 }
 
-fn animate(ov: HWND, src: isize, frames: &dyn Fn(f64) -> Vec<(Rect, Rect)>, ms: u32, current: &dyn Fn() -> bool) {
+fn animate(ov: HWND, src: isize, frames: &dyn Fn(f64) -> Vec<(Rect, Rect)>, ms: u32, current: &dyn Fn() -> bool, vs: Rect) {
     let first = frames(0.0);
     if first.is_empty() { return; }
     let mut thumbs = Vec::new();
@@ -181,10 +176,6 @@ fn animate(ov: HWND, src: isize, frames: &dyn Fn(f64) -> Vec<(Rect, Rect)>, ms: 
         let size = unsafe { DwmQueryThumbnailSourceSize(thumbs[0]) }.map(|s| (s.cx, s.cy)).unwrap_or((0, 0));
         // Slices are the same in every frame (only destinations move).
         let sources = crate::effects::source_rects(&slices, size, insets(src));
-        let vs = overlay_area(frames);
-        unsafe {
-            let _ = SetWindowPos(ov, Some(HWND_TOPMOST), vs.x, vs.y, vs.w, vs.h, SWP_NOACTIVATE | SWP_SHOWWINDOW);
-        }
         let start = Instant::now();
         let total = ms.max(1) as f64;
         loop {

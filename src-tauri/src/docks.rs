@@ -12,6 +12,10 @@ use std::sync::Mutex;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 
+/// Is this window a dock (the main one or a copy)? Other windows also show widgets
+/// (Settings' previews), but must never act as a dock.
+pub fn is_dock(label: &str) -> bool { label == "bar" || label.starts_with("bar-") }
+
 /// Window label for a monitor's extra dock: its name without the `\.\` prefix and other
 /// punctuation, so labels survive monitors being renumbered.
 fn label_for(name: &str) -> String {
@@ -98,7 +102,7 @@ pub fn place_all(app: &AppHandle) {
             shell().appbar_remove_window(h);
         }
         set_rect(&w, r);
-        let _ = w.set_always_on_top(true);
+        let _ = w.set_always_on_top(!crate::bar::fullscreen()); // a full-screen app keeps it lowered
         if !w.is_visible().unwrap_or(true) { let _ = w.show(); }
         let _ = w.emit_to(label.as_str(), "bar:away", bar.auto_hide && !revealed(&label));
     }
@@ -171,6 +175,15 @@ fn slide(app: &AppHandle, label: &str, to: Rect, show: bool) {
 mod tests {
     use super::*;
     use crate::platform::Rect;
+
+    #[test]
+    fn only_dock_windows_count_as_docks() {
+        assert!(is_dock("bar"));
+        assert!(is_dock("bar-DISPLAY2"));
+        assert!(!is_dock("settings"));
+        assert!(!is_dock("popup"));
+        assert!(!is_dock("barista"));
+    }
 
     fn mons(n: usize) -> Vec<(String, Rect)> {
         (0..n).map(|i| (format!(r"\\.\DISPLAY{}", i + 1), Rect { x: i as i32 * 1920, y: 0, w: 1920, h: 1080 })).collect()

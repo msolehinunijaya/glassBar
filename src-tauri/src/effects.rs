@@ -138,6 +138,29 @@ static TARGETS: Mutex<Option<HashMap<String, Targets>>> = Mutex::new(None);
 pub static RUNS: Mutex<Option<Registry>> = Mutex::new(None);
 const STRIPS: usize = 40;
 
+/// The overlay's area: the whole virtual screen, so effects running at the same time share
+/// one origin, inset by a pixel because DWM draws no thumbnails on a click-through window
+/// that covers a full monitor (checked on 26200).
+pub fn overlay_rect(screen: Rect) -> Rect { Rect { x: screen.x + 1, y: screen.y + 1, w: screen.w - 2, h: screen.h - 2 } }
+
+/// No App Launcher on any dock: windows genie into the middle of the dock.
+pub fn default_targets(dock: Rect, edge: Edge) -> Targets {
+    Targets { effect: Effect::Genie, to_icon: true, edge, per_window: HashMap::new(), end: None, dock }
+}
+
+static APP: std::sync::OnceLock<tauri::AppHandle> = std::sync::OnceLock::new();
+pub fn init(app: &tauri::AppHandle) { let _ = APP.set(app.clone()); }
+
+/// The main dock's rect and edge, for `default_targets`.
+fn main_dock() -> Option<(Rect, Edge)> {
+    use tauri::Manager;
+    let app = APP.get()?;
+    let w = app.get_webview_window("bar")?;
+    let (p, s) = (w.outer_position().ok()?, w.outer_size().ok()?);
+    let edge = app.state::<crate::AppState>().config.lock().unwrap().profile().bar.edge;
+    Some((Rect { x: p.x, y: p.y, w: s.width as i32, h: s.height as i32 }, edge))
+}
+
 fn effect_now() -> Effect { TARGETS.lock().unwrap().as_ref().and_then(|m| m.values().next()).map_or(Effect::None, |t| t.effect) }
 
 /// A dock closed: windows no longer fly to it.
@@ -146,6 +169,7 @@ pub fn forget(label: &str) { if let Some(m) = TARGETS.lock().unwrap().as_mut() {
 #[tauri::command]
 pub fn effects_targets(app: tauri::AppHandle, window: WebviewWindow, t: EffectTargets) {
     use tauri::Manager;
+    if !crate::docks::is_dock(window.label()) { return; } // Settings' dock preview isn't a dock
     let edge = app.state::<crate::AppState>().config.lock().unwrap().profile().bar.edge;
     let (Ok(pos), Ok(s)) = (window.outer_position(), window.scale_factor()) else { return };
     let o = (pos.x, pos.y);
@@ -166,7 +190,7 @@ fn play(hwnd: isize, window: Rect, reverse: bool, then: Box<dyn FnOnce() + Send>
         let docks: Vec<(String, Rect)> = map.iter().flatten().map(|(l, t)| (l.clone(), t.dock)).collect();
         crate::docks::nearest_dock(&docks, window).and_then(|l| map.as_ref()?.get(l).cloned())
     };
-    let Some(t) = t else { return then() };
+    let Some(t) = t.or_else(|| main_dock().map(|(d, e)| default_targets(d, e))) else { return then() };
     if t.effect == Effect::None || window.w <= 0 || window.h <= 0 { return then(); }
     let to = pick_target(&t, hwnd);
     let edge = t.edge;
@@ -196,6 +220,21 @@ mod tests {
 
     const FROM: Rect = Rect { x: 400, y: 100, w: 800, h: 600 };
     const TO: Rect = Rect { x: 900, y: 1020, w: 40, h: 40 };
+
+    #[test]
+    fn the_overlay_never_covers_a_whole_screen() {
+        assert_eq!(overlay_rect(Rect { x: 0, y: 0, w: 1920, h: 1080 }), Rect { x: 1, y: 1, w: 1918, h: 1078 });
+        assert_eq!(overlay_rect(Rect { x: -1920, y: 0, w: 3840, h: 1080 }), Rect { x: -1919, y: 1, w: 3838, h: 1078 });
+    }
+
+    #[test]
+    fn without_an_app_launcher_windows_genie_into_the_dock_middle() {
+        let dock = Rect { x: 0, y: 1000, w: 1000, h: 60 };
+        let t = default_targets(dock, Edge::Bottom);
+        assert_eq!(t.effect, Effect::Genie);
+        let mid = pick_target(&t, 42);
+        assert_eq!((mid.x + mid.w / 2, mid.y + mid.h / 2), (500, 1030));
+    }
 
     fn bbox(v: &[(Rect, Rect)]) -> Rect {
         let x0 = v.iter().map(|p| p.1.x).min().unwrap();

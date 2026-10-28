@@ -410,6 +410,7 @@ export const events = {
   perfSample: (cb: (s: PerfSample) => void) => listen<PerfSample>('perf:sample', (e) => cb(e.payload)),
   /** The auto-hidden bar slid away (true) or back in (false). */
   magnifyFrame: (cb: (icons: MagIcon[]) => void) => listen<MagIcon[]>('magnify:frame', (e) => cb(e.payload)),
+  magnifyReset: (cb: () => void) => own<null>('magnify:reset', () => cb()),
   barAway: (cb: (away: boolean) => void) => own<boolean>('bar:away', cb),
   soundPlay: (cb: (s: Sound) => void) => own<Sound>('sound:play', cb),
   chargerFlip: (cb: (f: ChargerFlip) => void) => own<ChargerFlip>('charger:flip', cb),

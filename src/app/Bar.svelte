@@ -6,6 +6,7 @@
   import { Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Coffee, Droplet, Maximize2, MoonStar, Pause, Play, Plus, SkipForward, Square, Target, Timer as TimerIcon, PlugZap, Sun, Unplug, Volume2, VolumeX, X } from '@lucide/svelte';
   import { profile, store, update } from '../lib/config.svelte';
   import { events, ipc, type WidgetInst, type WidgetSize } from '../lib/ipc';
+  import { isMainDock } from '../lib/dock';
   import { FLASH } from './chargeFlash';
   import { ALERT_DEFAULTS, arrive, holdMs, viewOf, type AlertKind, type DockAlert } from './dockAlert';
   import { fmtWater } from '../widgets/water/units';
@@ -136,6 +137,7 @@
       // Alert sounds play here: the bar window is always alive.
       // After a screenshot / OCR snap: sound + a feedback card next to the Capture widget.
       events.captureDone((d) => {
+        if (!isMainDock(win.label)) return; // one shutter and one card, from the main dock
         if (d.kind === 'shot') shutter(); else if (d.kind === 'ocr') tick();
         const el = document.querySelector('.capture-pill') ?? scroller;
         const h = d.kind === 'shot' ? 208 : d.kind === 'ocr' ? 168 : 100;
