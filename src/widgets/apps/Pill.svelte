@@ -1,6 +1,7 @@
 <script lang="ts">
   import { showMenu, type Item } from '../../lib/menu';
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
+  import { settleBounces, startBounce, type Bounces } from './bounce';
   import { updateWidgetSettings } from '../../lib/config.svelte';
   import { events, ipc, type AppWindow } from '../../lib/ipc';
   import type { PillProps } from '../types';
@@ -213,7 +214,23 @@
       ipc.appIcon(g.path, g.windows[0]?.id ?? null, g.aumid ?? null).then((src) => { if (src) icons[g.key] = src; });
     }
   });
-  const launch = (g: Group, args = g.pin?.args ?? '') => ipc.appLaunch(g.path, args, g.aumid ?? null);
+  // ---- Launch bounce: from launch until the app shows a new window (10 s at most). ----
+  let bounces = $state<Bounces>({});
+  const unbounce = (key: string) => { const { [key]: _, ...rest } = bounces; bounces = rest; };
+  const settle = () => {
+    const n = settleBounces(bounces, groups, Date.now());
+    if (Object.keys(n).length !== Object.keys(bounces).length) bounces = n;
+  };
+  $effect(() => { void groups; untrack(settle); });
+  $effect(() => {
+    if (!Object.keys(bounces).length) return;
+    const t = setInterval(settle, 1000);
+    return () => clearInterval(t);
+  });
+  const launch = (g: Group, args = g.pin?.args ?? '') => {
+    if (settings.bounce ?? true) bounces = startBounce(bounces, g.key, g.windows.map((w) => w.id), Date.now());
+    return ipc.appLaunch(g.path, args, g.aumid ?? null).catch((e) => { unbounce(g.key); throw e; });
+  };
 
   // Hovering a running app shows live previews of its windows (without taking keyboard focus).
   let hoverTimer: ReturnType<typeof setTimeout>;
@@ -281,7 +298,7 @@
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="pill apps" class:vertical bind:this={row} onpointerenter={expand} onpointerleave={() => { collapse(); unmagnify(); }} onpointermove={magnifyMove}>
+<div class="pill apps" class:vertical data-edge={edge} bind:this={row} onpointerenter={expand} onpointerleave={() => { collapse(); unmagnify(); }} onpointermove={magnifyMove}>
   {#if settings.startPlacement === 'inline'}
     <StartButtons searchStyle={settings.searchStyle} color={settings.startColor} custom={settings.startCustom} />
     <span class="sep"></span>
@@ -296,6 +313,7 @@
       class:gone
       class:failed={failed === g.key}
       class:mag={scales[g.key] !== undefined}
+      class:bouncing={!!bounces[g.key]}
       data-key={g.key}
       style:min-width={!vertical && scales[g.key] ? `${slotPx * scales[g.key]}px` : null}
       style:min-height={vertical && scales[g.key] ? `${slotPx * scales[g.key]}px` : null}
@@ -323,6 +341,8 @@
       {/if}
       {#if g.windows.length}
         <span class="dots">{#each g.windows.slice(0, 3) as w (w.id)}<i></i>{/each}</span>
+      {:else if bounces[g.key]}
+        <span class="dots"><i></i></span>
       {/if}
     </button>
   {/each}
@@ -370,6 +390,17 @@
   .app.mag { transition: background 0.2s var(--ease), min-width 60ms linear, min-height 60ms linear; }
   .app.mag img { visibility: hidden; }
   :global(:root[data-perf='low']) .app.mag, :global(:root[data-perf='low']) .app { transition-property: background, max-width, max-height, padding, margin, opacity; }
+  /* Launch bounce: hops away from the screen edge. Low mode: still, the dot blinks instead. */
+  .app.bouncing { overflow: visible; }
+  .app.bouncing img, .app.bouncing .fallback { animation: hop 0.6s var(--ease) infinite; }
+  .apps { --hx: 0px; --hy: -9px; }
+  .apps[data-edge='top'] { --hy: 9px; }
+  .apps[data-edge='left'] { --hx: 9px; --hy: 0px; }
+  .apps[data-edge='right'] { --hx: -9px; --hy: 0px; }
+  @keyframes hop { 0%, 100% { transform: none; } 45% { transform: translate(var(--hx), var(--hy)); } }
+  :global(:root[data-perf='low']) .app.bouncing img, :global(:root[data-perf='low']) .app.bouncing .fallback { animation: none; }
+  :global(:root[data-perf='low']) .app.bouncing .dots i { animation: blink 1s steps(2, jump-none) infinite; }
+  @keyframes blink { 50% { opacity: 0.2; } }
   .app.dragging { z-index: 2; transform: scale(1.18); background: var(--pill-hover); box-shadow: 0 6px 18px rgba(0,0,0,0.25); cursor: grabbing; }
   .app.gone img, .app.gone .fallback { opacity: 0.35; filter: grayscale(1); }
   .app.failed { box-shadow: inset 0 0 0 2px #ff453a; }
