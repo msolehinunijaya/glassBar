@@ -11,7 +11,7 @@
   import { barAway, perf } from '../../lib/perf.svelte';
   import { liveMedia } from '../music/media.svelte';
   import { paint } from './draw';
-  import { palette, resample, step } from './eq';
+  import { duringBlip, palette, resample, step } from './eq';
   import type { EqSettings } from './settings';
 
   /** `len` is the length along the bar in px. `height` caps the thickness on a top/bottom
@@ -24,6 +24,7 @@
   let canvas: HTMLCanvasElement;
   let src: number[] = [];
   let lastData = 0;
+  let lastBlip = -Infinity; // when GlassBar last played its volume tick (sound:blip)
   let album: [string, string] | null = null;
   /** Restarts the draw loop at once when sound comes back (it naps while quiet). */
   let wake = () => {};
@@ -45,6 +46,7 @@
     // All-zero bands (an app holding a silent stream open) are not sound: counting them kept
     // the bars drawing at full fps on silence.
     const take = (b: ArrayLike<number>) => {
+      if (duringBlip(performance.now(), lastBlip)) return; // our own volume tick, not music
       src = Array.from(b, (v) => v / 255);
       if (src.some((v) => v > 0)) { lastData = performance.now(); wake(); }
     };
@@ -60,7 +62,8 @@
     const t = setInterval(sync, 2000);
     document.addEventListener('visibilitychange', sync);
     const off = listen<number[]>('audio:spectrum', (e) => take(e.payload));
-    return () => { clearInterval(t); document.removeEventListener('visibilitychange', sync); es?.close(); off.then((f) => f()); };
+    const offBlip = listen('sound:blip', () => { lastBlip = performance.now(); });
+    return () => { clearInterval(t); document.removeEventListener('visibilitychange', sync); es?.close(); off.then((f) => f()); offBlip.then((f) => f()); };
   });
 
   // Album colours: two vivid colours from the cover, re-read when the cover changes.

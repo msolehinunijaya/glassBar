@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mix, palette, resample, rgb, SRC_BANDS, step } from './eq';
+import { duringBlip, mix, palette, resample, rgb, SRC_BANDS, step } from './eq';
 import { shrunkAt } from './settings';
 
 const ramp = Array.from({ length: SRC_BANDS }, (_, i) => i / (SRC_BANDS - 1));
@@ -84,4 +84,12 @@ describe('shrinking when silent', () => {
   it('grows back as soon as there is sound', () => {
     expect(shrunkAt(null, 99999)).toBe(false);
   });
+});
+
+it("ignores GlassBar's own volume tick, not the music around it", () => {
+  // The tick plays at t = 1000 ms; the bars skip what the speakers play while it sounds.
+  expect(duringBlip(1100, 1000)).toBe(true);
+  expect(duringBlip(1350, 1000)).toBe(true);
+  expect(duringBlip(1500, 1000)).toBe(false);
+  expect(duringBlip(1100, -Infinity)).toBe(false); // no tick yet
 });
