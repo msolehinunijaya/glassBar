@@ -279,6 +279,7 @@ pub fn apply_later(app: &AppHandle, after_s: &[u64]) {
 /// Undo everything that outlives the process: reserved space and hidden taskbar.
 pub fn cleanup(_app: &AppHandle) {
     shell().windows_osd_restore();
+    shell().suppress_native_animations(false); // give apps their own minimize animation back
     crate::platform::tray().stop();
     shell().appbar_remove();
     shell().set_taskbar(TaskbarMode::Show);
@@ -550,7 +551,7 @@ pub fn popup_blurred(app: &AppHandle) {
 }
 
 pub fn popup_hidden(app: &AppHandle) {
-    shell().thumbs_clear(); // never leave live thumbnails behind
+    if let Some(h) = app.get_webview_window("popup").and_then(|p| p.hwnd().ok()) { shell().thumbs_clear(h.0 as isize); } // never leave live thumbnails behind
     if let Some(p) = app.get_webview_window("popup") {
         let _ = p.hide();
         shell().hide_window(&p); // belt and braces: never leave an empty preview on screen
@@ -773,7 +774,20 @@ pub fn thumbs_show(app: AppHandle, items: Vec<ThumbArea>) -> Vec<isize> {
 }
 
 #[tauri::command]
-pub fn thumbs_clear() { shell().thumbs_clear() }
+pub fn thumbs_clear(app: AppHandle) {
+    if let Some(h) = app.get_webview_window("popup").and_then(|p| p.hwnd().ok()) { shell().thumbs_clear(h.0 as isize); }
+}
+
+/// Live pictures of minimized windows drawn into the calling dock (its own CSS px); an empty
+/// list clears them.
+#[tauri::command]
+pub fn bar_thumbs(window: WebviewWindow, items: Vec<ThumbArea>) -> Vec<isize> {
+    let (Ok(h), Ok(s)) = (window.hwnd(), window.scale_factor()) else { return vec![] };
+    let px = |v: f64| (v * s).round() as i32;
+    let items: Vec<(isize, Rect)> = items.iter().map(|a| (a.id, Rect { x: px(a.x), y: px(a.y), w: px(a.w), h: px(a.h) })).collect();
+    if items.is_empty() { shell().thumbs_clear(h.0 as isize); return vec![]; }
+    shell().thumbs_show(h.0 as isize, &items)
+}
 
 /// The pointer left the widget that opened a hover popup; the popup closes soon
 /// unless the pointer moves into it.

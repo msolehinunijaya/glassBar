@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { group, keyFor, limitIcons, nextWindow, nameOf } from './groups';
+import { group, keyFor, limitIcons, minimizedOrder, nextWindow, nameOf } from './groups';
 
 const win = (id: number, exe: string, active = false) => ({ id, title: `w${id}`, exe, active, minimized: false });
 
@@ -97,5 +97,21 @@ describe('limitIcons', () => {
   });
   it('keeps the active app visible in the last slot', () => {
     expect(limitIcons(['a', 'b', 'c', 'd', 'e'], 3, on('e'))).toEqual({ shown: ['a', 'b', 'e'], hidden: 2 });
+  });
+});
+
+describe('minimizedOrder', () => {
+  const min = (id: number, minimized = true) => ({ ...win(id, 'a.exe'), minimized });
+  it('lists minimized windows in the order they were minimized', () => {
+    expect(minimizedOrder([1, 2], [min(2), min(1), min(3)])).toEqual([1, 2, 3]);
+  });
+  it('drops a window once it is restored', () => {
+    expect(minimizedOrder([1, 2, 3], [min(1), min(2, false), min(3)])).toEqual([1, 3]);
+  });
+  it('drops a window once it is closed', () => {
+    expect(minimizedOrder([1], [])).toEqual([]);
+  });
+  it('never lists windows that are not minimized', () => {
+    expect(minimizedOrder([], [min(4, false)])).toEqual([]);
   });
 });

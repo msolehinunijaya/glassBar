@@ -134,7 +134,7 @@ pub trait Shell: Send + Sync {
     /// that got one; the caller shows a fallback for the rest.
     fn thumbs_show(&self, dest: isize, items: &[(isize, Rect)]) -> Vec<isize>;
     /// Remove every thumbnail (must run whenever the preview hides).
-    fn thumbs_clear(&self);
+    fn thumbs_clear(&self, dest: isize);
     /// The current clipboard contents were marked private by the app that copied them.
     fn clipboard_is_private(&self) -> bool;
     /// Press keys together (in order) and release them: e.g. [LWIN] opens Start.
@@ -168,6 +168,17 @@ pub trait Shell: Send + Sync {
     fn windows_osd_nudge(&self) {}
     /// Closing: give Windows its pop-up back now.
     fn windows_osd_restore(&self) {}
+    /// Calls `f(window, rect)` when a window starts to minimize; `rect` = where it was.
+    fn watch_minimize(&self, _f: Box<dyn Fn(isize, Rect) + Send>) {}
+    /// Where a minimized window will appear when restored (screen px).
+    fn restore_rect(&self, _id: isize) -> Option<Rect> { None }
+    /// Draw a minimize/restore effect of window `src` on top of the screen: `frames(t)` gives
+    /// the (source slice, screen rect) pairs at t = 0..1 over `ms`, then `then` runs. `run`
+    /// is the effect's id in `effects::RUNS`; it stops early once that is no longer current.
+    fn effect_play(&self, _src: isize, _run: u64, _frames: Box<dyn Fn(f64) -> Vec<(Rect, Rect)> + Send>, _ms: u32, then: Box<dyn FnOnce() + Send>) { then() }
+    /// Switch Windows' own minimize/restore animation off (or back on) for app windows, so
+    /// it doesn't play under GlassBar's effect. Best effort.
+    fn suppress_native_animations(&self, _on: bool) {}
     /// Focus, restore, or minimize if it is already the active window.
     fn activate(&self, id: isize);
     fn close(&self, id: isize);

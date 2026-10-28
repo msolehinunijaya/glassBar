@@ -26,13 +26,16 @@ fn window(app: &AppHandle) -> Option<WebviewWindow> {
     Some(w)
 }
 
+// Async on purpose: building a window inside a synchronous command (which runs on the main
+// thread) deadlocks on Windows.
+
 /// Create the magnifier ahead of the first hover (its page takes a moment to load).
 #[tauri::command]
-pub fn magnify_prepare(app: AppHandle) { let _ = window(&app); }
+pub async fn magnify_prepare(app: AppHandle) { let _ = window(&app); }
 
 /// Show the magnifier over `x, y, w, h`, given in the calling dock's CSS px.
 #[tauri::command]
-pub fn magnify_show(app: AppHandle, window: WebviewWindow, x: f64, y: f64, w: f64, h: f64) {
+pub async fn magnify_show(app: AppHandle, window: WebviewWindow, x: f64, y: f64, w: f64, h: f64) {
     let (Some(m), Ok(pos), Ok(s)) = (self::window(&app), window.outer_position(), window.scale_factor()) else { return };
     let _ = m.set_position(PhysicalPosition::new(pos.x + (x * s).round() as i32, pos.y + (y * s).round() as i32));
     let _ = m.set_size(PhysicalSize::new((w * s).round().max(1.0) as u32, (h * s).round().max(1.0) as u32));

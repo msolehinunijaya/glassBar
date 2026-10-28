@@ -3,8 +3,11 @@
 //! the slice is in the source window's own pixels, the destination in screen pixels.
 
 use crate::config::Edge;
-use crate::platform::Rect;
+use crate::platform::{shell, Rect};
 use serde::Deserialize;
+use std::collections::HashMap;
+use std::sync::Mutex;
+use tauri::WebviewWindow;
 
 #[derive(Deserialize, Clone, Copy, PartialEq, Eq, Debug, Default)]
 #[serde(rename_all = "lowercase")]
@@ -76,6 +79,105 @@ pub fn frame(e: Effect, from: Rect, to: Rect, edge: Edge, t: f64, strips: usize)
     }).collect()
 }
 
+/// Where each slice lies in the DWM thumbnail's source. Slices cover the visible window
+/// (their union); the source usually also has the window's invisible borders `insets`
+/// (left, top, right, bottom), unless its size already matches the visible window.
+pub fn source_rects(slices: &[Rect], size: (i32, i32), insets: (i32, i32, i32, i32)) -> Vec<Rect> {
+    let w = slices.iter().map(|s| s.x + s.w).max().unwrap_or(1).max(1);
+    let h = slices.iter().map(|s| s.y + s.h).max().unwrap_or(1).max(1);
+    let (l, t, r, b) = if (size.0 - w).abs() <= 4 && (size.1 - h).abs() <= 4 { (0, 0, 0, 0) } else { insets };
+    let (sx, sy) = ((size.0 - l - r).max(1) as f64 / w as f64, (size.1 - t - b).max(1) as f64 / h as f64);
+    slices.iter().map(|s| {
+        let (x0, y0) = (l + (s.x as f64 * sx).round() as i32, t + (s.y as f64 * sy).round() as i32);
+        let (x1, y1) = (l + ((s.x + s.w) as f64 * sx).round() as i32, t + ((s.y + s.h) as f64 * sy).round() as i32);
+        Rect { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }
+    }).collect()
+}
+
+// ---- Where windows fly to (sent by the App Launcher) ----
+
+/// A rect in a dock window's CSS px, as the page measures it.
+#[derive(Deserialize, Clone, Copy, Debug)]
+pub struct RectCss { pub x: f64, pub y: f64, pub w: f64, pub h: f64 }
+
+/// What the first App Launcher reports: the effect to play and where each window goes.
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct EffectTargets { pub effect: Effect, pub to_icon: bool, pub per_window: HashMap<isize, RectCss>, pub end: Option<RectCss>, pub dock: RectCss }
+
+/// The same in screen pixels.
+#[derive(Clone, Debug)]
+pub struct Targets { pub effect: Effect, pub to_icon: bool, pub edge: Edge, pub per_window: HashMap<isize, Rect>, pub end: Option<Rect>, pub dock: Rect }
+
+pub fn to_screen(r: RectCss, origin: (i32, i32), scale: f64) -> Rect {
+    let p = |v: f64| (v * scale).round() as i32;
+    Rect { x: origin.0 + p(r.x), y: origin.1 + p(r.y), w: p(r.w), h: p(r.h) }
+}
+
+/// The window's own spot (its icon, or its minimized spot), else the next free spot at the
+/// end of the launcher (when windows don't go into their icon), else the dock's middle.
+pub fn pick_target(t: &Targets, hwnd: isize) -> Rect {
+    if let Some(r) = t.per_window.get(&hwnd) { return *r; }
+    if let (false, Some(e)) = (t.to_icon, t.end) { return e; }
+    let d = t.dock;
+    let s = d.w.min(d.h);
+    Rect { x: d.x + (d.w - s) / 2, y: d.y + (d.h - s) / 2, w: s, h: s }
+}
+
+/// One running effect per window: starting another cancels the first.
+#[derive(Default)]
+pub struct Registry { next: u64, runs: HashMap<isize, u64> }
+impl Registry {
+    pub fn start(&mut self, hwnd: isize) -> u64 { self.next += 1; self.runs.insert(hwnd, self.next); self.next }
+    pub fn current(&self, hwnd: isize, run: u64) -> bool { self.runs.get(&hwnd) == Some(&run) }
+    pub fn end(&mut self, hwnd: isize, run: u64) { if self.current(hwnd, run) { self.runs.remove(&hwnd); } }
+}
+
+static TARGETS: Mutex<Option<Targets>> = Mutex::new(None);
+pub static RUNS: Mutex<Option<Registry>> = Mutex::new(None);
+const STRIPS: usize = 40;
+
+fn effect_now() -> Effect { TARGETS.lock().unwrap().as_ref().map_or(Effect::None, |t| t.effect) }
+
+#[tauri::command]
+pub fn effects_targets(app: tauri::AppHandle, window: WebviewWindow, t: EffectTargets) {
+    use tauri::Manager;
+    let edge = app.state::<crate::AppState>().config.lock().unwrap().profile().bar.edge;
+    let (Ok(pos), Ok(s)) = (window.outer_position(), window.scale_factor()) else { return };
+    let o = (pos.x, pos.y);
+    let was = effect_now();
+    *TARGETS.lock().unwrap() = Some(Targets {
+        effect: t.effect, to_icon: t.to_icon, edge,
+        per_window: t.per_window.into_iter().map(|(k, r)| (k, to_screen(r, o, s))).collect(),
+        end: t.end.map(|r| to_screen(r, o, s)), dock: to_screen(t.dock, o, s),
+    });
+    if (was == Effect::None) != (t.effect == Effect::None) { shell().suppress_native_animations(t.effect != Effect::None); }
+}
+
+/// Play effect `e` for window `hwnd` between its rect and its dock target, then run `then`.
+fn play(hwnd: isize, window: Rect, reverse: bool, then: Box<dyn FnOnce() + Send>) {
+    let Some(t) = TARGETS.lock().unwrap().clone() else { return then() };
+    if t.effect == Effect::None || window.w <= 0 || window.h <= 0 { return then(); }
+    let to = pick_target(&t, hwnd);
+    let edge = t.edge;
+    let run = RUNS.lock().unwrap().get_or_insert_with(Registry::default).start(hwnd);
+    let e = t.effect;
+    shell().effect_play(hwnd, run, Box::new(move |k: f64| frame(e, window, to, edge, if reverse { 1.0 - k } else { k }, STRIPS)),
+                        duration_ms(e), then);
+}
+
+/// A window began to minimize (from the window hook).
+pub fn on_minimize(hwnd: isize, rect: Rect) { play(hwnd, rect, false, Box::new(|| {})); }
+
+/// The dock restores a minimized window: fly it out of its target first, then restore it.
+#[tauri::command]
+pub async fn app_restore_animated(id: isize) {
+    let Some(r) = shell().restore_rect(id) else { return shell().activate(id) };
+    let (tx, rx) = std::sync::mpsc::channel();
+    play(id, r, true, Box::new(move || { let _ = tx.send(()); }));
+    let _ = tauri::async_runtime::spawn_blocking(move || { let _ = rx.recv_timeout(std::time::Duration::from_secs(2)); shell().activate(id); }).await;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -139,6 +241,55 @@ mod tests {
             let d = p.1;
             assert!(d.x >= TO.x - 1 && d.x + d.w <= TO.x + TO.w + 1 && d.y >= TO.y - 1, "{d:?}");
         }
+    }
+
+    fn targets(to_icon: bool) -> Targets {
+        let mut per_window = std::collections::HashMap::new();
+        per_window.insert(7, Rect { x: 100, y: 1000, w: 40, h: 40 });
+        Targets { effect: Effect::Genie, to_icon, edge: Edge::Bottom, per_window, end: Some(Rect { x: 800, y: 1000, w: 60, h: 40 }),
+                  dock: Rect { x: 0, y: 990, w: 1000, h: 60 } }
+    }
+
+    #[test]
+    fn a_window_flies_to_its_own_target_first() {
+        assert_eq!(pick_target(&targets(true), 7), Rect { x: 100, y: 1000, w: 40, h: 40 });
+        assert_eq!(pick_target(&targets(false), 7), Rect { x: 100, y: 1000, w: 40, h: 40 });
+    }
+
+    #[test]
+    fn without_its_own_target_it_goes_to_the_end_spot_or_the_dock_middle() {
+        assert_eq!(pick_target(&targets(false), 9), Rect { x: 800, y: 1000, w: 60, h: 40 });
+        let mid = pick_target(&targets(true), 9);
+        assert_eq!((mid.x + mid.w / 2, mid.y + mid.h / 2), (500, 1020));
+        assert!(mid.w > 0 && mid.w <= 60);
+    }
+
+    #[test]
+    fn a_new_effect_for_the_same_window_cancels_the_old_one() {
+        let mut r = Registry::default();
+        let a = r.start(7);
+        let other = r.start(8);
+        let b = r.start(7);
+        assert!(!r.current(7, a));
+        assert!(r.current(7, b));
+        assert!(r.current(8, other));
+        r.end(7, a); // the cancelled run ending must not drop the new one
+        assert!(r.current(7, b));
+        r.end(7, b);
+        assert!(!r.current(7, b));
+    }
+
+    #[test]
+    fn each_strip_reads_its_own_slice_of_the_window() {
+        let f = frame(Effect::Genie, FROM, TO, Edge::Bottom, 0.0, 30);
+        let slices: Vec<Rect> = f.iter().map(|p| p.0).collect();
+        // Source with 8 px invisible borders on the left, right and bottom.
+        let r = source_rects(&slices, (FROM.w + 16, FROM.h + 8), (8, 0, 8, 8));
+        assert_eq!(r[0], Rect { x: 8, y: 0, w: FROM.w, h: 20 });
+        assert_eq!(r[29].y + r[29].h, FROM.h);
+        // Source already the window's size: no borders to crop.
+        let r = source_rects(&slices, (FROM.w, FROM.h), (8, 0, 8, 8));
+        assert_eq!(r[1], Rect { x: 0, y: 20, w: FROM.w, h: 20 });
     }
 
     #[test]

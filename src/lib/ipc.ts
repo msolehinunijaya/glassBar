@@ -155,6 +155,10 @@ export const ipc = {
   magnifyShow: (r: { x: number; y: number; width: number; height: number }) => invoke<void>('magnify_show', { x: r.x, y: r.y, w: r.width, h: r.height }),
   magnifyFrame: (icons: MagIcon[]) => invoke<void>('magnify_frame', { icons }),
   magnifyHide: () => invoke<void>('magnify_hide'),
+  /** Minimize effects: the effect to play and where each window goes (this dock's CSS px). */
+  effectsTargets: (t: EffectTargets) => invoke<void>('effects_targets', { t }),
+  /** Restore a minimized window with the effect played in reverse, out of the dock. */
+  appRestoreAnimated: (id: number) => invoke<void>('app_restore_animated', { id }),
   mouseDown: () => invoke<boolean>('mouse_down'),
   restoreTaskbar: () => invoke<void>('restore_taskbar'),
   setEditMode: (on: boolean) => invoke<void>('set_edit_mode', { on }),
@@ -164,6 +168,8 @@ export const ipc = {
   popupLeave: () => invoke<void>('popup_leave'),
   thumbsShow: (items: { id: number; x: number; y: number; w: number; h: number }[]) => invoke<number[]>('thumbs_show', { items }),
   thumbsClear: () => invoke<void>('thumbs_clear'),
+  /** Live window pictures drawn into this dock window (minimized-window spots); [] clears them. */
+  barThumbs: (items: { id: number; x: number; y: number; w: number; h: number }[]) => invoke<number[]>('bar_thumbs', { items }),
   barReveal: (show: boolean) => invoke<void>('bar_reveal', { show }),
   popupHide: () => invoke<void>('popup_hide'),
   popupReveal: () => invoke<void>('popup_reveal'),
@@ -408,4 +414,6 @@ export const events = {
 };
 export type { UnlistenFn };
 /** One enlarged dock icon, in the magnifier window's CSS px (x, y = top-left). */
+type CssRect = { x: number; y: number; w: number; h: number };
+export interface EffectTargets { effect: 'genie' | 'scale' | 'suck' | 'none'; toIcon: boolean; perWindow: Record<number, CssRect>; end: CssRect | null; dock: CssRect }
 export interface MagIcon { src: string; x: number; y: number; size: number }
