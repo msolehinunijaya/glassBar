@@ -36,6 +36,25 @@ pub fn place(mon: Rect, edge: Edge, length: f64, thick: i32, gap: i32, inner: i3
     }
 }
 
+/// The bar lengthened along its edge by `along` px, staying centred, kept `gap` px inside
+/// the monitor at both ends. Magnification uses it when the spread icons don't fit.
+pub fn grown(r: Rect, edge: Edge, along: i32, mon: Rect, gap: i32) -> Rect {
+    if along <= 0 { return r; }
+    let fit = |start: i32, len: i32, m0: i32, mlen: i32| {
+        let len2 = (len + along).min(mlen - 2 * gap);
+        let s = (start - (len2 - len) / 2).clamp(m0 + gap, m0 + mlen - gap - len2);
+        (s, len2)
+    };
+    match edge {
+        Edge::Top | Edge::Bottom => { let (x, w) = fit(r.x, r.w, mon.x, mon.w); Rect { x, w, ..r } }
+        Edge::Left | Edge::Right => { let (y, h) = fit(r.y, r.h, mon.y, mon.h); Rect { y, h, ..r } }
+    }
+}
+
+/// Extra length (physical px) per dock window while magnification needs it.
+static GROW: std::sync::Mutex<Option<(String, i32)>> = std::sync::Mutex::new(None);
+fn grow_of(label: &str) -> i32 { GROW.lock().unwrap().as_ref().filter(|g| g.0 == label).map_or(0, |g| g.1) }
+
 /// Pixels of an auto-hidden bar left on screen, so the mouse can find it.
 const PEEK: i32 = 3;
 
@@ -102,6 +121,7 @@ fn bar_rect(app: &AppHandle, bar: &crate::config::BarCfg, length: f64) -> Option
     let px = |v: f64| (v.clamp(0.0, 48.0) * s).round() as i32;
     let (mut r, strip) = place(monitor_rect(&mon), bar.edge, length, thick, px(bar.gap), px(bar.gap_inner.unwrap_or(bar.gap)));
     if let Some(p) = bar.floating { r.x = p.x; r.y = p.y; }
+    let r = grown(r, bar.edge, grow_of("bar"), monitor_rect(&mon), px(bar.gap));
     Some((r, strip))
 }
 
@@ -272,6 +292,24 @@ pub fn bar_preview(app: AppHandle, length: f64) {
     if let (Some(win), Some((r, _))) = (app.get_webview_window("bar"), bar_rect(&app, &cfg, length.clamp(0.2, 1.0))) {
         set_rect(&win, r);
     }
+}
+
+/// Magnification: lengthen the calling dock by `along` CSS px (0 = back to normal). Only the
+/// window moves; the reserved strip spans the whole edge and stays as it is.
+#[tauri::command]
+pub fn bar_grow(app: AppHandle, window: WebviewWindow, along: f64) {
+    let px = (along.max(0.0) * window.scale_factor().unwrap_or(1.0)).round() as i32;
+    *GROW.lock().unwrap() = (px > 0).then(|| (window.label().to_string(), px));
+    let cfg = app.state::<AppState>().config.lock().unwrap().profile().bar.clone();
+    if away_now(&app, &cfg) { return; }
+    let Some((mut r, _)) = bar_rect(&app, &cfg, cfg.length) else { return };
+    let mut reserved = RESERVED_AT.lock().unwrap();
+    if let Some(at) = *reserved {
+        // Windows may have nudged the dock when it reserved space: keep that offset across the edge.
+        match cfg.edge { Edge::Top | Edge::Bottom => r.y = at.y, Edge::Left | Edge::Right => r.x = at.x }
+        *reserved = Some(r);
+    }
+    set_rect(&window, r);
 }
 
 /// Slide an auto-hidden bar in (show) or out. Animated over ~120 ms.
@@ -838,6 +876,21 @@ fn on_menu(app: &AppHandle, id: &str) {
 mod tests {
     use super::*;
     const MON: Rect = Rect { x: 0, y: 0, w: 1920, h: 1080 };
+
+    #[test]
+    fn grown_lengthens_along_the_edge_centred() {
+        let r = Rect { x: 300, y: 1000, w: 1000, h: 60 };
+        assert_eq!(grown(r, Edge::Bottom, 200, MON, 6), Rect { x: 200, y: 1000, w: 1200, h: 60 });
+        assert_eq!(grown(r, Edge::Bottom, 0, MON, 6), r);
+        let side = Rect { x: 6, y: 200, w: 72, h: 600 };
+        assert_eq!(grown(side, Edge::Left, 100, MON, 6), Rect { x: 6, y: 150, w: 72, h: 700 });
+    }
+
+    #[test]
+    fn grown_stops_at_the_screen() {
+        let r = Rect { x: 300, y: 1000, w: 1000, h: 60 };
+        assert_eq!(grown(r, Edge::Bottom, 2000, MON, 6), Rect { x: 6, y: 1000, w: 1908, h: 60 });
+    }
 
     #[test]
     fn away_only_while_auto_hidden_and_tucked() {

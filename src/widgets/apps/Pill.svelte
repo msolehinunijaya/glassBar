@@ -18,6 +18,9 @@
   import type { AppsSettings } from './index';
   import StartButtons from '../start/StartButtons.svelte';
   import { ADD_APP, APP_DRAG } from '../folders/folders';
+  import { extraLength, magnifyScales } from './magnify';
+  import { barAway } from '../../lib/perf.svelte';
+  import { profile } from '../../lib/config.svelte';
 
   let { instance, size, settings, vertical }: PillProps<AppsSettings> = $props();
   let windows = $state<AppWindow[]>([]);
@@ -41,7 +44,7 @@
   });
 
   let edit = false;
-  onMount(() => { const off = events.editMode((on) => (edit = on)); return () => { off.then((f) => f()); }; });
+  onMount(() => { const off = events.editMode((on) => { edit = on; if (on) unmagnify(); }); return () => { off.then((f) => f()); }; });
 
   // ---- Drag to reorder (hold ~0.3 s or just drag). The icon moves to its new place
   // live and the others slide aside; release saves. It never launches anything. ----
@@ -69,6 +72,7 @@
       picked = true;
       clearTimeout(hoverTimer);
       if (previewOpen) { previewOpen = false; ipc.popupHide(); }
+      unmagnify();
       dragKey = g.key;
       liveOrder = groups.map((x) => x.key);
       document.documentElement.dataset[APP_DRAG] = '1'; // folders on the dock light up
@@ -118,6 +122,78 @@
     if (t && !settings.pinned.some((p) => keyOf(p.path) === keyOf(t.path))) setPins([...settings.pinned, { path: t.path, args: t.args || undefined }]);
   }
   const iconSize = $derived(size === 'small' ? 22 : 26);
+
+  // ---- Magnification (Mac-style). The enlarged icons are drawn by the magnifier window over
+  // the dock (magnify.rs); here the slots only widen so the row spreads, and the real icons
+  // hide while their big copies show. ----
+  let scales = $state<Record<string, number>>({});
+  let magnifying = false;
+  let grownBy = 0;
+  let frameQueued = false;
+  const slotPx = $derived(iconSize + 12); // icon + the slot's side padding
+  const edge = $derived(profile().bar.edge);
+  $effect(() => { if (settings.magnify) ipc.magnifyPrepare().catch(() => {}); });
+  $effect(() => { if (barAway.v) unmagnify(); });
+  const along = (r: DOMRect) => (vertical ? r.top + r.height / 2 : r.left + r.width / 2);
+  function magnifyMove(e: PointerEvent) {
+    if (!settings.magnify || edit || dragKey) return;
+    const scale = settings.magnifyScale ?? 1.6;
+    const btns = [...row.querySelectorAll<HTMLElement>('.app:not(.hid)')];
+    if (!magnifying) {
+      magnifying = true;
+      const r = row.getBoundingClientRect();
+      const out = (scale - 1) * iconSize + 8;
+      const side = (scale - 1) * slotPx * 3;
+      const area = vertical
+        ? { x: edge === 'left' ? r.left : r.left - out, y: r.top - side, width: r.width + out, height: r.height + 2 * side }
+        : { x: r.left - side, y: edge === 'top' ? r.top : r.top - out, width: r.width + 2 * side, height: r.height + out };
+      // Kept in screen terms: the dock window itself moves if it lengthens below.
+      magOrigin = { x: screenX + area.x, y: screenY + area.y };
+      ipc.magnifyShow(area).catch(() => {});
+      // Lengthen the dock only if the spread row won't fit in the glass's free space.
+      const scroller = row.closest<HTMLElement>('.scroller');
+      if (scroller) {
+        const kids = [...scroller.children] as HTMLElement[];
+        const gap = parseFloat(getComputedStyle(scroller)[vertical ? 'rowGap' : 'columnGap']) || 0;
+        const used = kids.reduce((n, k) => n + (vertical ? k.offsetHeight : k.offsetWidth), 0) + gap * Math.max(0, kids.length - 1);
+        const slack = (vertical ? scroller.clientHeight : scroller.clientWidth) - used;
+        const wave = extraLength(magnifyScales([-3, -2, -1, 0, 1, 2, 3].map((k) => k * slotPx), 0, slotPx, scale), slotPx);
+        const need = Math.ceil(Math.max(0, wave - slack));
+        if (need > 0) { grownBy = need; ipc.barGrow(need).catch(() => {}); }
+      }
+    }
+    const p = vertical ? e.clientY : e.clientX;
+    const keys = btns.map((b) => b.dataset.key!);
+    const k = magnifyScales(btns.map((b) => along(b.getBoundingClientRect())), p, slotPx, scale);
+    scales = Object.fromEntries(keys.map((key, i) => [key, k[i]]));
+    if (!frameQueued) { frameQueued = true; requestAnimationFrame(sendFrame); }
+  }
+  // Big icons: centred on their slot, their screen-edge side where the normal icon's is.
+  // Coordinates go to magnify.rs relative to the magnifier, which starts at the area set above.
+  let magOrigin = { x: 0, y: 0 }; // magnifier's top-left, screen CSS px
+  function sendFrame() {
+    frameQueued = false;
+    if (!magnifying) return;
+    const ox = magOrigin.x - screenX, oy = magOrigin.y - screenY; // in this window's coordinates
+    const icons = [...row.querySelectorAll<HTMLElement>('.app:not(.hid)')].flatMap((b) => {
+      const img = b.querySelector('img');
+      if (!img) return []; // letter placeholders just stay in the dock
+      const ir = img.getBoundingClientRect(), br = b.getBoundingClientRect();
+      const S = iconSize * (scales[b.dataset.key!] ?? 1);
+      const cx = br.left + br.width / 2, cy = br.top + br.height / 2;
+      const x = edge === 'left' ? ir.left : edge === 'right' ? ir.right - S : cx - S / 2;
+      const y = edge === 'top' ? ir.top : edge === 'bottom' ? ir.bottom - S : cy - S / 2;
+      return [{ src: img.src, x: x - ox, y: y - oy, size: S }];
+    });
+    ipc.magnifyFrame(icons).catch(() => {});
+  }
+  function unmagnify() {
+    if (!magnifying) return;
+    magnifying = false;
+    scales = {};
+    ipc.magnifyHide().catch(() => {});
+    if (grownBy) { grownBy = 0; ipc.barGrow(0).catch(() => {}); }
+  }
 
   onMount(() => {
     ipc.appsList().then((w) => (windows = w));
@@ -205,7 +281,7 @@
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="pill apps" class:vertical bind:this={row} onpointerenter={expand} onpointerleave={collapse}>
+<div class="pill apps" class:vertical bind:this={row} onpointerenter={expand} onpointerleave={() => { collapse(); unmagnify(); }} onpointermove={magnifyMove}>
   {#if settings.startPlacement === 'inline'}
     <StartButtons searchStyle={settings.searchStyle} color={settings.startColor} custom={settings.startCustom} />
     <span class="sep"></span>
@@ -219,6 +295,10 @@
       class:dragging={dragKey === g.key}
       class:gone
       class:failed={failed === g.key}
+      class:mag={scales[g.key] !== undefined}
+      data-key={g.key}
+      style:min-width={!vertical && scales[g.key] ? `${slotPx * scales[g.key]}px` : null}
+      style:min-height={vertical && scales[g.key] ? `${slotPx * scales[g.key]}px` : null}
       animate:flip={{ duration: 220 }}
       class:hid={!visibleKeys.has(g.key)}
       aria-hidden={!visibleKeys.has(g.key)}
@@ -262,12 +342,12 @@
   .vertical .sep { width: auto; height: 1px; margin: 3px 8px; }
   .apps.vertical { flex-direction: column; height: auto; padding: 4px 0; }
   .app {
-    position: relative; display: flex; align-items: center; gap: 6px;
+    position: relative; display: flex; align-items: center; justify-content: center; gap: 6px;
     height: 100%; padding: 0 6px; border-radius: calc(10px * var(--rs));
     max-width: 400px; max-height: 400px;
     overflow: hidden; /* while a slot widens or folds, its icon doesn't spill over the next one */
     transition: background 0.2s var(--ease), transform 0.3s var(--spring),
-      max-width 0.28s var(--ease), max-height 0.28s var(--ease), padding 0.28s var(--ease), margin 0.28s var(--ease), opacity 0.22s var(--ease);
+      max-width 0.28s var(--ease), max-height 0.28s var(--ease), min-width 0.18s var(--ease), min-height 0.18s var(--ease), padding 0.28s var(--ease), margin 0.28s var(--ease), opacity 0.22s var(--ease);
   }
   /* An icon is ~40 px: fold from about that, so the motion is even (from 400 px it would sit
      still for most of the time). Only the active app shows a title, and it's never folded. */
@@ -286,6 +366,10 @@
   .dots { position: absolute; bottom: 1px; left: 50%; transform: translateX(-50%); display: flex; gap: 2px; }
   .dots i { width: 4px; height: 4px; border-radius: calc(2px * var(--rs)); background: var(--fg-dim); }
   .active .dots i:first-child { width: 12px; background: var(--accent); }
+  /* Magnified: the big copy is in the magnifier window, the slot follows the pointer closely. */
+  .app.mag { transition: background 0.2s var(--ease), min-width 60ms linear, min-height 60ms linear; }
+  .app.mag img { visibility: hidden; }
+  :global(:root[data-perf='low']) .app.mag, :global(:root[data-perf='low']) .app { transition-property: background, max-width, max-height, padding, margin, opacity; }
   .app.dragging { z-index: 2; transform: scale(1.18); background: var(--pill-hover); box-shadow: 0 6px 18px rgba(0,0,0,0.25); cursor: grabbing; }
   .app.gone img, .app.gone .fallback { opacity: 0.35; filter: grayscale(1); }
   .app.failed { box-shadow: inset 0 0 0 2px #ff453a; }

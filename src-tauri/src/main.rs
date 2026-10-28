@@ -7,6 +7,7 @@ mod health;
 mod autohide;
 mod backdrop;
 mod bar;
+mod magnify;
 mod config;
 mod db;
 mod net;
@@ -210,7 +211,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             get_config, save_config, export_config, import_config, apply_bar, restore_taskbar,
             health::health_pong, bar::popup_open, bar::popup_reveal, bar::popup_hide, bar::popup_leave_close, bar::popup_width, bar::popup_hover_hide, bar::banner_fit, bar::banner_hide, bar::jump_to, bar::open_settings_cmd, bar::set_edit_mode,
-            bar::bar_preview, bar::bar_drag, bar::mouse_down, bar::menu_open, bar::app_quit, bar::dock_alert_begin, bar::dock_alert_end, bar::dock_alert_test, bar::transparency_effects, bar::appearance_support, backdrop::wallpaper_behind, bar::bar_reveal, bar::popup_leave,
+            bar::bar_preview, bar::bar_grow, magnify::magnify_prepare, magnify::magnify_show, magnify::magnify_frame, magnify::magnify_hide, bar::bar_drag, bar::mouse_down, bar::menu_open, bar::app_quit, bar::dock_alert_begin, bar::dock_alert_end, bar::dock_alert_test, bar::transparency_effects, bar::appearance_support, backdrop::wallpaper_behind, bar::bar_reveal, bar::popup_leave,
             bar::thumbs_show, bar::thumbs_clear,
             widgets::todo::todo_list, widgets::todo::todo_add, widgets::todo::todo_update,
             widgets::todo::todo_delete, widgets::todo::todo_clear_done,

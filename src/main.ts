@@ -9,6 +9,7 @@ import Popup from './app/Popup.svelte';
 import Settings from './app/Settings.svelte';
 import Snap from './app/Snap.svelte';
 import Banner from './app/Banner.svelte';
+import Magnify from './app/Magnify.svelte';
 
 // One bundle, five windows: pick the root by window label.
 const label = getCurrentWindow().label;
@@ -19,5 +20,5 @@ addEventListener('contextmenu', (e) => {
 });
 await initConfig();
 await initPerf();
-const Root = label === 'popup' ? Popup : label === 'settings' ? Settings : label === 'snap' ? Snap : label === 'banner' ? Banner : Bar;
+const Root = label === 'popup' ? Popup : label === 'settings' ? Settings : label === 'snap' ? Snap : label === 'banner' ? Banner : label === 'magnify' ? Magnify : Bar;
 mount(Root, { target: document.getElementById('app')! });

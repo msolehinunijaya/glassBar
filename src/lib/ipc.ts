@@ -148,6 +148,13 @@ export const ipc = {
   applyBar: () => invoke<void>('apply_bar'),
   barPreview: (length: number) => invoke<void>('bar_preview', { length }),
   barDrag: (on: boolean) => invoke<void>('bar_drag', { on }),
+  /** Magnification: lengthen this dock by `along` CSS px (0 = normal). */
+  barGrow: (along: number) => invoke<void>('bar_grow', { along }),
+  magnifyPrepare: () => invoke<void>('magnify_prepare'),
+  /** Show the magnifier over `r` (this dock's CSS px). */
+  magnifyShow: (r: { x: number; y: number; width: number; height: number }) => invoke<void>('magnify_show', { x: r.x, y: r.y, w: r.width, h: r.height }),
+  magnifyFrame: (icons: MagIcon[]) => invoke<void>('magnify_frame', { icons }),
+  magnifyHide: () => invoke<void>('magnify_hide'),
   mouseDown: () => invoke<boolean>('mouse_down'),
   restoreTaskbar: () => invoke<void>('restore_taskbar'),
   setEditMode: (on: boolean) => invoke<void>('set_edit_mode', { on }),
@@ -388,6 +395,7 @@ export const events = {
   sysmonSample: (cb: (s: Sample) => void) => listen<Sample>('sysmon:sample', (e) => cb(e.payload)),
   perfSample: (cb: (s: PerfSample) => void) => listen<PerfSample>('perf:sample', (e) => cb(e.payload)),
   /** The auto-hidden bar slid away (true) or back in (false). */
+  magnifyFrame: (cb: (icons: MagIcon[]) => void) => listen<MagIcon[]>('magnify:frame', (e) => cb(e.payload)),
   barAway: (cb: (away: boolean) => void) => listen<boolean>('bar:away', (e) => cb(e.payload)),
   soundPlay: (cb: (s: Sound) => void) => listen<Sound>('sound:play', (e) => cb(e.payload)),
   chargerFlip: (cb: (f: ChargerFlip) => void) => listen<ChargerFlip>('charger:flip', (e) => cb(e.payload)),
@@ -399,3 +407,5 @@ export const events = {
   changed: (name: string, cb: () => void) => listen(`${name}:changed`, () => cb()),
 };
 export type { UnlistenFn };
+/** One enlarged dock icon, in the magnifier window's CSS px (x, y = top-left). */
+export interface MagIcon { src: string; x: number; y: number; size: number }
