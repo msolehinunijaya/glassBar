@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.6 — 2026-10-29
+
+### Changed
+- **Scrolling screenshots keep a site's side menu.** Parts of the window that don't scroll at the sides (a site's menu, the browser's tab strip) used to be cut off. They now appear as on the first screen, and further down they continue in their own background colour instead of repeating. Only the scrollbar is left out.
+
 ## 0.6.5 — 2026-10-29
 
 ### Fixed

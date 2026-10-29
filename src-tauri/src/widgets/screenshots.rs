@@ -232,17 +232,57 @@ pub fn scroll_capture(win: &WinRect) -> Result<(Vec<u8>, u32, u32), String> {
     }
     if let Some((_, bottom, _, _)) = layout { body.extend_from_slice(&prev[(n - bottom - SEAM) * row..]); }
     let h = body.len() / row;
-    // Leave still side panels and the scrollbar out: repeated down a long page they'd look broken.
-    let (left, right) = layout.map(|l| (l.2, l.3 + bar)).unwrap_or((0, 0));
-    if left + right == 0 { return Ok((body, w as u32, h as u32)); }
-    let cw = w - left - right;
-    let mut out = Vec::with_capacity(cw * h * 4);
-    for r in 0..h { out.extend_from_slice(&body[(r * w + left) * 4..(r * w + w - right) * 4]); }
-    Ok((out, cw as u32, h as u32))
+    let Some((_, bottom, left, right)) = layout else { return Ok((body, w as u32, h as u32)) };
+    // Still side panels (a site's menu, the browser's tab strip) stay as on the first screen;
+    // further down they'd repeat in slices, so they continue in their own background colour.
+    fill_sides(&mut body, w, n - bottom - SEAM, h - bottom, left, right);
+    // The scrollbar (its thumb moves) is left out.
+    if bar == 0 { return Ok((body, w as u32, h as u32)); }
+    let x_bar = w - right - bar;
+    let mut out = Vec::with_capacity((w - bar) * h * 4);
+    for r in 0..h {
+        out.extend_from_slice(&body[r * row..(r * w + x_bar) * 4]);
+        out.extend_from_slice(&body[(r * w + w - right) * 4..(r + 1) * row]);
+    }
+    Ok((out, (w - bar) as u32, h as u32))
+}
+
+/// Paint columns `..left` and `w - right..` of rows `from..to` with the average colour each
+/// side has in row `from - 1` (the last row the first screen gave them).
+pub fn fill_sides(px: &mut [u8], w: usize, from: usize, to: usize, left: usize, right: usize) {
+    if from == 0 || to <= from { return; }
+    let avg = |x0: usize, x1: usize| -> [u8; 4] {
+        let r = &px[((from - 1) * w + x0) * 4..((from - 1) * w + x1) * 4];
+        let n = (x1 - x0).max(1) as u32;
+        let mut s = [0u32; 4];
+        for p in r.chunks_exact(4) { for i in 0..4 { s[i] += p[i] as u32; } }
+        s.map(|v| (v / n) as u8)
+    };
+    let sides: Vec<(usize, usize, [u8; 4])> = [(0, left), (w - right, w)].into_iter().filter(|(a, b)| b > a).map(|(a, b)| (a, b, avg(a, b))).collect();
+    for (x0, x1, c) in sides {
+        for r in from..to { for x in x0..x1 { px[(r * w + x) * 4..(r * w + x) * 4 + 4].copy_from_slice(&c); } }
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn still_sides_continue_in_their_colour_below_the_first_screen() {
+        // 6 px wide, 4 rows: left 2 px is a menu (row 1 ends it in grey 10/20), right 1 px a border.
+        let w = 6;
+        let mut px = vec![0u8; w * 4 * 4];
+        for x in 0..2 { px[(w + x) * 4..(w + x) * 4 + 4].copy_from_slice(&[if x == 0 { 10 } else { 30 }, 20, 20, 255]); }
+        px[(w + 5) * 4..(w + 5) * 4 + 4].copy_from_slice(&[9, 9, 9, 255]);
+        px[(3 * w + 3) * 4] = 77; // page content stays
+        super::fill_sides(&mut px, w, 2, 4, 2, 1);
+        for r in 2..4 {
+            assert_eq!(&px[(r * w) * 4..(r * w) * 4 + 4], &[20, 20, 20, 255], "left: average of the last menu row");
+            assert_eq!(&px[(r * w + 5) * 4..(r * w + 5) * 4 + 4], &[9, 9, 9, 255]);
+        }
+        assert_eq!(px[(3 * w + 3) * 4], 77);
+        assert_eq!(px[(w) * 4], 10, "the first screen is untouched");
+    }
+
     /// Live run on a real window: `GB_WIN=Chrome GB_OUT=out.png cargo test scroll_capture_live -- --ignored --nocapture`.
     #[test]
     #[ignore]
