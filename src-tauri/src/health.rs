@@ -40,6 +40,18 @@ pub fn decide(now: u64, last_pong: u64, st: &mut State) -> Act {
     }
 }
 
+/// The dock is stuck: if GlassBar's own worker pool is full (every worker waiting on
+/// something that never answers), a reload can't help, so restart straight away.
+pub fn repair(act: Act, starved: bool) -> Act { if act == Act::Reload && starved { Act::Restart } else { act } }
+
+/// Does a trivial job still get a worker within `limit`? Commands (app icons, media, widget
+/// actions) all run on that pool.
+fn pool_starved(limit: Duration) -> bool {
+    let (tx, rx) = std::sync::mpsc::channel();
+    tauri::async_runtime::spawn_blocking(move || { let _ = tx.send(()); });
+    rx.recv_timeout(limit).is_err()
+}
+
 pub fn start(app: AppHandle) {
     std::thread::spawn(move || {
         let mut st = State::new(crate::db::now_ms() as u64);
@@ -49,7 +61,10 @@ pub fn start(app: AppHandle) {
             seq += 1;
             let _ = app.emit_to("bar", "health:ping", seq);
             let now = crate::db::now_ms() as u64;
-            match decide(now, LAST_PONG.load(Ordering::Relaxed), &mut st) {
+            let act = decide(now, LAST_PONG.load(Ordering::Relaxed), &mut st);
+            let starved = act != Act::Fine && pool_starved(Duration::from_secs(3));
+            if starved { crate::applog::log("health: GlassBar's worker pool is full (something never answered)"); }
+            match repair(act, starved) {
                 Act::Fine => {}
                 Act::Reload => {
                     crate::applog::log("health: the dock stopped answering for 20 s: reloading it");
@@ -102,6 +117,14 @@ mod tests {
             if let Some(a) = answers(now) { last = a; }
             (now, decide(now, last, st))
         }).collect()
+    }
+
+    #[test]
+    fn a_starved_worker_pool_restarts_at_once_instead_of_reloading() {
+        // A reload can't empty GlassBar's own worker pool; only a restart does.
+        assert_eq!(repair(Act::Reload, true), Act::Restart);
+        assert_eq!(repair(Act::Reload, false), Act::Reload);
+        assert_eq!(repair(Act::Fine, true), Act::Fine);
     }
 
     #[test]

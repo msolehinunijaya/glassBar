@@ -89,6 +89,7 @@ pub fn list() -> Vec<AppWindow> {
     all.into_iter()
         .filter(|&w| is_taskbar_window(w))
         .filter_map(|w| {
+            super::effects::on_listed(w);
             let pid = pid_of(w);
             if pid == me { return None; }
             // Store-style apps (Settings, Calculator…) live inside ApplicationFrameHost:
@@ -110,6 +111,7 @@ pub fn list() -> Vec<AppWindow> {
 unsafe extern "system" fn on_event(_: HWINEVENTHOOK, event: u32, w: HWND, obj: i32, child: i32, _: u32, _: u32) {
     if obj != OBJID_WINDOW.0 || child != 0 || w.is_invalid() { return; }
     if event == EVENT_OBJECT_SHOW { super::appbar::rehide_if_taskbar(w); }
+    if event == EVENT_SYSTEM_MINIMIZESTART { super::effects::minimizing(w); }
     if event == EVENT_SYSTEM_FOREGROUND {
         if pid_of(w) != std::process::id() { LAST_FG.store(w.0 as isize, Ordering::Relaxed); }
     } else if event != EVENT_OBJECT_DESTROY && unsafe { GetAncestor(w, GA_ROOT) } != w {

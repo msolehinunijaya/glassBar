@@ -54,6 +54,24 @@
 <p class="dim small">The rest show as "+N"; hover the launcher to see them all. 0 = show all.</p>
 <label><input type="checkbox" checked={settings.showTitles} onchange={(e) => save({ showTitles: e.currentTarget.checked })} /> Show active window title (large size)</label>
 
+<h4>Dock effects</h4>
+<label><input type="checkbox" checked={settings.magnify ?? false} onchange={(e) => save({ magnify: e.currentTarget.checked })} /> Magnification</label>
+{#if settings.magnify}
+  {@const k = settings.magnifyScale ?? 1.6}
+  <label>Size {k.toFixed(1)}×
+    <input type="range" class="slider" min="1.2" max="2" step="0.1" value={k} style:--fill="{((k - 1.2) / 0.8) * 100}%"
+           onchange={(e) => save({ magnifyScale: +e.currentTarget.value })} />
+  </label>
+{/if}
+<label>Minimize windows using
+  <select value={settings.minimizeEffect ?? 'genie'} onchange={(e) => save({ minimizeEffect: e.currentTarget.value as AppsSettings['minimizeEffect'] })}>
+    <option value="genie">Genie</option><option value="scale">Scale</option><option value="suck">Suck</option><option value="none">Off</option>
+  </select>
+</label>
+<label><input type="checkbox" checked={settings.bounce ?? true} onchange={(e) => save({ bounce: e.currentTarget.checked })} /> Animate opening applications</label>
+<label><input type="checkbox" checked={settings.minimizeToIcon ?? true} onchange={(e) => save({ minimizeToIcon: e.currentTarget.checked })} /> Minimize windows into application icon</label>
+<p class="dim small">Off: a minimized window gets its own spot, with a live picture, at the end of the launcher. In Low performance mode the effect is always Scale and icons don't bounce.</p>
+
 <p class="dim">Pinned apps stay on the bar even when closed. Drag icons on the bar to reorder them, or right-click an icon to pin/unpin.</p>
 <ul>
   {#each settings.pinned as p, i (p.path + i)}
@@ -102,4 +120,5 @@
   .ia:hover:not(:disabled) { background: var(--pill); }
   .ia:disabled { opacity: 0.5; }
   .small { font-size: 11px; }
+  h4 { margin: 12px 0 4px; font-size: 12px; font-weight: 600; }
 </style>

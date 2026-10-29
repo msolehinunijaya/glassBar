@@ -71,3 +71,11 @@ export function limitIcons<T>(items: T[], max: number, isActive: (t: T) => boole
   if (active >= max) shown[max - 1] = items[active];
   return { shown, hidden: items.length - max };
 }
+
+/** Minimized windows in the order they were minimized (each gets its own spot at the end of
+ *  the launcher when windows don't go into their icon). */
+export function minimizedOrder(prev: number[], windows: AppWindow[]): number[] {
+  const now = new Set(windows.filter((w) => w.minimized).map((w) => w.id));
+  const kept = prev.filter((id) => now.has(id));
+  return [...kept, ...[...now].filter((id) => !kept.includes(id))];
+}

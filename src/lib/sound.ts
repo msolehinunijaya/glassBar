@@ -1,3 +1,4 @@
+import { emit } from '@tauri-apps/api/event';
 // Alert sounds. The chime is synthesized, so no audio file ships with the app.
 let ctx: AudioContext | null = null;
 let idle: ReturnType<typeof setTimeout>;
@@ -32,6 +33,7 @@ export function volumeBlip(final = false) {
   const now = performance.now();
   if (!final && now - lastBlip < 120) return;
   lastBlip = now;
+  emit('sound:blip').catch(() => {}); // the Equalizer skips it (it may be in another window)
   tones([[880, 0]], 0.28, 0.14);
 }
 

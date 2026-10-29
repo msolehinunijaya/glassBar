@@ -51,6 +51,8 @@ pub struct BarCfg {
     /// Space on the dock's other side, between it and the apps' windows (0-48). None: the
     /// same as `gap` -- how every config before this setting behaved.
     pub gap_inner: Option<f64>,
+    /// A copy of the dock on every other monitor too (`monitor` still picks the main one).
+    pub all_displays: bool,
 }
 
 impl BarCfg {
@@ -68,7 +70,7 @@ impl Default for BarCfg {
         // Fresh install: GlassBar replaces the Windows taskbar. Quit, a crash or the tray's
         // "Restore Windows taskbar" bring it back.
         Self { edge: Edge::Top, monitor: None, length: 0.7, size: BarSize::Normal, floating: None,
-               reserve_space: true, native_taskbar: TaskbarMode::Hidden, auto_hide: false, side_width: "regular".into(), gap: 6.0, gap_inner: None }
+               reserve_space: true, native_taskbar: TaskbarMode::Hidden, auto_hide: false, side_width: "regular".into(), gap: 6.0, gap_inner: None, all_displays: false }
     }
 }
 

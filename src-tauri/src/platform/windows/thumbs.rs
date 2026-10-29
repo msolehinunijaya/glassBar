@@ -1,12 +1,14 @@
 //! Live window thumbnails (the same DWM mechanism the Windows taskbar uses).
 //! DWM draws a live copy of each source window into a rectangle of our popup.
-//! Every registration is undone in `clear()`, which runs whenever the popup hides.
+//! Kept per destination window (the popup's previews, a dock's minimized-window spots), so
+//! one never clears the other. The popup's are undone in `clear()` whenever it hides.
 use super::super::Rect;
+use std::collections::HashMap;
 use std::sync::Mutex;
 use windows::Win32::Foundation::{HWND, RECT};
 use windows::Win32::Graphics::Dwm::*;
 
-static THUMBS: Mutex<Vec<isize>> = Mutex::new(Vec::new());
+static THUMBS: Mutex<Option<HashMap<isize, Vec<isize>>>> = Mutex::new(None);
 
 /// Fit `src` (w, h) inside `area`, centred, keeping its aspect ratio.
 pub fn fit(src: (i32, i32), area: Rect) -> Rect {
@@ -16,18 +18,18 @@ pub fn fit(src: (i32, i32), area: Rect) -> Rect {
     Rect { x: area.x + (area.w - w) / 2, y: area.y + (area.h - h) / 2, w, h }
 }
 
-pub fn clear() {
-    for h in THUMBS.lock().unwrap().drain(..) {
-        unsafe { let _ = DwmUnregisterThumbnail(h); }
-    }
+pub fn clear(dest: isize) {
+    let gone = THUMBS.lock().unwrap().as_mut().and_then(|m| m.remove(&dest)).unwrap_or_default();
+    for h in gone { unsafe { let _ = DwmUnregisterThumbnail(h); } }
 }
 
 /// Show thumbnails of `items` (source window, area in `dest` client pixels).
 /// Returns the windows that got a live thumbnail; the rest need a fallback (icon + title).
 pub fn show(dest: isize, items: &[(isize, Rect)]) -> Vec<isize> {
-    clear();
+    clear(dest);
     let mut ok = Vec::new();
-    let mut held = THUMBS.lock().unwrap();
+    let mut map = THUMBS.lock().unwrap();
+    let held = map.get_or_insert_with(HashMap::new).entry(dest).or_default();
     for &(src, area) in items {
         let src_hwnd = HWND(src as *mut _);
         // Minimised windows too: DWM keeps their last frame and draws it, like the taskbar.

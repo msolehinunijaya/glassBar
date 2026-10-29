@@ -7,6 +7,9 @@ mod health;
 mod autohide;
 mod backdrop;
 mod bar;
+mod magnify;
+mod effects;
+mod docks;
 mod config;
 mod db;
 mod net;
@@ -153,7 +156,7 @@ fn main() {
                 SystemEvent::Fullscreen(on) => {
                     let desktop = on && platform::shell().foreground_exe()
                         .is_some_and(|e| e.to_lowercase().ends_with("\\explorer.exe"));
-                    if let Some(w) = a.get_webview_window("bar") { let _ = w.set_always_on_top(!on || desktop); }
+                    for (l, w) in a.webview_windows() { if l == "bar" || l.starts_with("bar-") { let _ = w.set_always_on_top(!on || desktop); } }
                     bar::set_fullscreen(on && !desktop);
                 }
             }));
@@ -198,7 +201,7 @@ fn main() {
             ("bar", WindowEvent::ThemeChanged(_)) => bar::apply(w.app_handle()),
             // Windows applies its own DPI resize after this event returns, which would undo
             // a size set here; re-apply a moment later instead.
-            ("bar", WindowEvent::ScaleFactorChanged { .. }) => {
+            (l, WindowEvent::ScaleFactorChanged { .. }) if l == "bar" || l.starts_with("bar-") => {
                 let a = w.app_handle().clone();
                 std::thread::spawn(move || {
                     std::thread::sleep(std::time::Duration::from_millis(120));
@@ -210,8 +213,8 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             get_config, save_config, export_config, import_config, apply_bar, restore_taskbar,
             health::health_pong, bar::popup_open, bar::popup_reveal, bar::popup_hide, bar::popup_leave_close, bar::popup_width, bar::popup_hover_hide, bar::banner_fit, bar::banner_hide, bar::jump_to, bar::open_settings_cmd, bar::set_edit_mode,
-            bar::bar_preview, bar::bar_drag, bar::mouse_down, bar::menu_open, bar::app_quit, bar::dock_alert_begin, bar::dock_alert_end, bar::dock_alert_test, bar::transparency_effects, bar::appearance_support, backdrop::wallpaper_behind, bar::bar_reveal, bar::popup_leave,
-            bar::thumbs_show, bar::thumbs_clear,
+            bar::bar_preview, bar::bar_grow, magnify::magnify_prepare, magnify::magnify_show, magnify::magnify_frame, magnify::magnify_hide, effects::effects_targets, effects::app_restore_animated, bar::bar_drag, bar::mouse_down, bar::menu_open, bar::app_quit, bar::dock_alert_begin, bar::dock_alert_end, bar::dock_alert_test, bar::transparency_effects, bar::appearance_support, backdrop::wallpaper_behind, bar::bar_reveal, bar::popup_leave,
+            bar::thumbs_show, bar::thumbs_clear, bar::bar_thumbs,
             widgets::todo::todo_list, widgets::todo::todo_add, widgets::todo::todo_update,
             widgets::todo::todo_delete, widgets::todo::todo_clear_done,
             widgets::notes::notes_list, widgets::notes::note_create, widgets::notes::note_update,

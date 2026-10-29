@@ -3,6 +3,12 @@
 
 /** Must match BANDS / F_LO / F_HI in src-tauri/src/widgets/spectrum.rs. */
 export const SRC_BANDS = 96;
+
+/** GlassBar's own volume tick (lib/sound.ts) lasts 140 ms, and the speakers' sound reaches
+ *  the bars a little later: for this long after a tick, new bands are skipped (the bars hold
+ *  what they showed), so scrolling the volume doesn't make them jump. */
+export const BLIP_MS = 400;
+export const duringBlip = (now: number, lastBlip: number) => now - lastBlip < BLIP_MS;
 const F_LO = 20, F_HI = 20000;
 
 /** Fractional source-band index of a frequency. */

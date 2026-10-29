@@ -1,6 +1,6 @@
 [package]
 name = "glassbar"
-version = "0.5.0"
+version = "0.6.2"
 description = "GlassBar - a customizable glass taskbar"
 edition = "2021"
 
