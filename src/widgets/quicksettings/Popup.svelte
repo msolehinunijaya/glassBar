@@ -57,12 +57,17 @@
   // What Wi-Fi and Bluetooth are connected to, for the tiles (no scan: just Windows' current state).
   let wifiNet = $state<string | null>(null);
   let btNames = $state<string[]>([]);
+  // When Windows refuses to say, the tile says why instead of a wrong "Not connected".
+  let wifiNone = $state('Not connected');
+  let btNone = $state('No devices connected');
   const loadLinks = () => {
-    ipc.wifiList(false).then((r) => (wifiNet = r.current)).catch(() => (wifiNet = null));
-    ipc.btList(false).then((d) => (btNames = [...new Set(d.filter((x) => x.connected).map((x) => x.name))])).catch(() => (btNames = []));
+    ipc.wifiList(false).then((r) => { wifiNet = r.current; wifiNone = 'Not connected'; })
+      .catch((e) => { wifiNet = null; wifiNone = /blocked|Location/i.test(String(e)) ? 'Name hidden (Location off)' : 'Unknown'; });
+    ipc.btList(false).then((d) => { btNames = [...new Set(d.filter((x) => x.connected).map((x) => x.name))]; btNone = 'No devices connected'; })
+      .catch(() => { btNames = []; btNone = 'Unknown'; });
   };
   const linked = (kind: 'wifi' | 'bluetooth') =>
-    kind === 'wifi' ? connectedText(wifiNet ? [wifiNet] : [], 'Not connected') : connectedText(btNames, 'No devices connected');
+    kind === 'wifi' ? connectedText(wifiNet ? [wifiNet] : [], wifiNone) : connectedText(btNames, btNone);
   $effect(() => {
     loadLinks();
     const off = events.changed('wifi', loadLinks);

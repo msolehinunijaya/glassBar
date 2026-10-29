@@ -210,7 +210,7 @@ pub async fn ocr_snap_finish(app: AppHandle, x: u32, y: u32, w: u32, h: u32, win
         if text.trim().is_empty() { return Err("No text found in the selection".into()); }
         {
             let db = a.state::<Db>();
-            let c = db.0.lock().unwrap();
+            let c = db.lock();
             let mode = serde_json::to_value(o.mode).unwrap().as_str().unwrap_or("text").to_string();
             let _ = c.execute("INSERT INTO ocr_history(at, text, mode, engine) VALUES(?1, ?2, ?3, ?4)", params![now_ms(), text, mode, o.engine]);
             // Only the latest 5 are kept.
@@ -231,7 +231,7 @@ pub async fn ocr_snap_finish(app: AppHandle, x: u32, y: u32, w: u32, h: u32, win
 
 #[tauri::command]
 pub fn ocr_history(db: tauri::State<Db>) -> Vec<OcrItem> {
-    let c = db.0.lock().unwrap();
+    let c = db.lock();
     let mut st = c.prepare("SELECT id, at, text, mode, engine FROM ocr_history ORDER BY id DESC LIMIT 200").unwrap();
     st.query_map([], |r| Ok(OcrItem { id: r.get(0)?, at: r.get(1)?, text: r.get(2)?, mode: r.get(3)?, engine: r.get(4)? }))
         .unwrap().filter_map(Result::ok).collect()
@@ -240,7 +240,7 @@ pub fn ocr_history(db: tauri::State<Db>) -> Vec<OcrItem> {
 pub fn ocr_history_delete(app: AppHandle, id: Option<i64>) {
     {
         let db = app.state::<Db>();
-        let c = db.0.lock().unwrap();
+        let c = db.lock();
         let _ = match id { Some(id) => c.execute("DELETE FROM ocr_history WHERE id = ?1", [id]), None => c.execute("DELETE FROM ocr_history", []) };
     }
     let _ = app.emit("ocr:changed", ());

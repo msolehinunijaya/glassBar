@@ -281,7 +281,7 @@ fn get(app: &AppHandle, title: &str, artist: &str, album: &str, duration_ms: i64
     let key = cache_key(artist, title);
     let cached: Option<Lyrics> = {
         let db = app.state::<Db>();
-        let raw = kv_get(&db.0.lock().unwrap(), &key);
+        let raw = kv_get(&db.lock(), &key);
         raw.and_then(|s| serde_json::from_str(&s).ok())
     };
     if let Some(c) = &cached {
@@ -304,7 +304,7 @@ fn get(app: &AppHandle, title: &str, artist: &str, album: &str, duration_ms: i64
                 _ => none(),
             };
             let db = app.state::<Db>();
-            kv_set(&db.0.lock().unwrap(), &key, &serde_json::to_string(&r).unwrap());
+            kv_set(&db.lock(), &key, &serde_json::to_string(&r).unwrap());
             r
         }
         // Offline: show whatever was cached and don't remember the failure.

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { MapPin, Play, Settings2, Square, Volume2 } from '@lucide/svelte';
+  import { MapPin, Play, RefreshCw, Settings2, Square, Volume2 } from '@lucide/svelte';
   import { adhan, stopAdhan } from '../../lib/adhan.svelte';
   import PanelHeader from '../../lib/PanelHeader.svelte';
   import { updateWidgetSettings } from '../../lib/config.svelte';
@@ -14,6 +14,8 @@
   let { instance, settings }: PopupProps<SolatSettings> = $props();
   let showOpts = $state(false);
   const s = liveSolat(() => settings);
+  let refreshing = $state(false);
+  async function refresh() { refreshing = true; try { await s.refresh(); } finally { refreshing = false; } }
   const today = $derived(s.info?.days[0]);
   // "05:51" + a small "AM" (12-hour locales), or "05:51" in 24-hour.
   const at = (ms: number) => {
@@ -24,6 +26,7 @@
 </script>
 
 <PanelHeader title="Waktu Solat">
+  <button class="icon-btn" class:spin={refreshing} onclick={refresh} aria-label="Refresh prayer times" title="Refresh now"><RefreshCw size={15} /></button>
   <button class="icon-btn" class:on={showOpts} onclick={() => (showOpts = !showOpts)} aria-label="Prayer alert and adzan options" title="Alert and adzan sound"><Settings2 size={16} /></button>
 </PanelHeader>
 {#if showOpts}
@@ -120,4 +123,6 @@
   .t { font-variant-numeric: tabular-nums; }
   .err { color: #ff453a; font-size: 12px; }
   .empty { text-align: center; padding: 60px 0; }
+  .spin :global(svg) { animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
 </style>

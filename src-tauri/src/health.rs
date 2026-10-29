@@ -84,14 +84,20 @@ pub fn start(app: AppHandle) {
 
 /// Start a fresh GlassBar and quit this one. The new one waits for this one to be gone
 /// first (`--after <pid>`): GlassBar is single-instance, and would otherwise just close.
+/// Once only: a stuck process that ignored `exit` used to spawn a new copy every 5 s.
 fn relaunch(app: &AppHandle) {
+    static ONCE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+    if ONCE.swap(true, Ordering::Relaxed) { return; }
     if let Ok(exe) = std::env::current_exe() {
         let _ = std::process::Command::new(exe).args(["--after", &std::process::id().to_string()]).spawn();
     }
+    // A stuck main thread may never finish a clean exit.
+    std::thread::spawn(|| { std::thread::sleep(Duration::from_secs(5)); std::process::exit(0); });
     app.exit(0);
 }
 
-/// Started by `relaunch`: wait (up to 10 s) until the old GlassBar has exited.
+/// Started by `relaunch`: wait (up to 10 s) until the old GlassBar has exited, then end it if
+/// it is still there. Two GlassBars must never have the database open at once.
 pub fn wait_for_previous() {
     let args: Vec<String> = std::env::args().collect();
     let pid = args.iter().position(|a| a == "--after").and_then(|i| args.get(i + 1)).and_then(|p| p.parse::<u32>().ok());

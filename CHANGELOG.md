@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.6.3 — 2026-10-29
+
+### Fixed
+- **To-do, Notes and Pomodoro save again.** After two copies of GlassBar overlapped (an update or a self-repair restart), GlassBar's link to its database could go bad: adding a to-do or note said "database disk image is malformed", and Pomodoro's Start did nothing. GlassBar now reopens the database by itself when that happens and tries again, so nothing is lost. If the file itself is ever damaged, it is checked at start, a copy is kept, and everything still readable is moved to a fresh one.
+- **A daily backup of your data:** once a day at start GlassBar copies its database to `glassbar.db.bak` (keeping the day before as `.bak.old`), so to-dos, notes and history can always be brought back.
+- Start-up clean-up no longer deletes screenshot and clipboard image files just because the database doesn't list them (an empty database used to mean every one of them was deleted).
+- Notes and Pomodoro now show an error when something can't be saved, instead of failing silently.
+- **Self-repair restarts once.** A stuck GlassBar no longer starts a new copy every 5 seconds, and the new copy closes a stuck old one, so two never use the database at once.
+- **Weather, IPU and Waktu Solat no longer say "Location unavailable" after sleep or a network blip.** When a location check fails, they keep using the last place that worked (shown as "Last known") and GlassBar keeps trying.
+
+### Changed
+- **Fresh data after sleep and when the network changes:** Weather, IPU and Waktu Solat fetch new data right away, instead of waiting up to 30 minutes. They still refresh on start and on their usual timers (Weather 30 min, IPU 15 min, prayer times daily).
+- **Refresh buttons** on the IPU and Waktu Solat panels.
+- **Quick Settings:** the Wi-Fi and Bluetooth tiles show what they're connected to (network name, device names). If Windows won't say, the tile tells you why instead of "Not connected".
+
 ## 0.6.2 — 2026-10-29
 
 ### Fixed

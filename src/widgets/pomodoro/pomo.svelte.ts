@@ -31,5 +31,9 @@ function phaseMs(s: PomoState) {
   return Math.max(1, m) * 60_000;
 }
 
+/** The last action's error (e.g. the state couldn't be saved), shown in the flyout. */
+export const pomoError = $state({ text: '' });
+export const run = (f: () => Promise<unknown>) => f().then(() => (pomoError.text = ''), (e) => (pomoError.text = String(e)));
+
 /** Start or pause (the primary action, the dock's ⏯ and Space). */
-export const toggle = (running: boolean) => (running ? ipc.pomoPause() : ipc.pomoStart());
+export const toggle = (running: boolean) => run(running ? ipc.pomoPause : ipc.pomoStart);

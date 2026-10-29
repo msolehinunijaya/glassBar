@@ -39,7 +39,7 @@ pub fn save(app: &AppHandle, bgra: Vec<u8>, w: u32, h: u32, kind: &str) -> Resul
     let thumb = format!("data:image/png;base64,{}", base64::engine::general_purpose::STANDARD.encode(buf.into_inner()));
     let id = {
         let db = app.state::<Db>();
-        let c = db.0.lock().unwrap();
+        let c = db.lock();
         c.execute("INSERT INTO screenshots(at, path, w, h, kind, thumb) VALUES(?1, ?2, ?3, ?4, ?5, ?6)",
             params![at, path.to_string_lossy(), w, h, kind, thumb]).map_err(|e| e.to_string())?;
         c.last_insert_rowid()
@@ -58,34 +58,26 @@ pub const KEEP: i64 = 5;
 /// Keep only the latest `KEEP` screenshots (files and history rows).
 pub fn prune(app: &AppHandle) {
     let db = app.state::<Db>();
-    let c = db.0.lock().unwrap();
+    let c = db.lock();
     let old: Vec<String> = c.prepare("SELECT path FROM screenshots WHERE id NOT IN (SELECT id FROM screenshots ORDER BY at DESC, id DESC LIMIT ?1)").and_then(|mut s| {
         s.query_map([KEEP], |r| r.get::<_, String>(0)).map(|rows| rows.filter_map(Result::ok).collect())
     }).unwrap_or_default();
     for p in &old { let _ = std::fs::remove_file(p); }
     let _ = c.execute("DELETE FROM screenshots WHERE id NOT IN (SELECT id FROM screenshots ORDER BY at DESC, id DESC LIMIT ?1)", [KEEP]);
-    // Leftover files in GlassBar's own screenshots folder that aren't among them (an older
-    // delete removed the entry but not the file).
-    let keep: std::collections::HashSet<String> = c.prepare("SELECT path FROM screenshots").and_then(|mut s| {
-        s.query_map([], |r| r.get::<_, String>(0)).map(|rows| rows.filter_map(Result::ok).map(|p| p.to_lowercase()).collect())
-    }).unwrap_or_default();
-    for f in std::fs::read_dir(dir()).into_iter().flatten().flatten() {
-        let p = f.path();
-        let ours = p.extension().is_some_and(|e| e == "png") && p.file_name().is_some_and(|n| n.to_string_lossy().starts_with("Screenshot "));
-        if ours && !keep.contains(&p.to_string_lossy().to_lowercase()) { let _ = std::fs::remove_file(&p); }
-    }
+    // No sweep of files without a row: if the database ever comes up empty, that would
+    // delete every screenshot (it did once). A stray file costs only disk space.
 }
 
 fn path_of(app: &AppHandle, id: i64) -> Option<String> {
     let db = app.state::<Db>();
-    let c = db.0.lock().unwrap();
+    let c = db.lock();
     c.query_row("SELECT path FROM screenshots WHERE id = ?1", [id], |r| r.get(0)).ok()
 }
 
 #[tauri::command]
 pub fn shots_list(app: AppHandle) -> Vec<ShotItem> {
     let db = app.state::<Db>();
-    let c = db.0.lock().unwrap();
+    let c = db.lock();
     let mut st = c.prepare("SELECT id, at, w, h, kind, thumb FROM screenshots ORDER BY id DESC LIMIT 100").unwrap();
     st.query_map([], |r| Ok(ShotItem { id: r.get(0)?, at: r.get(1)?, w: r.get(2)?, h: r.get(3)?, kind: r.get(4)?, thumb: r.get(5)? }))
         .unwrap().filter_map(Result::ok).collect()
@@ -106,7 +98,7 @@ pub async fn shots_copy(app: AppHandle, id: i64) -> Result<(), String> {
 pub fn shots_delete(app: AppHandle, id: Option<i64>) {
     {
         let db = app.state::<Db>();
-        let c = db.0.lock().unwrap();
+        let c = db.lock();
         let paths: Vec<String> = match id {
             Some(id) => c.query_row("SELECT path FROM screenshots WHERE id = ?1", [id], |r| r.get(0)).ok().into_iter().collect(),
             None => c.prepare("SELECT path FROM screenshots").and_then(|mut s| s.query_map([], |r| r.get(0)).map(|r| r.filter_map(Result::ok).collect())).unwrap_or_default(),

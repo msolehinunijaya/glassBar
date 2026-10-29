@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { MapPin } from '@lucide/svelte';
+  import { MapPin, RefreshCw } from '@lucide/svelte';
+  import { ipc } from '../../lib/ipc';
   import type { PopupProps } from '../types';
   import { BANDS, bandOf } from './bands';
   import type { IpuSettings } from './index';
@@ -14,11 +15,19 @@
   const where = $derived(ipu.r?.kind === 'aqi_us' ? (ipu.r.place?.name ?? '') : ipu.r?.station ? `Malaysia · ${ipu.r.station.state}` : '');
   const time = (ms: number) => new Intl.DateTimeFormat(undefined, { weekday: 'short', hour: '2-digit', minute: '2-digit' }).format(ms);
   const km = (d: number | null) => (d == null ? '' : d < 1 ? '<1 km' : `${Math.round(d)} km`);
+  let refreshing = $state(false);
+  async function refresh() {
+    refreshing = true;
+    try { ipu.r = (await ipc.ipuGet(true)) ?? ipu.r; } finally { refreshing = false; }
+  }
 </script>
 
 <div class="where">
   <span class="dim small">{where || 'Air quality'}</span>
-  <button class="change" onclick={() => (browsing = !browsing)}>{browsing ? 'Done' : 'Change location'}</button>
+  <span class="acts">
+    <button class="change" onclick={() => (browsing = !browsing)}>{browsing ? 'Done' : 'Change location'}</button>
+    <button class="icon-btn" class:spin={refreshing} onclick={refresh} aria-label="Refresh" title="Refresh now"><RefreshCw size={14} /></button>
+  </span>
 </div>
 {#if browsing}
   <div class="card browse">
@@ -74,4 +83,7 @@
   .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
   .src { font-size: 11px; margin-top: 10px; }
   .empty { text-align: center; padding: 60px 10px; }
+  .acts { display: inline-flex; align-items: center; gap: 4px; }
+  .spin :global(svg) { animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
 </style>

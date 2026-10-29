@@ -26,4 +26,7 @@ export const coords = (p: Place) => `${p.lat.toFixed(4)}, ${p.lon.toFixed(4)}`;
 export const placeShort = (p: Place) => p.name.split(',')[0].trim() || coords(p);
 
 /** "Kuala Lumpur · Precise" for widget panels. */
-export const tagText = (s: LocationStatus | null) => (s?.place ? `${placeShort(s.place)} · ${badge(s).short}` : 'Location unavailable');
+export const tagText = (s: LocationStatus | null) =>
+  s?.place ? `${placeShort(s.place)} · ${badge(s).short}`
+  : s?.lastKnown ? `${placeShort(s.lastKnown)} · Last known`
+  : 'Location unavailable';

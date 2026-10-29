@@ -7,13 +7,14 @@ import type { SolatSettings } from './index';
 export function liveSolat(settings: () => SolatSettings) {
   const s = $state<{ info: SolatInfo | null; error: string; now: number }>({ info: null, error: '', now: Date.now() });
 
+  const load = (force = false) => ipc.solatDays(force).then((i) => { s.info = i; s.error = ''; }).catch((e) => { s.error = String(e); });
   $effect(() => {
     settings().zone; // refetch on zone change (and below, when the shared location moves)
-    const load = () => ipc.solatDays().then((i) => { s.info = i; s.error = ''; }).catch((e) => { s.error = String(e); });
     load();
     const t = setInterval(load, 30 * 60_000);
-    const off = events.changed('location', load);
-    return () => { clearInterval(t); off.then((f) => f()); };
+    const off = events.changed('location', () => load());
+    const off2 = events.refresh(() => load(true));
+    return () => { clearInterval(t); off.then((f) => f()); off2.then((f) => f()); };
   });
 
   const next = $derived(s.info ? nextPrayer(s.info.days, s.now, settings().showImsak) : null);
@@ -32,5 +33,7 @@ export function liveSolat(settings: () => SolatSettings) {
     get error() { return s.error; },
     get now() { return s.now; },
     get next() { return next; },
+    /** Fetch fresh times now (the popup's refresh button). */
+    refresh: () => load(true),
   };
 }

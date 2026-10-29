@@ -33,7 +33,7 @@ fn today() -> chrono::NaiveDate { chrono::Local::now().date_naive() }
 fn flush(app: &AppHandle, day: &str, acc: &mut HashMap<String, i64>) {
     if acc.is_empty() { return; }
     let db = app.state::<Db>();
-    let c = db.0.lock().unwrap();
+    let c = db.lock();
     for (exe, secs) in acc.drain() {
         let _ = c.execute(
             "INSERT INTO screen_time(day, exe, seconds) VALUES(?1, ?2, ?3)
@@ -69,7 +69,7 @@ pub fn start(app: AppHandle) {
 
 pub fn housekeeping(app: &AppHandle) {
     let cutoff = (today() - chrono::Duration::days(KEEP_DAYS)).to_string();
-    let _ = app.state::<Db>().0.lock().unwrap().execute("DELETE FROM screen_time WHERE day < ?1", [cutoff]);
+    let _ = app.state::<Db>().lock().execute("DELETE FROM screen_time WHERE day < ?1", [cutoff]);
 }
 
 #[derive(Serialize)]
@@ -80,7 +80,7 @@ pub struct Today { pub total: i64, pub apps: Vec<AppTime> }
 
 #[tauri::command]
 pub fn screentime_today(db: State<Db>) -> Today {
-    let c = db.0.lock().unwrap();
+    let c = db.lock();
     let mut q = c.prepare("SELECT exe, seconds FROM screen_time WHERE day = ?1 ORDER BY seconds DESC").unwrap();
     let rows: Vec<(String, i64)> = q.query_map([today().to_string()], |r| Ok((r.get(0)?, r.get(1)?)))
         .map(|r| r.filter_map(Result::ok).collect()).unwrap_or_default();
@@ -94,7 +94,7 @@ pub fn screentime_today(db: State<Db>) -> Today {
 
 #[tauri::command]
 pub fn screentime_week(db: State<Db>) -> Vec<(String, i64)> {
-    let c = db.0.lock().unwrap();
+    let c = db.lock();
     let mut q = c.prepare("SELECT day, SUM(seconds) FROM screen_time WHERE day >= ?1 GROUP BY day").unwrap();
     let rows: Vec<(String, i64)> = q.query_map([(today() - chrono::Duration::days(6)).to_string()], |r| Ok((r.get(0)?, r.get(1)?)))
         .map(|r| r.filter_map(Result::ok).collect()).unwrap_or_default();

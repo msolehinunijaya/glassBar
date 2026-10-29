@@ -157,10 +157,19 @@ impl Shell for WinShell {
     fn set_taskbar(&self, mode: TaskbarMode) { appbar::set_taskbar(mode) }
     fn wait_for_exit(&self, pid: u32, ms: u64) {
         use windows::Win32::Foundation::CloseHandle;
-        use windows::Win32::System::Threading::{OpenProcess, WaitForSingleObject, PROCESS_SYNCHRONIZE};
+        use windows::Win32::Foundation::WAIT_TIMEOUT;
+        use windows::Win32::System::Threading::{OpenProcess, TerminateProcess, WaitForSingleObject, PROCESS_SYNCHRONIZE, PROCESS_TERMINATE};
         unsafe {
-            if let Ok(h) = OpenProcess(PROCESS_SYNCHRONIZE, false, pid) {
-                let _ = WaitForSingleObject(h, ms as u32);
+            if let Ok(h) = OpenProcess(PROCESS_SYNCHRONIZE | PROCESS_TERMINATE, false, pid) {
+                // Still running after the wait: if it really is GlassBar (not a reused PID),
+                // it's our own stuck copy, so end it.
+                let ours = std::env::current_exe().ok().map(|e| e.to_string_lossy().to_lowercase())
+                    == Some(windows_list::exe_path(pid).to_lowercase());
+                if WaitForSingleObject(h, ms as u32) == WAIT_TIMEOUT && ours {
+                    let _ = TerminateProcess(h, 1);
+                    let _ = WaitForSingleObject(h, 3_000);
+                    crate::applog::log("health: the previous GlassBar didn't quit: ended it");
+                }
                 let _ = CloseHandle(h);
             }
         }

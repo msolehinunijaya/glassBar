@@ -12,7 +12,7 @@ async fn latest(app: &AppHandle) -> Result<Option<String>, String> {
 
 /// Alert once per version.
 fn announce(app: &AppHandle, version: &str) {
-    let first = app.state::<Db>().0.lock().unwrap()
+    let first = app.state::<Db>().lock()
         .execute("INSERT OR IGNORE INTO fired(key, at) VALUES(?1, ?2)", rusqlite::params![format!("update:{version}"), now_ms()])
         .map(|n| n > 0).unwrap_or(false);
     if first {
@@ -36,7 +36,7 @@ pub fn check_now(app: AppHandle) {
     tauri::async_runtime::spawn(async move {
         match latest(&app).await {
             Ok(Some(v)) => {
-                let _ = app.state::<Db>().0.lock().unwrap().execute("DELETE FROM fired WHERE key = ?1", [format!("update:{v}")]);
+                let _ = app.state::<Db>().lock().execute("DELETE FROM fired WHERE key = ?1", [format!("update:{v}")]);
                 announce(&app, &v);
             }
             Ok(None) => crate::alerts::notify(&app, "update", "GlassBar is up to date",

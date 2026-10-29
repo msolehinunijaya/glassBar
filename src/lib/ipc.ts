@@ -263,7 +263,7 @@ export const ipc = {
   locationSearch: (query: string) => invoke<Place[]>('location_search', { query }),
   weatherGet: (force = false) => invoke<Weather | null>('weather_get', { force }),
   // waktu solat
-  solatDays: () => invoke<SolatInfo>('solat_days'),
+  solatDays: (force = false) => invoke<SolatInfo>('solat_days', { force }),
   solatZones: () => invoke<[string, string, string][]>('solat_zones'),
   solatTestSound: (settings: object) => invoke<void>('solat_test_sound', { settings }),
   // IPU
@@ -417,6 +417,8 @@ export const events = {
   waterChanged: (cb: (t: WaterToday) => void) => listen<WaterToday>('water:changed', (e) => cb(e.payload)),
   dockAlert: (cb: (a: import('../app/dockAlert').DockAlert) => void) => own<import('../app/dockAlert').DockAlert>('dock:alert', cb),
   shelfDropped: (cb: (d: { instance: string; paths: string[] }) => void) => own<{ instance: string; paths: string[] }>('shelf:dropped', cb),
+  /** Back from sleep or the network changed (after the location re-check): fetch fresh data. */
+  refresh: (cb: () => void) => listen('widgets:refresh', () => cb()),
   /** Any "<name>:changed" event from Rust (todos, notes, timers, ...). */
   changed: (name: string, cb: () => void) => listen(`${name}:changed`, () => cb()),
 };

@@ -39,7 +39,7 @@ pub fn notify_full(app: &AppHandle, source: &str, title: &str, body: &str, misse
     let at = now_ms();
     let id = {
         let db = app.state::<Db>();
-        let c = db.0.lock().unwrap();
+        let c = db.lock();
         let _ = c.execute(
             "INSERT INTO alerts(source, title, body, at, missed, data) VALUES(?1, ?2, ?3, ?4, ?5, ?6)",
             params![source, title, body, at, missed, data.to_string()],
@@ -71,7 +71,7 @@ pub fn notify(app: &AppHandle, source: &str, title: &str, body: &str, missed: bo
 
 #[tauri::command]
 pub fn alerts_list(db: State<Db>) -> Vec<Alert> {
-    let c = db.0.lock().unwrap();
+    let c = db.lock();
     let mut q = c.prepare("SELECT id, source, title, body, at, missed, read, data FROM alerts ORDER BY id DESC LIMIT 200").unwrap();
     q.query_map([], |r| Ok(Alert {
         id: r.get(0)?, source: r.get(1)?, title: r.get(2)?, body: r.get(3)?, at: r.get(4)?, missed: r.get(5)?, read: r.get(6)?,
@@ -82,7 +82,7 @@ pub fn alerts_list(db: State<Db>) -> Vec<Alert> {
 }
 
 fn exec(app: &AppHandle, sql: &str, p: impl rusqlite::Params) {
-    let _ = app.state::<Db>().0.lock().unwrap().execute(sql, p);
+    let _ = app.state::<Db>().lock().execute(sql, p);
     let _ = app.emit("alerts:changed", ());
 }
 

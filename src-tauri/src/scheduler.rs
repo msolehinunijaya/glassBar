@@ -113,7 +113,7 @@ fn handle(app: &AppHandle, d: &Due, missed: bool) {
 fn housekeeping(app: &AppHandle) {
     {
         let c = app.state::<Db>();
-        let c = c.0.lock().unwrap();
+        let c = c.lock();
         let _ = c.execute("DELETE FROM fired WHERE at < ?1", [now_ms() - 30 * 86_400_000]);
     }
     crate::widgets::notes::housekeeping(app);
@@ -126,7 +126,7 @@ pub fn start(app: AppHandle) {
         let items = collect(&app);
         let fired: HashSet<String> = {
             let db = app.state::<Db>();
-            let c = db.0.lock().unwrap();
+            let c = db.lock();
             c.prepare("SELECT key FROM fired")
                 .and_then(|mut q| q.query_map([], |r| r.get(0)).map(|r| r.filter_map(Result::ok).collect()))
                 .unwrap_or_default()
@@ -135,7 +135,7 @@ pub fn start(app: AppHandle) {
         let (fire, next) = due_actions(now, &items, &fired);
         let mut handled = false;
         for (d, missed) in &fire {
-            let first = mark_fired(&app.state::<Db>().0.lock().unwrap(), &d.key, now);
+            let first = mark_fired(&app.state::<Db>().lock(), &d.key, now);
             if first {
                 handle(&app, d, *missed);
                 handled = true;

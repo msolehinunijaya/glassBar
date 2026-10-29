@@ -11,13 +11,13 @@
   const open = () => ipc.openSettings('Location');
 </script>
 
-{#if loc.s && !loc.s.place}
+{#if loc.s && !loc.s.place && !loc.s.lastKnown}
   <div class="none">
     <span><MapPin size={12} /> Location unavailable{loc.s.reason ? `: ${loc.s.reason}` : ''}</span>
     <button class="set" onclick={open}>Set location</button>
   </div>
 {:else if loc.s}
-  <button class="tag {b.kind}" onclick={open} title="Shared location ({b.label}). Click to change it in Settings.">
+  <button class="tag {b.kind}" onclick={open} title={loc.s.place ? `Shared location (${b.label}). Click to change it in Settings.` : `Using the last known place: ${loc.s.reason ?? 'the latest check failed'}. GlassBar keeps trying.`}>
     <MapPin size={11} /> {tagText(loc.s)}
   </button>
 {/if}

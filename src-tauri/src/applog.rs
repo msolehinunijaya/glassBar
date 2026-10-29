@@ -8,6 +8,7 @@ static LOCK: Mutex<()> = Mutex::new(());
 const MAX: u64 = 256 * 1024;
 
 pub fn log(msg: impl AsRef<str>) {
+    if cfg!(test) { return; } // tests must not write to the real log
     let _g = LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let path = crate::data_dir().join("glassbar.log");
     if std::fs::metadata(&path).map(|m| m.len() > MAX).unwrap_or(false) {
