@@ -8,3 +8,6 @@ export function songProgress(m: MediaInfo | null, now: number): { frac: number; 
   const pos = positionAt(m, now);
   return { frac: Math.min(1, pos / m.durationMs), ending: m.durationMs - pos <= 10_000 };
 }
+
+/** Where on the song a pointer at `x` over a bar from `left`, `width` px wide points (0–1). */
+export const seekFrac = (x: number, left: number, width: number) => (width > 0 ? Math.min(1, Math.max(0, (x - left) / width)) : 0);

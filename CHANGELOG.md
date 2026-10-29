@@ -2,6 +2,9 @@
 
 ## 0.6.4 — 2026-10-29
 
+### New
+- **Seek from the dock:** the music widget's progress line is now a seek bar. Hover it to see the time under your pointer, click or drag to jump there, or use the arrow keys (5 s).
+
 ### Fixed
 - **Scrolling screenshots reach the bottom of web pages.** On pages with photos (galleries, image-heavy sections) the capture stopped halfway, because the browser redraws pictures slightly differently after each scroll and loads them in as they appear. It now learns how far one wheel step scrolls the page and uses that when the pictures don't line up exactly, but only when that distance is clearly the best match, so repeating lists aren't misjoined.
 
