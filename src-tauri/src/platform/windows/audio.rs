@@ -84,9 +84,15 @@ impl IAudioEndpointVolumeCallback_Impl for VolumeCallback_Impl {
     }
 }
 
-/// Pure: a burst of notifications -> the level to report, if any of them came from outside.
-fn outside_level(burst: &[Level]) -> Option<(f32, bool)> {
-    if burst.iter().any(|l| !l.2) { burst.last().map(|l| (l.0, l.1)) } else { None }
+/// After one of our own changes, notifications with another tag this soon are its echoes:
+/// on some PCs another component re-applies the level right away (0.667 -> 0.669), tagged
+/// as its own. Seen arriving in the same millisecond.
+const ECHO_MS: u64 = 500;
+
+/// Pure: a burst of notifications -> the level to report, if it came from outside GlassBar.
+/// A burst holding one of ours, or arriving just after one (`ours_recently`), is ours.
+fn outside_level(burst: &[Level], ours_recently: bool) -> Option<(f32, bool)> {
+    if ours_recently || burst.iter().any(|l| l.2) { None } else { burst.last().map(|l| (l.0, l.1)) }
 }
 
 /// Undocumented but stable since Windows 7; used by EarTrumpet, SoundSwitch, etc.
@@ -175,6 +181,7 @@ pub fn watch(on_change: Box<dyn Fn(AudioState) + Send>, on_level: Box<dyn Fn(f32
         let (tx, rx) = std::sync::mpsc::channel::<Level>();
         let mut reg: Option<(String, IAudioEndpointVolume, IAudioEndpointVolumeCallback)> = None;
         let mut last: Option<AudioState> = None;
+        let mut last_ours: Option<std::time::Instant> = None;
         loop {
             let id = default_device().map(|d| id_of(&d)).unwrap_or_default();
             if reg.as_ref().map(|r| r.0.as_str()) != Some(id.as_str()) {
@@ -186,7 +193,9 @@ pub fn watch(on_change: Box<dyn Fn(AudioState) + Send>, on_level: Box<dyn Fn(f32
             }
             if let Ok(first) = rx.recv_timeout(Duration::from_secs(1)) {
                 let burst: Vec<Level> = std::iter::once(first).chain(rx.try_iter()).collect();
-                if let Some((v, m)) = outside_level(&burst) { on_level(v, m); }
+                let recent = last_ours.is_some_and(|t| t.elapsed() < Duration::from_millis(ECHO_MS));
+                if burst.iter().any(|l| l.2) { last_ours = Some(std::time::Instant::now()); }
+                if let Some((v, m)) = outside_level(&burst, recent) { on_level(v, m); }
             }
             if let Ok(s) = state() {
                 if last.as_ref() != Some(&s) {
@@ -268,9 +277,17 @@ mod tests {
 
     #[test]
     fn only_changes_from_outside_glassbar_raise_the_volume_alert() {
-        assert_eq!(outside_level(&[(0.4, false, true)]), None, "our own slider");
-        assert_eq!(outside_level(&[(0.4, false, false)]), Some((0.4, false)), "a volume key");
-        assert_eq!(outside_level(&[(0.4, false, false), (0.5, false, true)]), Some((0.5, false)), "a mixed burst reports the latest level");
-        assert_eq!(outside_level(&[]), None);
+        assert_eq!(outside_level(&[(0.4, false, true)], false), None, "our own slider");
+        assert_eq!(outside_level(&[(0.4, false, false)], false), Some((0.4, false)), "a volume key");
+        assert_eq!(outside_level(&[], false), None);
+    }
+
+    #[test]
+    fn echoes_of_our_own_change_are_ours_too() {
+        // Seen on this PC: each change from GlassBar is followed in the same millisecond by
+        // 2-4 notifications from another component that snaps the level (0.667 -> 0.669).
+        let burst = [(0.667, false, true), (0.667, false, false), (0.669, false, false)];
+        assert_eq!(outside_level(&burst, false), None, "same burst as ours");
+        assert_eq!(outside_level(&[(0.669, false, false)], true), None, "just after ours");
     }
 }

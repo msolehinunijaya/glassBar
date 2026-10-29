@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.2 — 2026-10-29
+
+### Fixed
+- **The dock no longer goes dead** (letters instead of app icons, music and widgets not responding). When Windows Location stopped answering, usually after sleep or while screens and networks changed, every location check by Weather, prayer times and IPU waited forever and used up GlassBar's workers. Windows Location now gets 20 seconds, and other widgets use the last known place while a check runs.
+- **Self-repair:** if the dock stops answering because GlassBar's workers are all stuck, it restarts at once instead of only reloading.
+- Scrolling the volume on the dock no longer shows the volume dock alert. Some audio drivers echo every change GlassBar makes, and the echoes looked like changes from elsewhere. Volume keys still show it.
+
 ## 0.6.1 — 2026-10-28
 
 ### Fixed
