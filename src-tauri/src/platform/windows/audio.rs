@@ -220,11 +220,88 @@ pub fn peak() -> Option<f32> {
 /// What the speakers are playing (WASAPI loopback), as mono f32 chunks: `on_chunk(samples, rate)`
 /// runs every ~10 ms (empty slice = nothing playing). Returns when `on_chunk` says false, the
 /// default output device changes (the caller just starts again), or on error.
-pub fn loopback(on_chunk: &mut dyn FnMut(&[f32], u32) -> bool) -> Res<()> {
-    com_init();
+#[windows_core::implement(IActivateAudioInterfaceCompletionHandler)]
+struct Activated(std::sync::mpsc::SyncSender<()>);
+
+impl IActivateAudioInterfaceCompletionHandler_Impl for Activated_Impl {
+    fn ActivateCompleted(&self, _op: windows_core::Ref<IActivateAudioInterfaceAsyncOperation>) -> windows::core::Result<()> {
+        let _ = self.0.send(());
+        Ok(())
+    }
+}
+
+/// A capture client for everything playing except one process tree, Windows 10 2004 and
+/// later. 16-bit stereo 48 kHz.
+/// Is `pid` a descendant of `root`? `parent` maps a process to its parent (one snapshot).
+fn descends(mut pid: u32, root: u32, parent: &std::collections::HashMap<u32, u32>) -> bool {
+    for _ in 0..8 {
+        match parent.get(&pid) {
+            Some(&p) if p == root => return true,
+            Some(&p) if p != 0 && p != pid => pid = p,
+            _ => return false,
+        }
+    }
+    false
+}
+
+fn parents() -> std::collections::HashMap<u32, u32> {
+    use windows::Win32::System::Diagnostics::ToolHelp::*;
+    let mut out = std::collections::HashMap::new();
     unsafe {
-        let dev = default_device().map_err(err)?;
-        let dev_id = id_of(&dev);
+        let Ok(snap) = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) else { return out };
+        let mut e = PROCESSENTRY32W { dwSize: std::mem::size_of::<PROCESSENTRY32W>() as u32, ..Default::default() };
+        let mut ok = Process32FirstW(snap, &mut e).is_ok();
+        while ok { out.insert(e.th32ProcessID, e.th32ParentProcessID); ok = Process32NextW(snap, &mut e).is_ok(); }
+        let _ = windows::Win32::Foundation::CloseHandle(snap);
+    }
+    out
+}
+
+/// The process GlassBar's sounds actually come out of: a WebView2 helper (Chromium's audio
+/// service) that Windows doesn't count in GlassBar's process tree. Found among the audio
+/// sessions; GlassBar itself until it has played anything.
+fn own_audio_pid() -> u32 {
+    let me = std::process::id();
+    let parent = parents();
+    session_controls().ok().and_then(|s| s.into_iter().map(|(p, _)| p).find(|&p| p != me && descends(p, me, &parent))).unwrap_or(me)
+}
+
+unsafe fn others_loopback(own: u32) -> windows::core::Result<(IAudioClient, usize, u32, u16)> { unsafe { process_loopback(own, PROCESS_LOOPBACK_MODE_EXCLUDE_TARGET_PROCESS_TREE) } }
+
+unsafe fn process_loopback(pid: u32, mode: PROCESS_LOOPBACK_MODE) -> windows::core::Result<(IAudioClient, usize, u32, u16)> {
+    use windows::Win32::System::Com::StructuredStorage::PROPVARIANT;
+    use windows::Win32::System::Variant::VT_BLOB;
+    let params = AUDIOCLIENT_ACTIVATION_PARAMS {
+        ActivationType: AUDIOCLIENT_ACTIVATION_TYPE_PROCESS_LOOPBACK,
+        Anonymous: AUDIOCLIENT_ACTIVATION_PARAMS_0 { ProcessLoopbackParams: AUDIOCLIENT_PROCESS_LOOPBACK_PARAMS {
+            TargetProcessId: pid, ProcessLoopbackMode: mode } },
+    };
+    // Never dropped: PROPVARIANT's Drop calls PropVariantClear, which would free the blob
+    // (it points at `params` on the stack) and corrupt the heap.
+    let mut pv = std::mem::ManuallyDrop::new(PROPVARIANT::default());
+    unsafe {
+        let v = &mut *pv.Anonymous.Anonymous;
+        v.vt = VT_BLOB;
+        v.Anonymous.blob = BLOB { cbSize: std::mem::size_of::<AUDIOCLIENT_ACTIVATION_PARAMS>() as u32, pBlobData: &params as *const _ as *mut u8 };
+        let (tx, rx) = std::sync::mpsc::sync_channel(1);
+        let handler: IActivateAudioInterfaceCompletionHandler = Activated(tx).into();
+        let op = ActivateAudioInterfaceAsync(VIRTUAL_AUDIO_DEVICE_PROCESS_LOOPBACK, &IAudioClient::IID, Some(&*pv), &handler)?;
+        rx.recv_timeout(Duration::from_secs(5)).map_err(|_| windows::core::Error::from(windows::Win32::Foundation::E_FAIL))?;
+        let (mut hr, mut unk) = (HRESULT(0), None);
+        op.GetActivateResult(&mut hr, &mut unk)?;
+        hr.ok()?;
+        let client: IAudioClient = unk.ok_or_else(|| windows::core::Error::from(windows::Win32::Foundation::E_FAIL))?.cast()?;
+        let (ch, rate, bits) = (2u16, 48_000u32, 16u16);
+        let fmt = WAVEFORMATEX { wFormatTag: WAVE_FORMAT_PCM as u16, nChannels: ch, nSamplesPerSec: rate, wBitsPerSample: bits,
+                                 nBlockAlign: ch * bits / 8, nAvgBytesPerSec: rate * (ch * bits / 8) as u32, cbSize: 0 };
+        client.Initialize(AUDCLNT_SHAREMODE_SHARED, AUDCLNT_STREAMFLAGS_LOOPBACK | AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM, 2_000_000, 0, &fmt, None)?;
+        Ok((client, ch as usize, rate, bits))
+    }
+}
+
+/// The classic capture of the whole output mix (GlassBar's own sounds included).
+unsafe fn device_loopback(dev: &IMMDevice) -> Res<(IAudioClient, usize, u32, u16)> {
+    unsafe {
         let client: IAudioClient = dev.Activate(CLSCTX_ALL, None).map_err(err)?;
         let fmt = client.GetMixFormat().map_err(err)?;
         let (ch, rate, bits) = ((*fmt).nChannels as usize, (*fmt).nSamplesPerSec, (*fmt).wBitsPerSample);
@@ -232,6 +309,29 @@ pub fn loopback(on_chunk: &mut dyn FnMut(&[f32], u32) -> bool) -> Res<()> {
         let init = client.Initialize(AUDCLNT_SHAREMODE_SHARED, AUDCLNT_STREAMFLAGS_LOOPBACK, 2_000_000, 0, fmt, None);
         CoTaskMemFree(Some(fmt as *const c_void));
         init.map_err(err)?;
+        Ok((client, ch, rate, bits))
+    }
+}
+
+/// What the speakers play, as mono chunks, until `on_chunk` returns false or the default
+/// output device changes. GlassBar's own sounds are left out where Windows allows it.
+pub fn loopback(on_chunk: &mut dyn FnMut(&[f32], u32) -> bool) -> Res<()> {
+    com_init();
+    unsafe {
+        let dev = default_device().map_err(err)?;
+        let dev_id = id_of(&dev);
+        // Everything but GlassBar's own sounds (the adzan, chimes, the volume tick).
+        let own = own_audio_pid();
+        let (mut per_app, mut ownchk) = (true, std::time::Instant::now());
+        let (client, ch, rate, bits) = match others_loopback(own) {
+            Ok(c) => c,
+            Err(e) => {
+                static ONCE: std::sync::Once = std::sync::Once::new();
+                ONCE.call_once(|| crate::applog::log(format!("equalizer: per-app capture unavailable ({e}); using the whole mix (GlassBar's own sounds and the volume level show)")));
+                per_app = false;
+                device_loopback(&dev)?
+            }
+        };
         if ch == 0 || !(bits == 32 || bits == 16) { return Err(format!("unsupported mix format ({bits}-bit)")); }
         let cap: IAudioCaptureClient = client.GetService().map_err(err)?;
         client.Start().map_err(err)?;
@@ -265,6 +365,11 @@ pub fn loopback(on_chunk: &mut dyn FnMut(&[f32], u32) -> bool) -> Res<()> {
                 checked = std::time::Instant::now();
                 if default_device().map(|d| id_of(&d)).ok().as_deref() != Some(dev_id.as_str()) { break Ok(()); }
             }
+            // GlassBar's sound helper started (first sound) or restarted: capture again without it.
+            if per_app && ownchk.elapsed() > Duration::from_secs(2) {
+                ownchk = std::time::Instant::now();
+                if own_audio_pid() != own { break Ok(()); }
+            }
         };
         let _ = client.Stop();
         res
@@ -273,7 +378,61 @@ pub fn loopback(on_chunk: &mut dyn FnMut(&[f32], u32) -> bool) -> Res<()> {
 
 #[cfg(test)]
 mod tests {
+
+    /// Live: `cargo test loopback_levels_live -- --ignored --nocapture` while music plays.
+    /// Prints the level each capture sees at the current volume and at half of it.
+    #[test]
+    #[ignore]
+    fn loopback_levels_live() {
+        use windows::Win32::Media::Audio::*;
+        super::com_init();
+        let rms = |make: &dyn Fn() -> (IAudioClient, usize, u32, u16)| -> f32 {
+            unsafe {
+                let (client, ch, _, bits) = make();
+                let cap: IAudioCaptureClient = client.GetService().unwrap();
+                client.Start().unwrap();
+                let (mut sum, mut n) = (0f64, 0usize);
+                let t = std::time::Instant::now();
+                while t.elapsed() < std::time::Duration::from_millis(1500) {
+                    std::thread::sleep(std::time::Duration::from_millis(10));
+                    while cap.GetNextPacketSize().unwrap() > 0 {
+                        let (mut d, mut f, mut fl) = (std::ptr::null_mut(), 0u32, 0u32);
+                        cap.GetBuffer(&mut d, &mut f, &mut fl, None, None).unwrap();
+                        let k = f as usize * ch;
+                        if !d.is_null() && fl & AUDCLNT_BUFFERFLAGS_SILENT.0 as u32 == 0 {
+                            if bits == 32 { for v in std::slice::from_raw_parts(d as *const f32, k) { sum += (*v as f64).powi(2); } }
+                            else { for v in std::slice::from_raw_parts(d as *const i16, k) { sum += (*v as f64 / 32768.0).powi(2); } }
+                        }
+                        n += k;
+                        cap.ReleaseBuffer(f).unwrap();
+                    }
+                }
+                let _ = client.Stop();
+                if n == 0 { 0.0 } else { (sum / n as f64).sqrt() as f32 }
+            }
+        };
+        let v0 = super::endpoint().and_then(|e| unsafe { e.GetMasterVolumeLevelScalar() }).unwrap();
+        for v in [v0, v0 * 0.5, v0] {
+            super::set_volume(v).unwrap();
+            std::thread::sleep(std::time::Duration::from_millis(400));
+            let others = rms(&|| unsafe { super::others_loopback(super::own_audio_pid()).unwrap() });
+            let device = rms(&|| unsafe { super::device_loopback(&super::default_device().unwrap()).unwrap() });
+            eprintln!("volume {v:.2}: without GlassBar rms={others:.4}  whole mix rms={device:.4}");
+        }
+        super::set_volume(v0).unwrap();
+    }
     use super::outside_level;
+
+    #[test]
+    fn finds_glassbars_sound_helper_through_its_parents() {
+        // GlassBar 100 -> WebView2 browser 200 -> audio service 300; Chrome 400 -> 500.
+        let parent: std::collections::HashMap<u32, u32> = [(200, 100), (300, 200), (500, 400), (100, 1)].into_iter().collect();
+        assert!(super::descends(300, 100, &parent));
+        assert!(!super::descends(500, 100, &parent));
+        assert!(!super::descends(100, 100, &parent), "itself is not its own helper");
+        let looped: std::collections::HashMap<u32, u32> = [(7, 8), (8, 7)].into_iter().collect();
+        assert!(!super::descends(7, 100, &looped), "a reused PID loop ends");
+    }
 
     #[test]
     fn only_changes_from_outside_glassbar_raise_the_volume_alert() {

@@ -22,7 +22,7 @@ export async function shutter() {
   src.buffer = buf; f.type = 'bandpass'; f.frequency.value = 2600; g.gain.value = 0.35;
   src.connect(f).connect(g).connect(ctx.destination);
   src.start(t);
-  idle = setTimeout(() => ctx?.suspend(), 1500);
+  idleLater();
 }
 
 /** Volume feedback: a short soft pop, like Windows' volume ding. It plays through the
@@ -66,19 +66,28 @@ async function tones(notes: readonly (readonly [number, number])[], peak: number
     osc.stop(t + at + len + 0.05);
   }
   // A running AudioContext keeps the audio device (and a render thread) busy.
-  idle = setTimeout(() => ctx?.suspend(), 1500);
+  idleLater();
 }
 
-let current: HTMLAudioElement | null = null;
+/** A running AudioContext keeps the audio device (and a render thread) busy: let it sleep
+ *  a moment after the last sound, but never while the adzan plays. */
+function idleLater() {
+  clearTimeout(idle);
+  idle = setTimeout(() => { if (!current) ctx?.suspend(); }, 1500);
+}
+
+/** The adzan now playing (or loading). */
+let current: { stop: () => void } | null = null;
 let onDone: (() => void) | undefined;
 
 /** The current file ended, was stopped or replaced: run its `done` once. */
-function finish(a: HTMLAudioElement) {
-  if (current !== a) return;
+function finish(p: typeof current) {
+  if (!p || current !== p) return;
   current = null;
   const f = onDone;
   onDone = undefined;
   f?.();
+  idleLater();
 }
 
 /** Short adzan: the opening takbir of the bundled recording, which ends in a pause at 43.0-43.7 s (ffmpeg silencedetect). */
@@ -86,32 +95,48 @@ export const SHORT_ADHAN_S = 43.3;
 const FADE_S = 1.5;
 
 /** Play a sound file (the adzan): whole, or with `short` only its opening, faded out.
- *  `done` runs once when it ends, is stopped or is replaced. */
+ *  `done` runs once when it ends, is stopped or is replaced.
+ *  Web Audio, not an <audio> element: an <audio> element is a media session, so Windows put
+ *  the adzan on the dock's music player (and it took over the player's controls). */
 export function playFile(src: string, short = false, done?: () => void, volume = 1) {
   stopSound();
-  const a = (current = new Audio(src));
-  a.volume = Math.max(0, Math.min(1, volume));
+  let node: AudioBufferSourceNode | null = null;
+  const me = { stop: () => { try { node?.stop(); } catch { /* not started yet */ } } };
+  current = me;
   onDone = done;
-  a.addEventListener('ended', () => finish(a));
-  if (short) {
-    a.addEventListener('timeupdate', () => {
-      const left = SHORT_ADHAN_S - a.currentTime;
-      if (left <= 0) { a.pause(); finish(a); }
-      else if (left < FADE_S) a.volume = Math.max(0, Math.min(1, volume) * left / FADE_S);
-    });
-  }
-  a.play().catch(() => { finish(a); chime(); });
+  const v = Math.max(0, Math.min(1, volume));
+  (async () => {
+    ctx ??= new AudioContext();
+    clearTimeout(idle);
+    await ctx.resume();
+    const buf = await ctx.decodeAudioData(await (await fetch(src)).arrayBuffer());
+    if (current !== me) return; // stopped while it was loading
+    const s = ctx.createBufferSource(), g = ctx.createGain();
+    s.buffer = buf;
+    s.connect(g).connect(ctx.destination);
+    const t = ctx.currentTime;
+    g.gain.setValueAtTime(v, t);
+    s.onended = () => finish(me);
+    node = s;
+    if (short) {
+      const end = Math.min(SHORT_ADHAN_S, buf.duration);
+      g.gain.setValueAtTime(v, t + Math.max(0, end - FADE_S));
+      g.gain.linearRampToValueAtTime(0, t + end);
+      s.start(t, 0, end);
+    } else s.start(t);
+  })().catch(() => { if (current === me) { finish(me); chime(); } });
 }
 
 export function stopSound() {
-  current?.pause();
-  if (current) finish(current);
+  const c = current;
+  if (!c) return;
+  c.stop();
+  finish(c);
 }
 
 /** Play the adzan; with `pauseMusic`, pause other playing media first and resume it afterwards.
  *  `onEnd` runs once when it ends, is stopped (stopSound) or is replaced. */
 export function playAdzan(src: string, short: boolean, pauseMusic: boolean, media: { pause: () => Promise<string[]>; resume: (ids: string[]) => Promise<void> }, volume = 1, onEnd?: () => void) {
   if (!pauseMusic) return playFile(src, short, onEnd, volume);
-  // Pause first, then play: our own adzan is a media session too and must not be caught by the pause.
   void media.pause().catch(() => []).then((ids) => playFile(src, short, () => { if (ids.length) media.resume(ids).catch(() => {}); onEnd?.(); }, volume));
 }

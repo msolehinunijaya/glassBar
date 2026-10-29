@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.5 — 2026-10-29
+
+### Fixed
+- **The adzan no longer shows up on the music player.** It played as a media session, so Windows put it on the dock's player (and its controls). It now plays like GlassBar's other alert sounds, so the player keeps showing your music.
+- **The Equalizer ignores the volume level.** It used to listen after Windows' volume, so turning the volume down shrank the bars and turning it up grew them. It now listens to the apps themselves, before the volume.
+- **The Equalizer leaves out GlassBar's own sounds:** the adzan, chimes and the volume tick no longer make the bars move. Only your music and other apps do. (On Windows older than 10 version 2004 it works as before.)
+
 ## 0.6.4 — 2026-10-29
 
 ### New
