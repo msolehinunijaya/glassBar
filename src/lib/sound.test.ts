@@ -1,15 +1,21 @@
 import { describe, expect, it, vi } from 'vitest';
 import { playAdzan, stopSound } from './sound';
 
-class FakeAudio extends EventTarget {
-  static last: FakeAudio;
-  currentTime = 0; volume = 1;
-  constructor() { super(); FakeAudio.last = this; }
-  play = () => Promise.resolve();
-  pause = () => {};
+// Web Audio, faked: the adzan is decoded and played through an AudioBufferSourceNode.
+class FakeSource { buffer: unknown = null; onended: (() => void) | null = null; connect = () => fakeGain; start = vi.fn(); stop = () => this.onended?.(); }
+const fakeGain = { gain: { setValueAtTime: vi.fn(), linearRampToValueAtTime: vi.fn() }, connect: () => ({}) };
+class FakeContext {
+  static last: FakeSource | null = null;
+  currentTime = 0; destination = {};
+  resume = async () => {}; suspend = async () => {};
+  decodeAudioData = async () => ({ duration: 180 });
+  createGain = () => fakeGain;
+  createBufferSource = () => (FakeContext.last = new FakeSource());
 }
-vi.stubGlobal('Audio', FakeAudio);
+vi.stubGlobal('AudioContext', FakeContext);
+vi.stubGlobal('fetch', async () => ({ arrayBuffer: async () => new ArrayBuffer(0) }));
 const flush = () => new Promise((r) => setTimeout(r));
+const ended = () => FakeContext.last?.onended?.();
 
 describe('playAdzan', () => {
   it('pauses playing media, then resumes those apps when the adzan ends', async () => {
@@ -18,7 +24,7 @@ describe('playAdzan', () => {
     expect(media.pause).toHaveBeenCalledOnce();
     await flush();
     expect(media.resume).not.toHaveBeenCalled();
-    FakeAudio.last.dispatchEvent(new Event('ended'));
+    ended();
     await flush();
     expect(media.resume).toHaveBeenCalledWith(['Spotify.exe']);
   });
@@ -29,7 +35,7 @@ describe('playAdzan', () => {
     await flush();
     stopSound();
     stopSound();
-    FakeAudio.last.dispatchEvent(new Event('ended'));
+    ended();
     await flush();
     expect(media.resume).toHaveBeenCalledOnce();
   });
@@ -37,12 +43,13 @@ describe('playAdzan', () => {
   it('starts the adzan only after the pause is done', async () => {
     let done!: (ids: string[]) => void;
     const media = { pause: vi.fn(() => new Promise<string[]>((r) => (done = r))), resume: vi.fn(async () => {}) };
-    const before = FakeAudio.last;
+    const before = FakeContext.last;
     playAdzan('a.mp3', false, true, media);
-    expect(FakeAudio.last).toBe(before);
+    await flush();
+    expect(FakeContext.last).toBe(before);
     done([]);
     await flush();
-    expect(FakeAudio.last).not.toBe(before);
+    expect(FakeContext.last).not.toBe(before);
     stopSound();
   });
 
@@ -58,5 +65,12 @@ describe('playAdzan', () => {
     expect(off.pause).not.toHaveBeenCalled();
     expect(off.resume).not.toHaveBeenCalled();
     expect(idle.resume).not.toHaveBeenCalled();
+  });
+
+  it('a short adzan stops at the end of the opening takbir', async () => {
+    playAdzan('a.mp3', true, false, { pause: async () => [], resume: async () => {} });
+    await flush();
+    expect(FakeContext.last?.start).toHaveBeenCalledWith(0, 0, 43.3);
+    stopSound();
   });
 });
