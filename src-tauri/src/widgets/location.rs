@@ -9,7 +9,8 @@ use crate::net::{enc, get_json};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::sync::mpsc::{channel, RecvTimeoutError, Sender};
-use std::sync::{Mutex, OnceLock};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Mutex, OnceLock, TryLockError};
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager};
 
@@ -119,8 +120,21 @@ fn ip_lookup() -> Result<Place, String> {
         .ok_or_else(|| "no answer from the IP location services (offline?)".into())
 }
 
+/// Run `f` on its own thread and wait at most `limit`. A call that hangs is left to finish on
+/// its own; until it does, new calls fail at once instead of starting another. Windows
+/// Location can stop answering (after sleep, while networks and screens change), and its
+/// access request has no timeout of its own.
+pub fn with_deadline<T: Send + 'static>(running: &'static AtomicBool, limit: Duration, f: impl FnOnce() -> Result<T, String> + Send + 'static) -> Result<T, String> {
+    if running.swap(true, Ordering::SeqCst) { return Err("Windows Location is still busy".into()); }
+    let (tx, rx) = channel();
+    std::thread::spawn(move || { let r = f(); running.store(false, Ordering::SeqCst); let _ = tx.send(r); });
+    rx.recv_timeout(limit).unwrap_or_else(|_| Err("Windows Location didn't answer".into()))
+}
+
+static WINDOWS_BUSY: AtomicBool = AtomicBool::new(false);
+
 fn windows_lookup() -> Result<Place, String> {
-    crate::platform::location().locate().map(|f| from_fix(f, None))
+    with_deadline(&WINDOWS_BUSY, Duration::from_secs(20), || crate::platform::location().locate().map(|f| from_fix(f, None)))
 }
 
 /// OpenStreetMap (Nominatim) address -> "Town, State, Country".
@@ -165,11 +179,22 @@ fn fresh(s: &Status, cfg: &LocationCfg, now: i64) -> bool {
 
 static BUSY: Mutex<()> = Mutex::new(());
 
+/// What callers get while another check is running: the cached status, or "still finding".
+/// They never wait for it: widgets poll the location, and each waiting call used to hold a
+/// worker thread, so one stuck check starved the dock (no app icons, dead widgets).
+pub fn while_busy(cached: Option<Status>, cfg: &LocationCfg, now: i64) -> Status {
+    cached.unwrap_or_else(|| Status { mode: cfg.mode.clone(), reason: Some("Still finding your location".into()), at: now, ..Default::default() })
+}
+
 /// The current status; checks the sources when the cached one is stale (or `force`).
-/// Blocking: may wait for Windows Location and the network.
+/// Blocking: may wait for Windows Location and the network. Only one check runs at a time.
 pub fn status(app: &AppHandle, force: bool) -> Status {
-    let _one_at_a_time = BUSY.lock().unwrap_or_else(|e| e.into_inner());
     let cfg = app.state::<crate::AppState>().config.lock().unwrap().location.clone();
+    let _one_at_a_time = match BUSY.try_lock() {
+        Ok(g) => g,
+        Err(TryLockError::Poisoned(p)) => p.into_inner(),
+        Err(TryLockError::WouldBlock) => return while_busy(read(app), &cfg, now_ms()),
+    };
     let old = read(app);
     if let Some(s) = old.as_ref().filter(|s| !force && fresh(s, &cfg, now_ms())) { return s.clone(); }
     let mut r = resolve(&cfg, windows_lookup, ip_lookup);
@@ -273,6 +298,34 @@ mod tests {
     fn off() -> Result<Place, String> { Err("Windows Location is turned off for desktop apps".into()) }
     fn down() -> Result<Place, String> { Err("offline".into()) }
     fn never() -> Result<Place, String> { panic!("source should not be asked") }
+
+    #[test]
+    fn a_hung_lookup_gives_up_at_the_deadline() {
+        static RUNNING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+        let t = std::time::Instant::now();
+        let r: Result<u8, String> = with_deadline(&RUNNING, Duration::from_millis(200), || { std::thread::sleep(Duration::from_secs(3)); Ok(1) });
+        assert!(r.is_err());
+        assert!(t.elapsed() < Duration::from_secs(1));
+        // While the hung one is still running, another isn't started (no pile-up of threads).
+        let again: Result<u8, String> = with_deadline(&RUNNING, Duration::from_secs(5), || Ok(2));
+        assert!(again.is_err());
+    }
+
+    #[test]
+    fn a_quick_lookup_returns_its_result() {
+        static RUNNING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+        assert_eq!(with_deadline(&RUNNING, Duration::from_secs(5), || Ok(7)), Ok(7));
+        assert_eq!(with_deadline(&RUNNING, Duration::from_secs(5), || Err::<u8, _>("no".to_string())), Err("no".to_string()));
+    }
+
+    #[test]
+    fn while_a_check_runs_others_get_the_cached_place_at_once() {
+        let cfg = LocationCfg::default();
+        let cached = Status { mode: cfg.mode.clone(), place: ip().ok(), at: 5, ..Default::default() };
+        assert_eq!(while_busy(Some(cached.clone()), &cfg, 99), cached);
+        let none = while_busy(None, &cfg, 99);
+        assert!(none.place.is_none() && none.reason.is_some());
+    }
     fn mode(m: &str) -> LocationCfg { LocationCfg { mode: m.into(), ..Default::default() } }
 
     #[test]
