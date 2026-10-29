@@ -64,7 +64,7 @@ fn day0(now: i64) -> i64 {
 /// The current temperature in °C from the Weather widget's cache, if it has one.
 fn temp_c(app: &AppHandle) -> Option<f64> {
     let db = app.state::<Db>();
-    let w: Value = serde_json::from_str(&kv_get(&db.0.lock().unwrap(), "weather")?).ok()?;
+    let w: Value = serde_json::from_str(&kv_get(&db.lock(), "weather")?).ok()?;
     let t = w["current"]["temp"].as_f64()?;
     Some(if w["unit"].as_str() == Some("f") { (t - 32.0) * 5.0 / 9.0 } else { t })
 }
@@ -91,7 +91,7 @@ fn today(app: &AppHandle) -> Today {
     let t = temp_c(app);
     let d0 = day0(now_ms());
     let db = app.state::<Db>();
-    let conn = db.0.lock().unwrap();
+    let conn = db.lock();
     let rows: Vec<(i64, u32)> = conn.prepare("SELECT at, ml FROM water WHERE at >= ?1 ORDER BY at")
         .and_then(|mut q| q.query_map([d0 - 6 * DAY], |r| Ok((r.get(0)?, r.get(1)?)))?.collect())
         .unwrap_or_default();
@@ -121,13 +121,13 @@ pub async fn water_add(app: AppHandle, ml: u32) -> Result<Today, String> {
         let before = today(&app);
         {
             let db = app.state::<Db>();
-            let _ = db.0.lock().unwrap().execute("INSERT INTO water(at, ml) VALUES(?1, ?2)", rusqlite::params![now_ms(), ml.clamp(1, 3000)]);
+            let _ = db.lock().execute("INSERT INTO water(at, ml) VALUES(?1, ?2)", rusqlite::params![now_ms(), ml.clamp(1, 3000)]);
         }
         let t = changed(&app);
         let key = format!("water:goal:{}", day0(now_ms()));
         if before.total < t.goal && t.total >= t.goal {
             let db = app.state::<Db>();
-            let first = { let c = db.0.lock().unwrap(); let f = kv_get(&c, &key).is_none(); kv_set(&c, &key, "1"); f };
+            let first = { let c = db.lock(); let f = kv_get(&c, &key).is_none(); kv_set(&c, &key, "1"); f };
             if first { let _ = app.emit_to("bar", "dock:alert", serde_json::json!({ "kind": "water", "total": t.total, "goal": t.goal, "cup": t.cup, "unit": unit(&app), "reached": true })); }
         }
         t
@@ -137,7 +137,7 @@ pub async fn water_add(app: AppHandle, ml: u32) -> Result<Today, String> {
 #[tauri::command]
 pub async fn water_remove(app: AppHandle, at: i64) -> Result<Today, String> {
     crate::widgets::blocking(move || {
-        { let db = app.state::<Db>(); let _ = db.0.lock().unwrap().execute("DELETE FROM water WHERE at = ?1", [at]); }
+        { let db = app.state::<Db>(); let _ = db.lock().execute("DELETE FROM water WHERE at = ?1", [at]); }
         changed(&app)
     }).await
 }
@@ -146,7 +146,7 @@ pub async fn water_remove(app: AppHandle, at: i64) -> Result<Today, String> {
 #[tauri::command]
 pub async fn water_snooze(app: AppHandle, minutes: i64) -> Result<(), String> {
     crate::widgets::blocking(move || {
-        { let db = app.state::<Db>(); kv_set(&db.0.lock().unwrap(), "water:snooze", &(now_ms() + minutes.clamp(1, 240) * 60_000).to_string()); }
+        { let db = app.state::<Db>(); kv_set(&db.lock(), "water:snooze", &(now_ms() + minutes.clamp(1, 240) * 60_000).to_string()); }
         crate::scheduler::poke();
     }).await
 }
@@ -160,7 +160,7 @@ pub fn due_items(app: &AppHandle) -> Vec<Due> {
     let t = today(app);
     if t.total >= t.goal { return vec![]; } // done for today
     let now = now_ms();
-    let snooze = { let db = app.state::<Db>(); let c = db.0.lock().unwrap(); kv_get(&c, "water:snooze").and_then(|s| s.parse().ok()) };
+    let snooze = { let db = app.state::<Db>(); let c = db.lock(); kv_get(&c, "water:snooze").and_then(|s| s.parse().ok()) };
     let (past, next) = reminder_times(day0(now), now, t.entries.last().map(|e| e.at), snooze, c.every_min * 60_000, c.from_h * HOUR, c.to_h * HOUR);
     past.into_iter().chain([next]).map(|at| Due {
         key: format!("water:{at}"), at, source: "water", title: String::new(), body: String::new(), sound: None,

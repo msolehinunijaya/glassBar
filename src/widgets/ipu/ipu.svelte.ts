@@ -12,7 +12,8 @@ export function liveIpu(key: () => string) {
     last = changed;
     const t = setInterval(() => load(false), 15 * 60_000);
     const off = events.changed('location', () => load(true));
-    return () => { clearInterval(t); off.then((f) => f()); };
+    const off2 = events.refresh(() => load(true));
+    return () => { clearInterval(t); off.then((f) => f()); off2.then((f) => f()); };
   });
   return s;
 }

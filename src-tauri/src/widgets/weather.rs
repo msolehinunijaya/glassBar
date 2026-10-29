@@ -105,7 +105,7 @@ fn get(app: &AppHandle, force: bool) -> Option<Weather> {
     let place = location::current(app).ok();
     let cached: Option<Weather> = {
         let db = app.state::<Db>();
-        let c = db.0.lock().unwrap();
+        let c = db.lock();
         kv_get(&c, "weather").and_then(|s| serde_json::from_str(&s).ok())
     };
     let fresh = |w: &Weather| now_ms() - w.fetched_at < TTL_MS && w.unit == unit && !location::is_real_change(w.place.as_ref(), place.as_ref());
@@ -114,7 +114,7 @@ fn get(app: &AppHandle, force: bool) -> Option<Weather> {
     match place.as_ref().map(|p| fetch(p, &unit)) {
         Some(Ok(w)) => {
             let db = app.state::<Db>();
-            kv_set(&db.0.lock().unwrap(), "weather", &serde_json::to_string(&w).unwrap());
+            kv_set(&db.lock(), "weather", &serde_json::to_string(&w).unwrap());
             Some(w)
         }
         // Only the same place's old forecast, marked offline; never another place's.

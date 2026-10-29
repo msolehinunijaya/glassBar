@@ -160,7 +160,7 @@ fn alert_if_crossed(app: &AppHandle, r: &IpuReading) {
     if app.state::<crate::AppState>().config.lock().unwrap().widget_settings("ipu")["alerts"] == false { return; }
     let prev: Option<Band> = {
         let db = app.state::<Db>();
-        let c = db.0.lock().unwrap();
+        let c = db.lock();
         let p = kv_get(&c, "ipu:band").and_then(|s| serde_json::from_str(&s).ok());
         kv_set(&c, "ipu:band", &serde_json::to_string(&r.band).unwrap());
         p
@@ -176,14 +176,14 @@ fn alert_if_crossed(app: &AppHandle, r: &IpuReading) {
 fn get(app: &AppHandle, force: bool) -> Option<IpuReading> {
     let cached: Option<IpuReading> = {
         let db = app.state::<Db>();
-        let c = db.0.lock().unwrap();
+        let c = db.lock();
         kv_get(&c, "ipu").and_then(|s| serde_json::from_str(&s).ok())
     };
     let force = force || crate::widgets::first_since_start("ipu");
     if let Some(r) = &cached { if !force && now_ms() - r.fetched_at < TTL_MS { return Some(r.clone()); } }
     match fetch(app) {
         Some(r) => {
-            { let db = app.state::<Db>(); kv_set(&db.0.lock().unwrap(), "ipu", &serde_json::to_string(&r).unwrap()); }
+            { let db = app.state::<Db>(); kv_set(&db.lock(), "ipu", &serde_json::to_string(&r).unwrap()); }
             alert_if_crossed(app, &r);
             Some(r)
         }

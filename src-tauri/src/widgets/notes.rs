@@ -76,7 +76,7 @@ fn set_images(c: &rusqlite::Connection, id: i64, list: &[String]) -> Result<(), 
 
 #[tauri::command]
 pub fn notes_list(db: State<Db>, trash: bool) -> Vec<Note> {
-    let c = db.0.lock().unwrap();
+    let c = db.lock();
     let filter = if trash { "deleted_at IS NOT NULL" } else { "deleted_at IS NULL" };
     let mut q = c.prepare(&format!("SELECT {COLS} FROM notes WHERE {filter} ORDER BY pinned DESC, updated_at DESC")).unwrap();
     q.query_map([], row).map(|r| r.filter_map(Result::ok).collect()).unwrap_or_default()
@@ -84,36 +84,31 @@ pub fn notes_list(db: State<Db>, trash: bool) -> Vec<Note> {
 
 #[tauri::command]
 pub fn note_create(app: AppHandle) -> Result<Note, String> {
-    let n = {
-        let db = app.state::<Db>();
-        let c = db.0.lock().unwrap();
-        c.execute("INSERT INTO notes(updated_at) VALUES(?1)", [now_ms()]).map_err(|e| e.to_string())?;
-        c.query_row(&format!("SELECT {COLS} FROM notes WHERE id = ?1"), [c.last_insert_rowid()], row).map_err(|e| e.to_string())?
-    };
+    let n = app.state::<Db>().write(|c| {
+        c.execute("INSERT INTO notes(updated_at) VALUES(?1)", [now_ms()])?;
+        c.query_row(&format!("SELECT {COLS} FROM notes WHERE id = ?1"), [c.last_insert_rowid()], row)
+    })?;
     changed(&app);
     Ok(n)
 }
 
 #[tauri::command]
 pub fn note_update(app: AppHandle, id: i64, text: String, color: String, pinned: bool) -> Result<(), String> {
-    app.state::<Db>().0.lock().unwrap()
-        .execute("UPDATE notes SET text = ?2, color = ?3, pinned = ?4, updated_at = ?5 WHERE id = ?1",
-                 params![id, text, color, pinned, now_ms()])
-        .map_err(|e| e.to_string())?;
+    app.state::<Db>().write(|c| c.execute("UPDATE notes SET text = ?2, color = ?3, pinned = ?4, updated_at = ?5 WHERE id = ?1",
+                 params![id, &text, &color, pinned, now_ms()]))?;
     changed(&app);
     Ok(())
 }
 
 #[tauri::command]
 pub fn note_delete(app: AppHandle, id: i64) {
-    let _ = app.state::<Db>().0.lock().unwrap().execute("UPDATE notes SET deleted_at = ?2 WHERE id = ?1", params![id, now_ms()]);
+    let _ = app.state::<Db>().write(|c| c.execute("UPDATE notes SET deleted_at = ?2 WHERE id = ?1", params![id, now_ms()]));
     changed(&app);
 }
 
 #[tauri::command]
 pub fn note_restore(app: AppHandle, id: i64) {
-    let _ = app.state::<Db>().0.lock().unwrap()
-        .execute("UPDATE notes SET deleted_at = NULL, updated_at = ?2 WHERE id = ?1", params![id, now_ms()]);
+    let _ = app.state::<Db>().write(|c| c.execute("UPDATE notes SET deleted_at = NULL, updated_at = ?2 WHERE id = ?1", params![id, now_ms()]));
     changed(&app);
 }
 
@@ -131,7 +126,7 @@ pub fn note_add_image(app: AppHandle, id: i64, data: String) -> Result<String, S
     std::fs::write(image_path(&name)?, &bytes).map_err(|e| e.to_string())?;
     {
         let db = app.state::<Db>();
-        let c = db.0.lock().unwrap();
+        let c = db.lock();
         let mut list = images_of(&c, id)?;
         list.push(name.clone());
         set_images(&c, id, &list)?;
@@ -145,7 +140,7 @@ pub fn note_remove_image(app: AppHandle, id: i64, name: String) -> Result<(), St
     let path = image_path(&name)?;
     {
         let db = app.state::<Db>();
-        let c = db.0.lock().unwrap();
+        let c = db.lock();
         let list: Vec<String> = images_of(&c, id)?.into_iter().filter(|n| *n != name).collect();
         set_images(&c, id, &list)?;
     }
@@ -176,7 +171,7 @@ pub fn housekeeping(app: &AppHandle) {
     let now = now_ms();
     {
         let db = app.state::<Db>();
-        let c = db.0.lock().unwrap();
+        let c = db.lock();
         let all: Vec<Note> = c.prepare(&format!("SELECT {COLS} FROM notes")).unwrap()
             .query_map([], row).map(|r| r.filter_map(Result::ok).collect()).unwrap_or_default();
         for n in all {

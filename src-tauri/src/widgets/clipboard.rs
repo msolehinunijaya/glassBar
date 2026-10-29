@@ -66,7 +66,7 @@ fn record(app: &AppHandle) -> Result<(), String> {
     };
     {
         let db = app.state::<Db>();
-        let c = db.0.lock().unwrap();
+        let c = db.lock();
         // Same content again (e.g. re-copied from the history): just move it to the top.
         let dup: Option<(i64, Option<String>)> = c.query_row("SELECT id, path FROM clipboard WHERE hash = ?1", [&hash], |r| Ok((r.get(0)?, r.get(1)?))).ok();
         if let Some((id, _)) = dup {
@@ -92,23 +92,10 @@ pub fn prune(app: &AppHandle) {
     };
     let cutoff = now_ms() - days * 86_400_000;
     let db = app.state::<Db>();
-    let (gone, kept) = {
-        let c = db.0.lock().unwrap();
-        let gone = prune_db(&c, cutoff, KEEP);
-        let kept: std::collections::HashSet<String> = c.prepare("SELECT path FROM clipboard WHERE path IS NOT NULL")
-            .and_then(|mut s| s.query_map([], |r| r.get::<_, String>(0)).map(|r| r.filter_map(Result::ok).map(|p| p.to_lowercase()).collect()))
-            .unwrap_or_default();
-        (gone, kept)
-    };
+    let gone = prune_db(&db.lock(), cutoff, KEEP);
     for p in &gone { let _ = std::fs::remove_file(p); }
-    // Leftover images of copies removed by older versions (their files stayed behind).
-    for f in std::fs::read_dir(dir()).into_iter().flatten().flatten() {
-        let p = f.path();
-        let ours = p.extension().is_some_and(|e| e == "png") && p.file_name().is_some_and(|n| n.to_string_lossy().starts_with("clip-"));
-        // Older than a minute: a copy being saved right now writes its file just before its row.
-        let old = f.metadata().and_then(|m| m.modified()).ok().and_then(|t| t.elapsed().ok()).is_some_and(|e| e.as_secs() > 60);
-        if ours && old && !kept.contains(&p.to_string_lossy().to_lowercase()) { let _ = std::fs::remove_file(&p); }
-    }
+    // No sweep of image files without a row: if the database ever comes up empty, that would
+    // delete every copied image (it did once). A stray file costs only disk space.
 }
 
 /// The database part of `prune`: deletes the rows, returns the image files to delete.
@@ -147,12 +134,12 @@ mod tests {
         let _ = std::fs::remove_file(&path);
         {
             let db = crate::db::open(&path).unwrap();
-            let c = db.0.lock().unwrap();
+            let c = db.lock();
             c.execute("INSERT INTO clipboard(at, kind, text, hash) VALUES(1, 'text', 'hello', 'h')", []).unwrap();
             c.execute("INSERT INTO ocr_history(at, text, mode, engine) VALUES(1, 'read', 'text', 'windows')", []).unwrap();
         } // closed, like quitting GlassBar
         let db = crate::db::open(&path).unwrap();
-        let c = db.0.lock().unwrap();
+        let c = db.lock();
         let n: i64 = c.query_row("SELECT (SELECT COUNT(*) FROM clipboard) + (SELECT COUNT(*) FROM ocr_history)", [], |r| r.get(0)).unwrap();
         assert_eq!(n, 2);
         drop(c); drop(db);
@@ -163,7 +150,7 @@ mod tests {
 #[tauri::command]
 pub fn clip_list(app: AppHandle, query: Option<String>) -> Vec<ClipItem> {
     let db = app.state::<Db>();
-    let c = db.0.lock().unwrap();
+    let c = db.lock();
     let q = format!("%{}%", query.unwrap_or_default());
     // Pinned first, then newest first.
     let mut st = c.prepare("SELECT id, at, kind, text, thumb, w, h, pinned FROM clipboard WHERE kind = 'image' OR text LIKE ?1 ORDER BY pinned DESC, at DESC LIMIT 200").unwrap();
@@ -177,7 +164,7 @@ pub async fn clip_copy(app: AppHandle, id: i64) -> Result<(), String> {
     crate::widgets::blocking(move || {
         let (text, path): (Option<String>, Option<String>) = {
             let db = app.state::<Db>();
-            let c = db.0.lock().unwrap();
+            let c = db.lock();
             c.query_row("SELECT text, path FROM clipboard WHERE id = ?1", [id], |r| Ok((r.get(0)?, r.get(1)?))).map_err(|_| "not found".to_string())?
         };
         match (text, path) {
@@ -198,7 +185,7 @@ pub async fn clip_copy(app: AppHandle, id: i64) -> Result<(), String> {
 pub fn clip_pin(app: AppHandle, id: i64, on: bool) {
     {
         let db = app.state::<Db>();
-        let _ = db.0.lock().unwrap().execute("UPDATE clipboard SET pinned = ?1 WHERE id = ?2", params![on as i64, id]);
+        let _ = db.lock().execute("UPDATE clipboard SET pinned = ?1 WHERE id = ?2", params![on as i64, id]);
     }
     let _ = app.emit("clip:changed", ());
 }
@@ -208,7 +195,7 @@ pub fn clip_pin(app: AppHandle, id: i64, on: bool) {
 pub fn clip_delete(app: AppHandle, id: Option<i64>) {
     {
         let db = app.state::<Db>();
-        let c = db.0.lock().unwrap();
+        let c = db.lock();
         let paths: Vec<String> = match id {
             Some(id) => c.query_row("SELECT path FROM clipboard WHERE id = ?1 AND path IS NOT NULL", [id], |r| r.get(0)).ok().into_iter().collect(),
             None => c.prepare("SELECT path FROM clipboard WHERE path IS NOT NULL AND pinned = 0").and_then(|mut s| s.query_map([], |r| r.get(0)).map(|r| r.filter_map(Result::ok).collect())).unwrap_or_default(),

@@ -11,7 +11,7 @@
   import type { ProductivitySettings } from '../productivity/index';
   import { PHASE, PHASES } from './index';
   import PhaseRing from './PhaseRing.svelte';
-  import { livePomo, toggle } from './pomo.svelte';
+  import { livePomo, pomoError, run, toggle } from './pomo.svelte';
   import PomoSettings from './SettingsForm.svelte';
 
   let { instance, settings }: PopupProps<ProductivitySettings> = $props();
@@ -30,13 +30,13 @@
 
   const main = () => toggle(p.running);
   function reset() {
-    if (p.elapsed > 5 * 60_000) ask = { text: 'Reset?', yes: ipc.pomoReset };
-    else ipc.pomoReset();
+    if (p.elapsed > 5 * 60_000) ask = { text: 'Reset?', yes: () => run(ipc.pomoReset) };
+    else run(ipc.pomoReset);
   }
   function setPhase(ph: Phase) {
     if (!v || ph === v.phase) return;
-    if (v.status !== 'ready') ask = { text: 'End this session?', yes: () => ipc.pomoSetPhase(ph) };
-    else ipc.pomoSetPhase(ph);
+    if (v.status !== 'ready') ask = { text: 'End this session?', yes: () => run(() => ipc.pomoSetPhase(ph)) };
+    else run(() => ipc.pomoSetPhase(ph));
   }
   const answer = (yes: boolean) => { if (yes) ask?.yes(); ask = null; };
   const resetTitle = $derived(v?.status === 'ready' ? 'Reset the round' : 'Reset timer');
@@ -48,7 +48,7 @@
     if (ask) { if (e.key === 'y' || e.key === 'Enter') answer(true); else if (e.key === 'n') answer(false); else return; }
     else if (e.key === ' ') { if (t.closest('button')) return; main(); }
     else if (e.key === 'r' || e.key === 'R') reset();
-    else if (e.key === 's' || e.key === 'S') ipc.pomoSkip();
+    else if (e.key === 's' || e.key === 'S') run(ipc.pomoSkip);
     else if (e.key >= '1' && e.key <= '3') setPhase(PHASES[+e.key - 1]);
     else return;
     e.preventDefault();
@@ -100,9 +100,10 @@
         {#if v.status === 'running'}<Pause size={18} fill="currentColor" />{:else if v.primary === 'Start break'}<Coffee size={18} />{:else}<Play size={18} fill="currentColor" />{/if}
         {v.primary}
       </button>
-      <button class="round" onclick={() => ipc.pomoSkip()} title="{v.skip} (S)" aria-label={v.skip}><SkipForward size={16} /></button>
+      <button class="round" onclick={() => run(ipc.pomoSkip)} title="{v.skip} (S)" aria-label={v.skip}><SkipForward size={16} /></button>
     {/if}
   </div>
+  {#if pomoError.text}<p class="err">{pomoError.text}</p>{/if}
 
   <hr />
   <button class="today" onclick={() => (more = !more)} aria-expanded={more} title={more ? 'Hide the week' : 'Show the week'}>
@@ -200,4 +201,5 @@
 
   @media (prefers-reduced-motion: reduce) { .colon.blink, .dots i.live { animation: none; } .primary, .round { transition: none; } }
   :global(:root[data-motion='reduced']) :is(.colon.blink, .dots i.live) { animation: none; }
+  .err { color: #ff453a; font-size: 12px; text-align: center; margin: 4px 0 0; }
 </style>

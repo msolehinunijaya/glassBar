@@ -12,7 +12,8 @@ export function liveWeather() {
     load();
     const t = setInterval(load, 30 * 60_000);
     const off = events.changed('location', () => load());
-    return () => { clearInterval(t); off.then((f) => f()); };
+    const off2 = events.refresh(() => load(true));
+    return () => { clearInterval(t); off.then((f) => f()); off2.then((f) => f()); };
   });
   return s;
 }

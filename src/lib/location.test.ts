@@ -17,6 +17,7 @@ describe('location badge', () => {
     expect(tagText(S(P('windows')))).toBe('Kuala Lumpur · Precise');
     expect(tagText(S(P('ip', 'Selangor')))).toBe('Selangor · Approx (IP)');
     expect(tagText(S(null))).toBe('Location unavailable');
+    expect(tagText({ ...S(null), lastKnown: P('windows') })).toBe('Kuala Lumpur · Last known');
     expect(placeShort(P('windows', ''))).toBe('3.1478, 101.6953');
   });
 });

@@ -91,8 +91,8 @@ fn set_active(app: &AppHandle, source: &str, zone: &str) {
 
 fn settings(app: &AppHandle) -> Value { app.state::<crate::AppState>().config.lock().unwrap().widget_settings("solat") }
 
-fn kv(app: &AppHandle, key: &str) -> Option<String> { kv_get(&app.state::<Db>().0.lock().unwrap(), key) }
-fn kv_put(app: &AppHandle, key: &str, v: &str) { kv_set(&app.state::<Db>().0.lock().unwrap(), key, v) }
+fn kv(app: &AppHandle, key: &str) -> Option<String> { kv_get(&app.state::<Db>().lock(), key) }
+fn kv_put(app: &AppHandle, key: &str, v: &str) { kv_set(&app.state::<Db>().lock(), key, v) }
 
 /// JAKIM zone: the user's pick, else looked up from location ("" = outside Malaysia).
 fn zone_for(app: &AppHandle, place: Option<&location::Place>) -> Option<String> {
@@ -108,8 +108,9 @@ fn zone_for(app: &AppHandle, place: Option<&location::Place>) -> Option<String> 
 
 fn today_myt() -> NaiveDate { chrono::Utc::now().with_timezone(&myt()).date_naive() }
 
-/// Today's and tomorrow's times (fetches when the cache doesn't cover them).
-pub fn days(app: &AppHandle) -> Result<Vec<PrayerDay>, String> {
+/// Today's and tomorrow's times (fetches when the cache doesn't cover them, or `force`;
+/// offline, the cache is kept).
+pub fn days(app: &AppHandle, force: bool) -> Result<Vec<PrayerDay>, String> {
     let place = location::current(app).ok();
     let zone = zone_for(app, place.as_ref());
     match zone.as_deref() {
@@ -120,7 +121,7 @@ pub fn days(app: &AppHandle) -> Result<Vec<PrayerDay>, String> {
             let want = [today.to_string(), today.succ_opt().unwrap().to_string()];
             let cached: Vec<PrayerDay> = kv(app, &key).and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default();
             let covered = want.iter().all(|d| cached.iter().any(|p| &p.date == d));
-            let all = if covered { cached } else {
+            let all = if covered && !force { cached } else {
                 match get_json(&format!("https://www.e-solat.gov.my/index.php?r=esolatApi/takwimsolat&period=week&zone={z}")) {
                     Ok(v) => {
                         let fresh = parse_jakim(&v, z);
@@ -138,11 +139,12 @@ pub fn days(app: &AppHandle) -> Result<Vec<PrayerDay>, String> {
             for offset in 0..2 {
                 let date = (chrono::Local::now() + chrono::Duration::days(offset)).date_naive();
                 let key = format!("solat:aladhan:{date}:{:.2},{:.2}", p.lat, p.lon);
-                let day = match kv(app, &key).and_then(|s| serde_json::from_str::<PrayerDay>(&s).ok()) {
+                let cached = kv(app, &key).and_then(|s| serde_json::from_str::<PrayerDay>(&s).ok());
+                let day = match cached.clone().filter(|_| !force) {
                     Some(d) => Some(d),
                     None => get_json(&format!("https://api.aladhan.com/v1/timings/{}?latitude={}&longitude={}&method=3&iso8601=true",
                                               date.format("%d-%m-%Y"), p.lat, p.lon)).ok().as_ref().and_then(parse_aladhan)
-                        .inspect(|d| kv_put(app, &key, &serde_json::to_string(d).unwrap())),
+                        .inspect(|d| kv_put(app, &key, &serde_json::to_string(d).unwrap())).or(cached),
                 };
                 out.extend(day);
             }
@@ -161,9 +163,9 @@ fn zone_name(code: &str) -> Option<String> {
 }
 
 #[tauri::command]
-pub async fn solat_days(app: AppHandle) -> Result<SolatInfo, String> {
+pub async fn solat_days(app: AppHandle, force: Option<bool>) -> Result<SolatInfo, String> {
     crate::widgets::blocking(move || {
-        let days = days(&app)?;
+        let days = days(&app, force.unwrap_or(false))?;
         if days.is_empty() { return Err("No prayer times yet: check your internet connection.".to_string()); }
         let zone_name = days.first().filter(|d| !d.zone.is_empty()).and_then(|d| zone_name(&d.zone));
         crate::scheduler::poke(); // new times may be due soon
@@ -182,7 +184,7 @@ pub fn due_items(app: &AppHandle) -> Vec<Due> {
     if !cfg.uses("solat") || s["alerts"] == false { return vec![]; }
     let sound = solat_sound(&s);
     let db = app.state::<Db>();
-    let c = db.0.lock().unwrap();
+    let c = db.lock();
     let mut cached: Vec<PrayerDay> = vec![];
     let mut q = c.prepare("SELECT value FROM kv WHERE key LIKE 'solat:week:%' OR key LIKE 'solat:aladhan:%'").unwrap();
     for v in q.query_map([], |r| r.get::<_, String>(0)).unwrap().flatten() {
@@ -262,11 +264,11 @@ pub async fn solat_test_sound(app: AppHandle, settings: Value) {
 /// and drop cached days for zones/dates no longer in use.
 pub fn refresh(app: &AppHandle) {
     if !app.state::<crate::AppState>().config.lock().unwrap().uses("solat") { return; }
-    let _ = days(app);
+    let _ = days(app, false);
     let active = kv(app, "solat:active").and_then(|s| serde_json::from_str::<Active>(&s).ok());
     let keep = active.map(|a| format!("solat:week:{}", a.zone)).unwrap_or_default();
     let today = chrono::Local::now().date_naive().to_string();
-    let _ = app.state::<Db>().0.lock().unwrap().execute(
+    let _ = app.state::<Db>().lock().execute(
         "DELETE FROM kv WHERE (key LIKE 'solat:week:%' AND key <> ?1) OR (key LIKE 'solat:aladhan:%' AND substr(key, 15, 10) < ?2)",
         rusqlite::params![keep, today]);
 }

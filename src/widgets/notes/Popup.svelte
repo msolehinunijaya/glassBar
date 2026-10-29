@@ -37,7 +37,7 @@
     const p = pending;
     pending = null;
     const n = notes.v.find((x) => x.id === p.id);
-    if (n) ipc.noteUpdate({ ...n, text: p.text });
+    if (n) ipc.noteUpdate({ ...n, text: p.text }).then(() => (error = ''), (e) => (error = `Not saved: ${e}`));
   }
   function onInput(v: string) {
     draft = v;
@@ -59,8 +59,7 @@
 
   async function create() {
     flush();
-    const n = await ipc.noteCreate();
-    selectedId = n.id;
+    try { selectedId = (await ipc.noteCreate()).id; error = ''; } catch (e) { error = String(e); }
   }
 
   // Ctrl+V of an image (e.g. a screenshot) attaches it; text pastes normally.

@@ -72,7 +72,7 @@
   {:else if s}
     <b class="place">No location</b>
     <span class="hint m0 warn">{s.reason}</span>
-    {#if s.lastKnown}<span class="hint m0">Last known: {s.lastKnown.name || coords(s.lastKnown)} (not used by widgets while unavailable)</span>{/if}
+    {#if s.lastKnown}<span class="hint m0">Last known: {s.lastKnown.name || coords(s.lastKnown)} — widgets keep using it until a check works again</span>{/if}
     <span class="hint m0">Checked {when(s.at)}</span>
   {:else}
     <span class="hint m0">Checking…</span>

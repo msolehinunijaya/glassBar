@@ -65,7 +65,7 @@ fn get(app: &AppHandle, base: &str, force: bool) -> Result<Rates, String> {
     let key = format!("fx:{base}");
     let cached: Option<Rates> = {
         let db = app.state::<Db>();
-        let c = db.0.lock().unwrap();
+        let c = db.lock();
         kv_get(&c, &key).and_then(|s| serde_json::from_str(&s).ok())
     };
     let force = force || crate::widgets::first_since_start(&key);
@@ -73,7 +73,7 @@ fn get(app: &AppHandle, base: &str, force: bool) -> Result<Rates, String> {
     match fetch(&base) {
         Ok(r) => {
             let db = app.state::<Db>();
-            kv_set(&db.0.lock().unwrap(), &key, &serde_json::to_string(&r).unwrap());
+            kv_set(&db.lock(), &key, &serde_json::to_string(&r).unwrap());
             Ok(r)
         }
         Err(e) => cached.map(|r| Rates { cached: true, ..r }).ok_or(e),

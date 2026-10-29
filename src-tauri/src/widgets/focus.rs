@@ -157,7 +157,7 @@ fn pomo_cfg(app: &AppHandle) -> PomoCfg {
 
 fn load_pomo(app: &AppHandle) -> Pomo {
     let db = app.state::<Db>();
-    let c = db.0.lock().unwrap();
+    let c = db.lock();
     kv_get(&c, "pomodoro").and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default()
 }
 
@@ -168,7 +168,7 @@ pub struct PomoState { pub pomo: Pomo, pub cfg: PomoCfg, pub label: String, pub 
 
 fn pomo_state(app: &AppHandle, p: Pomo) -> PomoState {
     let cfg = pomo_cfg(app);
-    let h = { let db = app.state::<Db>(); let c = db.0.lock().unwrap(); load_history(&c) };
+    let h = { let db = app.state::<Db>(); let c = db.lock(); load_history(&c) };
     let today = chrono::Local::now().date_naive();
     let week = history_week(&h, today);
     PomoState {
@@ -177,18 +177,16 @@ fn pomo_state(app: &AppHandle, p: Pomo) -> PomoState {
     }
 }
 
-fn save_pomo(app: &AppHandle, p: &Pomo) -> PomoState {
-    {
-        let db = app.state::<Db>();
-        kv_set(&db.0.lock().unwrap(), "pomodoro", &serde_json::to_string(p).unwrap());
-    }
+fn save_pomo(app: &AppHandle, p: &Pomo) -> Result<PomoState, String> {
+    let json = serde_json::to_string(p).unwrap();
+    app.state::<Db>().write(|c| c.execute("INSERT INTO kv(key, value) VALUES('pomodoro', ?1) ON CONFLICT(key) DO UPDATE SET value = excluded.value", [&json]))?;
     let s = pomo_state(app, p.clone());
     let _ = app.emit("pomodoro:changed", ());
     scheduler::poke();
-    s
+    Ok(s)
 }
 
-fn pomo_do(app: &AppHandle, f: impl FnOnce(Pomo, i64, &PomoCfg) -> Pomo) -> PomoState {
+fn pomo_do(app: &AppHandle, f: impl FnOnce(Pomo, i64, &PomoCfg) -> Pomo) -> Result<PomoState, String> {
     let cfg = pomo_cfg(app);
     let p = f(load_pomo(app), now_ms(), &cfg);
     save_pomo(app, &p)
@@ -197,15 +195,15 @@ fn pomo_do(app: &AppHandle, f: impl FnOnce(Pomo, i64, &PomoCfg) -> Pomo) -> Pomo
 #[tauri::command]
 pub fn pomo_get(app: AppHandle) -> PomoState { let p = load_pomo(&app); pomo_state(&app, p) }
 #[tauri::command]
-pub fn pomo_start(app: AppHandle) -> PomoState { pomo_do(&app, |mut p, now, c| { p.start(now, c); p }) }
+pub fn pomo_start(app: AppHandle) -> Result<PomoState, String> { pomo_do(&app, |mut p, now, c| { p.start(now, c); p }) }
 #[tauri::command]
-pub fn pomo_pause(app: AppHandle) -> PomoState { pomo_do(&app, |mut p, now, _| { p.pause(now); p }) }
+pub fn pomo_pause(app: AppHandle) -> Result<PomoState, String> { pomo_do(&app, |mut p, now, _| { p.pause(now); p }) }
 #[tauri::command]
-pub fn pomo_skip(app: AppHandle) -> PomoState { pomo_do(&app, |p, now, c| p.skip(now, c)) }
+pub fn pomo_skip(app: AppHandle) -> Result<PomoState, String> { pomo_do(&app, |p, now, c| p.skip(now, c)) }
 #[tauri::command]
-pub fn pomo_reset(app: AppHandle) -> PomoState { pomo_do(&app, |p, _, _| p.reset()) }
+pub fn pomo_reset(app: AppHandle) -> Result<PomoState, String> { pomo_do(&app, |p, _, _| p.reset()) }
 #[tauri::command]
-pub fn pomo_set_phase(app: AppHandle, phase: Phase) -> PomoState { pomo_do(&app, |p, _, _| p.set_phase(phase)) }
+pub fn pomo_set_phase(app: AppHandle, phase: Phase) -> Result<PomoState, String> { pomo_do(&app, |p, _, _| p.set_phase(phase)) }
 
 /// Scheduler hook: the running phase ended. Records a finished focus session, moves on
 /// (starting the next phase with Auto-start), and returns the alert's sound (Null = silent)
@@ -215,11 +213,11 @@ pub fn on_pomo_due(app: &AppHandle) -> (serde_json::Value, serde_json::Value) {
     let cfg = pomo_cfg(app);
     if p.phase == Phase::Work && p.ends_at.is_some() {
         let db = app.state::<Db>();
-        let c = db.0.lock().unwrap();
+        let c = db.lock();
         let h = history_add(load_history(&c), &today_key(), cfg.work_min);
         kv_set(&c, "pomo:history", &serde_json::to_string(&h).unwrap());
     }
-    pomo_do(app, |p, now, c| { let mut n = p.finish(now, c); if c.auto_start { n.start(now, c); } n });
+    let _ = pomo_do(app, |p, now, c| { let mut n = p.finish(now, c); if c.auto_start { n.start(now, c); } n });
     let sound = if cfg.sound { serde_json::json!({ "kind": "chime", "volume": cfg.volume.min(100) as f64 / 100.0 }) } else { serde_json::Value::Null };
     (sound, serde_json::json!({ "auto": cfg.auto_start }))
 }
@@ -237,7 +235,7 @@ fn timers_changed(app: &AppHandle) {
 
 #[tauri::command]
 pub fn timers_list(db: State<Db>) -> Vec<Timer> {
-    let c = db.0.lock().unwrap();
+    let c = db.lock();
     let mut q = c.prepare("SELECT id, label, duration_ms, ends_at, remaining_ms FROM timers ORDER BY id").unwrap();
     q.query_map([], |r| Ok(Timer { id: r.get(0)?, label: r.get(1)?, duration_ms: r.get(2)?, ends_at: r.get(3)?, remaining_ms: r.get(4)? }))
         .map(|r| r.filter_map(Result::ok).collect()).unwrap_or_default()
@@ -246,7 +244,7 @@ pub fn timers_list(db: State<Db>) -> Vec<Timer> {
 #[tauri::command]
 pub fn timer_add(app: AppHandle, label: String, duration_ms: i64) -> Result<(), String> {
     if !(1_000..=24 * 60 * MIN).contains(&duration_ms) { return Err("Timer must be between 1 second and 24 hours".into()); }
-    app.state::<Db>().0.lock().unwrap()
+    app.state::<Db>().lock()
         .execute("INSERT INTO timers(label, duration_ms, ends_at) VALUES(?1, ?2, ?3)", params![label.trim(), duration_ms, now_ms() + duration_ms])
         .map_err(|e| e.to_string())?;
     timers_changed(&app);
@@ -255,14 +253,14 @@ pub fn timer_add(app: AppHandle, label: String, duration_ms: i64) -> Result<(), 
 
 #[tauri::command]
 pub fn timer_pause(app: AppHandle, id: i64) {
-    let _ = app.state::<Db>().0.lock().unwrap().execute(
+    let _ = app.state::<Db>().lock().execute(
         "UPDATE timers SET remaining_ms = MAX(ends_at - ?2, 0), ends_at = NULL WHERE id = ?1 AND ends_at > ?2", params![id, now_ms()]);
     timers_changed(&app);
 }
 
 #[tauri::command]
 pub fn timer_resume(app: AppHandle, id: i64) {
-    let _ = app.state::<Db>().0.lock().unwrap().execute(
+    let _ = app.state::<Db>().lock().execute(
         "UPDATE timers SET ends_at = ?2 + remaining_ms, remaining_ms = NULL WHERE id = ?1 AND remaining_ms > 0", params![id, now_ms()]);
     timers_changed(&app);
 }
@@ -270,7 +268,7 @@ pub fn timer_resume(app: AppHandle, id: i64) {
 /// Restart a timer for `ms` more (the "+1 min" on a finished timer's banner).
 #[tauri::command]
 pub fn timer_snooze(app: AppHandle, id: i64, ms: i64) {
-    let _ = app.state::<Db>().0.lock().unwrap().execute(
+    let _ = app.state::<Db>().lock().execute(
         "UPDATE timers SET duration_ms = ?2, ends_at = ?3, remaining_ms = NULL WHERE id = ?1", params![id, ms, now_ms() + ms]);
     timers_changed(&app);
 }
@@ -280,14 +278,14 @@ pub fn timer_id(key: &str) -> Option<i64> { key.strip_prefix("timer:")?.split(':
 
 /// A timer ran out: mark it finished (ends_at NULL, remaining 0) so nothing keeps ticking.
 pub fn on_timer_due(app: &AppHandle, id: i64) {
-    let _ = app.state::<Db>().0.lock().unwrap()
+    let _ = app.state::<Db>().lock()
         .execute("UPDATE timers SET ends_at = NULL, remaining_ms = 0 WHERE id = ?1", [id]);
     let _ = app.emit("timers:changed", ());
 }
 
 #[tauri::command]
 pub fn timer_delete(app: AppHandle, id: i64) {
-    let _ = app.state::<Db>().0.lock().unwrap().execute("DELETE FROM timers WHERE id = ?1", [id]);
+    let _ = app.state::<Db>().lock().execute("DELETE FROM timers WHERE id = ?1", [id]);
     timers_changed(&app);
 }
 
@@ -304,7 +302,7 @@ impl Stopwatch {
 fn sw_do(app: &AppHandle, f: impl FnOnce(&mut Stopwatch, i64)) -> Stopwatch {
     let sw = {
         let db = app.state::<Db>();
-        let c = db.0.lock().unwrap();
+        let c = db.lock();
         let mut sw: Stopwatch = kv_get(&c, "stopwatch").and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default();
         f(&mut sw, now_ms());
         kv_set(&c, "stopwatch", &serde_json::to_string(&sw).unwrap());
@@ -319,7 +317,7 @@ fn sw_do(app: &AppHandle, f: impl FnOnce(&mut Stopwatch, i64)) -> Stopwatch {
 #[tauri::command]
 pub fn sw_get(app: AppHandle) -> Stopwatch {
     let db = app.state::<Db>();
-    let c = db.0.lock().unwrap();
+    let c = db.lock();
     kv_get(&c, "stopwatch").and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default()
 }
 #[tauri::command]

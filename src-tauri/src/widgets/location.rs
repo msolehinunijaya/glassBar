@@ -1,6 +1,7 @@
 //! The one shared location for Weather, sunrise/sunset, Waktu Solat, IPU and the world clock.
 //! Modes: auto (Windows Location, then IP) | windows | ip | manual. Never made up: when every
-//! source fails the status is Unavailable with the reason, and widgets get no place.
+//! source fails the status is Unavailable with the reason, and widgets keep the last place
+//! that worked (if there is one) until a check succeeds again.
 //! Re-checked on start, every 30 min (auto/windows), on wake and on a network change; widgets
 //! hear `location:changed` only when the place really changes (new name, or moved > 1 km).
 use crate::config::LocationCfg;
@@ -49,7 +50,7 @@ pub struct Status {
     pub place: Option<Place>,
     /// Why it is Unavailable.
     pub reason: Option<String>,
-    /// The last place that worked (shown in Settings only, never handed to widgets).
+    /// The last place that worked. Widgets use it while the latest check failed.
     pub last_known: Option<Place>,
     /// When this was checked (ms).
     pub at: i64,
@@ -61,6 +62,10 @@ pub fn round4(x: f64) -> f64 { (x * 10_000.0).round() / 10_000.0 }
 pub fn valid_lat_lon(lat: f64, lon: f64) -> bool {
     lat.is_finite() && lon.is_finite() && (-90.0..=90.0).contains(&lat) && (-180.0..=180.0).contains(&lon)
 }
+
+/// What widgets use: the place just found, else the last one that worked (after sleep or
+/// before the network is up a check can fail; that must not blank every widget).
+pub fn usable(s: &Status) -> Option<&Place> { s.place.as_ref().or(s.last_known.as_ref()) }
 
 /// Widgets reload only for this: a place appeared or vanished, got a new name, or moved > 1 km.
 pub fn is_real_change(old: Option<&Place>, new: Option<&Place>) -> bool {
@@ -163,7 +168,7 @@ pub fn name_place(p: &mut Place, prev: Option<&Place>, lookup: impl FnOnce(f64, 
 
 fn read(app: &AppHandle) -> Option<Status> {
     let db = app.state::<Db>();
-    let c = db.0.lock().unwrap();
+    let c = db.lock();
     kv_get(&c, KEY).and_then(|s| serde_json::from_str(&s).ok())
 }
 
@@ -206,19 +211,19 @@ pub fn status(app: &AppHandle, force: bool) -> Status {
     let new = Status { mode: cfg.mode.clone(), reason: r.as_ref().err().cloned(), place: r.ok(), last_known, at: now_ms() };
     {
         let db = app.state::<Db>();
-        kv_set(&db.0.lock().unwrap(), KEY, &serde_json::to_string(&new).unwrap());
+        kv_set(&db.lock(), KEY, &serde_json::to_string(&new).unwrap());
     }
-    if is_real_change(old.as_ref().and_then(|o| o.place.as_ref()), new.place.as_ref()) {
+    if is_real_change(old.as_ref().and_then(usable), usable(&new)) {
         let _ = app.emit("location:changed", &new);
     }
     let _ = app.emit("location:status", &new);
     new
 }
 
-/// The place for widgets, or why there is none.
+/// The place for widgets (the last known one while a check fails), or why there is none.
 pub fn current(app: &AppHandle) -> Result<Place, String> {
     let s = status(app, false);
-    s.place.ok_or_else(|| s.reason.unwrap_or_else(|| "Location unavailable".into()))
+    usable(&s).cloned().ok_or_else(|| s.reason.unwrap_or_else(|| "Location unavailable".into()))
 }
 
 static POKE: OnceLock<Sender<()>> = OnceLock::new();
@@ -238,6 +243,8 @@ pub fn start(app: AppHandle) {
                     std::thread::sleep(Duration::from_secs(3));
                     while rx.try_recv().is_ok() {}
                     status(&app, true);
+                    // Woke up or the network changed: widgets fetch fresh data now, not at their next tick.
+                    let _ = app.emit("widgets:refresh", ());
                 }
                 Err(RecvTimeoutError::Timeout) => { status(&app, false); }
                 Err(RecvTimeoutError::Disconnected) => return,
@@ -256,7 +263,7 @@ pub async fn location_status(app: AppHandle, force: bool) -> Result<Status, Stri
 pub async fn location_clear(app: AppHandle) -> Result<Status, String> {
     {
         let db = app.state::<Db>();
-        let c = db.0.lock().unwrap();
+        let c = db.lock();
         kv_set(&c, KEY, "");
         kv_set(&c, "place", ""); // cache key before v0.2
     }
@@ -326,6 +333,17 @@ mod tests {
         let none = while_busy(None, &cfg, 99);
         assert!(none.place.is_none() && none.reason.is_some());
     }
+    #[test]
+    fn a_failed_check_keeps_widgets_on_the_last_known_place() {
+        let failed = Status { mode: "auto".into(), place: None, reason: Some("offline".into()), last_known: ip().ok(), at: 1 };
+        assert_eq!(usable(&failed), ip().ok().as_ref());
+        let ok = Status { place: win().ok(), ..failed.clone() };
+        assert_eq!(usable(&ok), win().ok().as_ref(), "a fresh place wins over the last known one");
+        // Going from working to failed is not a change widgets reload for.
+        assert!(!is_real_change(usable(&Status { place: ip().ok(), ..failed.clone() }), usable(&failed)));
+        assert_eq!(usable(&Status { last_known: None, ..failed }), None, "nothing known yet: nothing made up");
+    }
+
     fn mode(m: &str) -> LocationCfg { LocationCfg { mode: m.into(), ..Default::default() } }
 
     #[test]
