@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.4 — 2026-10-29
+
+### Fixed
+- **Scrolling screenshots reach the bottom of web pages.** On pages with photos (galleries, image-heavy sections) the capture stopped halfway, because the browser redraws pictures slightly differently after each scroll and loads them in as they appear. It now learns how far one wheel step scrolls the page and uses that when the pictures don't line up exactly, but only when that distance is clearly the best match, so repeating lists aren't misjoined.
+
 ## 0.6.3 — 2026-10-29
 
 ### Fixed

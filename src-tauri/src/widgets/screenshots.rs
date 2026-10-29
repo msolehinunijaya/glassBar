@@ -161,6 +161,8 @@ pub fn scroll_capture(win: &WinRect) -> Result<(Vec<u8>, u32, u32), String> {
     let mut prev_c: Vec<Vec<u64>> = Vec::new();
     let mut body: Vec<u8> = prev.clone();
     let mut notches = 3;
+    // Rows one wheel notch scrolls this page, from the steps that lined up (browsers: 100 px).
+    let mut per_notch: Option<f64> = None;
     let mut bar = 0; // scrollbar columns at the right, cut off at the end
     // The last rows of the view are left out of every join (and added once, from the last
     // frame): browsers round the page's bottom corners, which would mark every seam.
@@ -191,10 +193,12 @@ pub fn scroll_capture(win: &WinRect) -> Result<(Vec<u8>, u32, u32), String> {
         let (x0, x1) = cols(left, right);
         let next_c = cell_hashes(&next, w as u32, n as u32, x0, x1);
         let (pv, nx) = (&prev_c[top..n - bottom], &next_c[top..n - bottom]);
+        let expect = per_notch.map(|p| (p * notches as f64).round() as usize);
+        let found = scroll_offset(pv, nx, expect);
         if cfg!(test) {
-            eprintln!("step notches={notches} edges=({top},{bottom}) sides=({left},{right}) d={:?} body={}", scroll_offset(pv, nx), body.len() / row);
+            eprintln!("step notches={notches} edges=({top},{bottom}) sides=({left},{right}) d={found:?} expect={expect:?} body={}", body.len() / row);
         }
-        let Some(d) = scroll_offset(pv, nx) else {
+        let Some(d) = found else {
             if unchanged(pv, nx) || notches == 1 { break; } // end of the page (or truly lost)
             // Moved too far to line up: go back and retry with the smallest step. `prev`
             // stays the reference, so the join is still made against the last good frame.
@@ -203,6 +207,7 @@ pub fn scroll_capture(win: &WinRect) -> Result<(Vec<u8>, u32, u32), String> {
             settled()?;
             continue;
         };
+        per_notch = Some(d as f64 / notches as f64);
         let view = n - top - bottom;
         if bar == 0 { bar = scrollbar_cols(&prev, &next, w, top..n - bottom - d, d, w - right, 40.min(w / 8)); }
         if d * 3 < view { notches = (notches * 2).min(15); } else if d * 10 > view * 7 { notches = (notches / 2).max(1); }
@@ -233,7 +238,7 @@ mod tests {
         let wins = s.window_rects((-10_000, -10_000, 20_000, 20_000));
         let win = wins.into_iter().find(|w| w.title.contains(&want)).expect("no such window");
         eprintln!("window {:?} {}x{} at {},{}", win.title, win.w, win.h, win.x, win.y);
-        for _ in 0..10 { // start at the top
+        for _ in 0..40 { // start at the top (up to 40 000 px up)
             s.scroll_window(win.id, (win.x + win.w / 2, win.y + win.h / 2), -10, true);
             std::thread::sleep(std::time::Duration::from_millis(250));
         }
