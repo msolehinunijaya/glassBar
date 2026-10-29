@@ -190,7 +190,11 @@ pub async fn ocr_snap_finish(app: AppHandle, x: u32, y: u32, w: u32, h: u32, win
             if purpose == "scroll" {
                 let win = WINDOWS.lock().unwrap().iter().find(|w| Some(w.id) == window).cloned().ok_or("pick a window to scroll")?;
                 std::thread::sleep(std::time::Duration::from_millis(150)); // let the overlay vanish
-                let (px, pw, ph) = super::screenshots::scroll_capture(&win)?;
+                // The dock shows a Stop button while this runs.
+                let _ = a.emit("capture:scrolling", true);
+                let r = super::screenshots::scroll_capture(&win);
+                let _ = a.emit("capture:scrolling", false);
+                let (px, pw, ph) = r?;
                 super::screenshots::save(&a, px, pw, ph, "scroll")?;
             } else {
                 let (px, cw, ch) = crop(&shot.bgra, shot.w as u32, shot.h as u32, x, y, w, h).ok_or("selection too small")?;

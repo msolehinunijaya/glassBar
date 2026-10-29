@@ -17,6 +17,8 @@
   import { wheelControl } from '../../lib/wheelIntent';
   import { perf } from '../../lib/perf.svelte';
   import Visualizer from './Visualizer.svelte';
+  import { seekFrac } from './progress';
+  import { clock } from '../../lib/time';
 
   let { size, settings, vertical, onenter, onleave, source = null }: { size: WidgetSize; settings: MusicSettings; vertical: boolean; onenter?: (e: PointerEvent) => void; onleave?: () => void; source?: Source | null } = $props();
   const media = liveMedia();
@@ -52,6 +54,35 @@
   }
   const VolIcon = $derived(!audio || audio.muted || audio.volume === 0 ? VolumeX : audio.volume < 0.5 ? Volume1 : Volume2);
   const stop = (f: () => void) => (e: MouseEvent) => { e.stopPropagation(); f(); };
+
+  // The progress line is a seek bar: hover shows where a click lands, click or drag jumps
+  // there (on release), arrow keys skip 5 s. Never opens the panel or drags the dock.
+  let hoverAt = $state<number | null>(null); // 0–1 under the pointer
+  let dragging = $state(false);
+  const shown = $derived(dragging && hoverAt != null ? hoverAt : frac);
+  const at = (e: PointerEvent) => { const r = (e.currentTarget as HTMLElement).getBoundingClientRect(); return seekFrac(e.clientX, r.left, r.width); };
+  function seekTo(f: number) {
+    if (!media.m?.durationMs) return;
+    const ms = Math.round(f * media.m.durationMs);
+    media.m = { ...media.m, positionMs: ms, updatedAtMs: Date.now() };
+    ipc.mediaSeek(ms);
+  }
+  function seekDown(e: PointerEvent) {
+    e.stopPropagation(); e.preventDefault();
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    dragging = true; hoverAt = at(e);
+  }
+  function seekMove(e: PointerEvent) { hoverAt = at(e); }
+  function seekUp(e: PointerEvent) {
+    e.stopPropagation();
+    if (dragging) seekTo(at(e));
+    dragging = false;
+  }
+  function seekKey(e: KeyboardEvent) {
+    if (!media.m?.durationMs || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return;
+    e.preventDefault(); e.stopPropagation();
+    seekTo(Math.min(1, Math.max(0, (pos + (e.key === 'ArrowRight' ? 5000 : -5000)) / media.m.durationMs)));
+  }
   const down = (e: PointerEvent) => e.stopPropagation();
 </script>
 
@@ -105,8 +136,15 @@
     </button>
   {/if}
 
-  {#if p.progress && hasDur}
-    <span class="line" aria-hidden="true"><span style:transform="scaleX({frac})"></span></span>
+  {#if p.progress && hasDur && media.m}
+    <div class="seek" class:active={dragging} role="slider" tabindex="0" aria-label="Song position"
+         aria-valuemin={0} aria-valuemax={Math.round(media.m.durationMs / 1000)} aria-valuenow={Math.round(pos / 1000)} aria-valuetext="{clock(pos)} of {clock(media.m.durationMs)}"
+         onpointerdown={seekDown} onpointermove={seekMove} onpointerup={seekUp} onpointercancel={() => (dragging = false)}
+         onpointerleave={() => { if (!dragging) hoverAt = null; }} onclick={(e) => e.stopPropagation()} onkeydown={seekKey}>
+      <span class="line"><span class:live={!dragging} style:transform="scaleX({shown})"></span></span>
+      <span class="knob" style:left="{shown * 100}%"></span>
+      {#if hoverAt != null}<span class="tip" style:left="{hoverAt * 100}%">{clock(hoverAt * media.m.durationMs)}</span>{/if}
+    </div>
   {/if}
 </div>
 
@@ -137,6 +175,14 @@
   .ctl:disabled { opacity: 0.35; }
   .ctl.main { width: 28px; height: 28px; background: var(--accent); color: var(--on-accent); box-shadow: 0 2px 6px color-mix(in srgb, var(--accent) 45%, transparent); }
   .ctl.main:hover:not(:disabled) { background: var(--accent); transform: scale(1.08); }
-  .line { position: absolute; left: 10px; right: 10px; bottom: 3px; height: 2px; border-radius: calc(1px * var(--rs)); background: var(--track); overflow: hidden; }
-  .line span { display: block; height: 100%; background: var(--accent); transform-origin: left; transition: transform 1s linear; }
+  /* Seek bar: a 10 px tall hit strip over the 2 px line; on hover the line thickens and a knob shows. */
+  .seek { position: absolute; left: 10px; right: 10px; bottom: 0; height: 10px; cursor: pointer; z-index: 2; touch-action: none; }
+  .seek:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: calc(3px * var(--rs)); }
+  .line { position: absolute; left: 0; right: 0; bottom: 3px; height: 2px; border-radius: calc(1px * var(--rs)); background: var(--track); overflow: hidden; transition: height 0.12s; }
+  .line span { display: block; height: 100%; background: var(--accent); transform-origin: left; }
+  .line span.live { transition: transform 1s linear; }
+  .seek:hover .line, .seek.active .line { height: 4px; }
+  .knob { position: absolute; bottom: 1px; width: 8px; height: 8px; margin-left: -4px; border-radius: 50%; background: var(--accent); box-shadow: 0 1px 3px rgba(0,0,0,0.4); opacity: 0; transition: opacity 0.12s; pointer-events: none; }
+  .seek:hover .knob, .seek.active .knob { opacity: 1; }
+  .tip { position: absolute; bottom: 9px; transform: translateX(-50%); font-size: 10px; font-variant-numeric: tabular-nums; padding: 1px 4px; border-radius: calc(4px * var(--rs)); background: rgba(0,0,0,0.75); color: #fff; pointer-events: none; white-space: nowrap; }
 </style>
