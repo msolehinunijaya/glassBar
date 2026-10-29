@@ -3,10 +3,11 @@
 ## 0.6.4 — 2026-10-29
 
 ### New
+- **Stop a scrolling screenshot:** while it scrolls, the Screenshot buttons on the dock turn into a red Stop button. Press it to end the capture and keep what's been captured so far.
 - **Seek from the dock:** the music widget's progress line is now a seek bar. Hover it to see the time under your pointer, click or drag to jump there, or use the arrow keys (5 s).
 
 ### Fixed
-- **Scrolling screenshots reach the bottom of web pages.** On pages with photos (galleries, image-heavy sections) the capture stopped halfway, because the browser redraws pictures slightly differently after each scroll and loads them in as they appear. It now learns how far one wheel step scrolls the page and uses that when the pictures don't line up exactly, but only when that distance is clearly the best match, so repeating lists aren't misjoined.
+- **Scrolling screenshots reach the bottom of web pages.** On pages with photos (galleries, image-heavy sections) the capture stopped halfway, because the browser redraws pictures slightly differently after each scroll and loads them in as they appear. Pages with a fixed background picture (the frame behind the content stays put) stopped after the first screen for the same reason. It now uses how far one wheel step scrolls the page (a browser's usual distance at first, then what it measures) when frames don't line up exactly, and the shorter last step at the bottom, but only when that distance is clearly the best match, so repeating lists aren't misjoined.
 
 ## 0.6.3 — 2026-10-29
 

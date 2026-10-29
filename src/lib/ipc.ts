@@ -343,6 +343,8 @@ export const ipc = {
   shotsCopy: (id: number) => invoke<void>('shots_copy', { id }),
   shotsDelete: (id: number | null) => invoke<void>('shots_delete', { id }),
   shotsOpen: (id: number | null) => invoke<void>('shots_open', { id }),
+  /** Stop a running scrolling screenshot; what was captured so far is saved. */
+  shotScrollStop: () => invoke<void>('shot_scroll_stop'),
   recordScreen: (kind: 'area' | 'app') => invoke<void>('record_screen', { kind }),
   clipList: (query: string | null = null) => invoke<ClipItem[]>('clip_list', { query }),
   clipCopy: (id: number) => invoke<void>('clip_copy', { id }),
@@ -392,6 +394,8 @@ export const events = {
   behindChanged: (cb: (b: { min: number; max: number } | null) => void) => listen<{ min: number; max: number } | null>('appearance:behind', (e) => cb(e.payload)),
   materialChanged: (cb: (m: AppearanceSupport['applied']) => void) => listen<AppearanceSupport['applied']>('appearance:material', (e) => cb(e.payload)),
   captureDone: (cb: (d: CaptureDone) => void) => listen<CaptureDone>('capture:done', (e) => cb(e.payload)),
+  /** A scrolling screenshot started (true) or ended (false). */
+  captureScrolling: (cb: (on: boolean) => void) => listen<boolean>('capture:scrolling', (e) => cb(e.payload)),
   editMode: (cb: (on: boolean) => void) => listen<boolean>('editmode', (e) => cb(e.payload)),
   healthPing: (cb: (seq: number) => void) => own<number>('health:ping', cb),
   popupShow: (cb: (instance: string) => void) => listen<string>('popup:show', (e) => cb(e.payload)),

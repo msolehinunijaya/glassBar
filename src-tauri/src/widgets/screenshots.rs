@@ -1,6 +1,7 @@
 //! Screenshots: full screen, a region, a window, or a whole scrolling page. Each one is
 //! copied to the clipboard, saved as a PNG in %APPDATA%\GlassBar\screenshots, listed in
 //! the history, and deleted automatically after the number of days chosen (default 7).
+use std::sync::atomic::{AtomicBool, Ordering};
 use super::stitch::{cell_hashes, fixed_edges, fixed_sides, scrollbar_cols, row_hashes, scroll_offset, unchanged};
 use crate::db::{now_ms, Db};
 use crate::platform::{screen, WinRect};
@@ -125,11 +126,19 @@ pub async fn shot_fullscreen(app: AppHandle) -> Result<i64, String> {
     }).await?
 }
 
+/// Set by the dock's Stop button while a scrolling capture runs.
+static STOP: AtomicBool = AtomicBool::new(false);
+
+/// Stop a scrolling capture now; what was captured so far is saved.
+#[tauri::command]
+pub fn shot_scroll_stop() { STOP.store(true, Ordering::Relaxed); }
+
 /// Scroll a window top to bottom, capturing and joining as it goes. Stops at the end of
 /// the page (nothing moves), after 150 steps, or at 30 000 px tall. The wheel step adapts:
 /// it grows while frames overlap a lot (fast) and shrinks when the overlap gets thin, so
 /// joins stay reliable in apps that scroll a little or a lot per notch.
 pub fn scroll_capture(win: &WinRect) -> Result<(Vec<u8>, u32, u32), String> {
+    STOP.store(false, Ordering::Relaxed);
     let s = screen();
     let at = (win.x + win.w / 2, win.y + win.h / 2);
     s.scroll_window(win.id, at, 0, true); // bring it forward (before measuring what covers it)
@@ -174,6 +183,7 @@ pub fn scroll_capture(win: &WinRect) -> Result<(Vec<u8>, u32, u32), String> {
         if x1 > x0 + 16 { (x0, x1) } else { (0, w) }
     };
     for _ in 0..150 {
+        if STOP.load(Ordering::Relaxed) { break; } // the dock's Stop button: keep what we have
         s.scroll_window(win.id, at, notches, false);
         let next = settled()?;
         let next_h = row_hashes(&next, w as u32, n as u32);
@@ -193,8 +203,12 @@ pub fn scroll_capture(win: &WinRect) -> Result<(Vec<u8>, u32, u32), String> {
         let (x0, x1) = cols(left, right);
         let next_c = cell_hashes(&next, w as u32, n as u32, x0, x1);
         let (pv, nx) = (&prev_c[top..n - bottom], &next_c[top..n - bottom]);
-        let expect = per_notch.map(|p| (p * notches as f64).round() as usize);
-        let found = scroll_offset(pv, nx, expect);
+        // Browsers scroll 100 px per notch times the display scaling (100–200 %).
+        let expect: Vec<usize> = match per_notch {
+            Some(p) => vec![(p * notches as f64).round() as usize],
+            None => [100, 125, 150, 175, 200].iter().map(|p| p * notches as usize).collect(),
+        };
+        let found = scroll_offset(pv, nx, &expect);
         if cfg!(test) {
             eprintln!("step notches={notches} edges=({top},{bottom}) sides=({left},{right}) d={found:?} expect={expect:?} body={}", body.len() / row);
         }

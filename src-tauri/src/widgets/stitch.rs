@@ -57,11 +57,12 @@ pub fn unchanged<R: Cells>(prev: &[R], next: &[R]) -> bool {
 /// animated ads, videos and images fading in, so an exact match is too strict).
 ///
 /// `expect` = how far this wheel step should have moved the page (learned from earlier
-/// steps). Photos are redrawn a little differently after a scroll and pictures load in, so
-/// on image-heavy parts of a page nothing reaches 85 %. Then the expected shift is taken
-/// when it is the best one and beats every shift more than 2 rows away: repeating content
-/// (several equal peaks) and a short last scroll at the end (a different peak) don't pass.
-pub fn scroll_offset<R: Cells>(prev: &[R], next: &[R], expect: Option<usize>) -> Option<usize> {
+/// steps, or a browser's usual distances before any step lined up). Photos are redrawn a
+/// little differently after a scroll, pictures load in, and fixed backgrounds stay put, so
+/// on such pages nothing reaches 85 %. Then the best shift is taken when it is one of the
+/// expected ones and beats every shift more than 2 rows away: repeating content (several
+/// equal peaks) don't pass. A shorter shift (the page ran out) must win by a margin.
+pub fn scroll_offset<R: Cells>(prev: &[R], next: &[R], expect: &[usize]) -> Option<usize> {
     let n = prev.len().min(next.len());
     // Already lined up without a shift (only a cursor blinked): the page didn't move. Without
     // this, repetitive content (lists, code) could "match" at some period and repeat forever.
@@ -69,9 +70,13 @@ pub fn scroll_offset<R: Cells>(prev: &[R], next: &[R], expect: Option<usize>) ->
     let scores: Vec<(usize, f64)> = (1..n).take_while(|d| n - d >= 16).map(|d| (d, score(prev, next, d))).collect();
     let (d, best) = scores.iter().copied().fold((0, -1.0), |b, s| if s.1 > b.1 { s } else { b });
     if best >= 0.85 { return Some(d); }
-    expect.filter(|e| e.abs_diff(d) <= 1)?;
     let rival = scores.iter().filter(|(x, _)| x.abs_diff(d) > 2).map(|s| s.1).fold(0.0, f64::max);
-    (best >= 0.4 && best > rival).then_some(d)
+    if best < 0.4 { return None; }
+    // Where the wheel step should land; or shorter, when the page ran out (the last scroll),
+    // which then has to win by a margin.
+    let at_expected = expect.iter().any(|e| e.abs_diff(d) <= 1);
+    let ran_out = expect.iter().max().is_some_and(|m| d < *m);
+    (at_expected && best > rival || ran_out && best - rival >= 0.1).then_some(d)
 }
 
 /// Columns at the left and right edge that are (almost all) identical in both frames over
@@ -122,9 +127,9 @@ mod tests {
     fn finds_how_far_the_page_scrolled() {
         let a = page(100..200); // 100 visible rows of a long page
         let b = page(130..230); // scrolled by 30
-        assert_eq!(scroll_offset(&a, &b, None), Some(30));
-        assert_eq!(scroll_offset(&a, &a, None), None, "nothing moved: end of page");
-        assert_eq!(scroll_offset(&a, &page(500..600), None), None, "no overlap: don't guess");
+        assert_eq!(scroll_offset(&a, &b, &[]), Some(30));
+        assert_eq!(scroll_offset(&a, &a, &[]), None, "nothing moved: end of page");
+        assert_eq!(scroll_offset(&a, &page(500..600), &[]), None, "no overlap: don't guess");
     }
 
     #[test]
@@ -133,13 +138,21 @@ mod tests {
         // the photos between them were redrawn a little differently. ~33 % match.
         let a: Vec<u64> = (100..200).map(|r| if r % 3 == 0 { r } else { 1_000_000 + r }).collect();
         let b: Vec<u64> = (130..230).map(|r| if r % 3 == 0 { r } else { 2_000_000 + r }).collect();
-        assert_eq!(scroll_offset(&a, &b, None), None, "too little matches to trust on its own");
+        assert_eq!(scroll_offset(&a, &b, &[]), None, "too little matches to trust on its own");
         // With every 3rd row a match, shifts 27 and 33 also line text up; the guard is that 30
         // must be the single best shift. Make the text rows unique so it is.
         let a: Vec<u64> = (100..200).map(|r| if r % 2 == 0 { r } else { 1_000_000 + r }).collect();
         let b: Vec<u64> = (130..230).map(|r| if r % 2 == 0 { r } else { 2_000_000 + r }).collect();
-        assert_eq!(scroll_offset(&a, &b, Some(30)), Some(30), "the expected shift is the clear best");
-        assert_eq!(scroll_offset(&a, &b, Some(60)), None, "not where the wheel step should land: refuse");
+        assert_eq!(scroll_offset(&a, &b, &[30]), Some(30), "the expected shift is the clear best");
+        assert_eq!(scroll_offset(&a, &b, &[20]), None, "further than the wheel step can go: refuse");
+    }
+
+    #[test]
+    fn the_last_short_scroll_at_the_end_of_the_page_lines_up() {
+        // Wheel step should move 60 rows, but only 25 were left; text rows (every 2nd) match.
+        let a: Vec<u64> = (100..200).map(|r| if r % 2 == 0 { r } else { 1_000_000 + r }).collect();
+        let b: Vec<u64> = (125..225).map(|r| if r % 2 == 0 { r } else { 2_000_000 + r }).collect();
+        assert_eq!(scroll_offset(&a, &b, &[60]), Some(25));
     }
 
     #[test]
@@ -148,7 +161,7 @@ mod tests {
         // 23… score alike, so even the expected shift isn't trusted.
         let a: Vec<u64> = (0..120).map(|i| i % 10).collect();
         let b: Vec<u64> = (3..123).map(|i| if i % 5 == 0 { 999 } else { i % 10 }).collect();
-        assert_eq!(scroll_offset(&a, &b, Some(3)), None);
+        assert_eq!(scroll_offset(&a, &b, &[3]), None);
     }
 
     #[test]
@@ -157,7 +170,7 @@ mod tests {
         let a: Vec<u64> = (0..120).map(|i| i % 4).collect();
         let mut b = a.clone();
         b[50] = 777;
-        assert_eq!(scroll_offset(&a, &b, None), None);
+        assert_eq!(scroll_offset(&a, &b, &[]), None);
     }
 
     #[test]
@@ -165,7 +178,7 @@ mod tests {
         let a = page(0..100);
         let mut b = page(40..140);
         b[10] = 9999; // e.g. a blinking cursor
-        assert_eq!(scroll_offset(&a, &b, None), Some(40));
+        assert_eq!(scroll_offset(&a, &b, &[]), Some(40));
     }
 
     #[test]
@@ -173,7 +186,7 @@ mod tests {
         let a = page(0..200);
         let mut b = page(60..260);
         for r in 20..40 { b[r] = 10_000 + r as u64; } // a playing video / carousel: 10 % of rows differ
-        assert_eq!(scroll_offset(&a, &b, None), Some(60));
+        assert_eq!(scroll_offset(&a, &b, &[]), Some(60));
         assert!(!unchanged(&a, &b));
     }
 
@@ -182,10 +195,10 @@ mod tests {
         // 8 strips; strip 7 is a picture that moves at half speed in the top third of the view.
         let frame = |off: u64| -> Vec<Vec<u64>> { (0..120u64).map(|r| (0..8u64).map(|k|
             if k == 7 && r < 40 { 900_000 + r + off / 2 } else { k * 10_000 + r + off }).collect()).collect() };
-        assert_eq!(scroll_offset(&frame(0), &frame(30), None), Some(30));
+        assert_eq!(scroll_offset(&frame(0), &frame(30), &[]), Some(30));
         // As whole rows (one hash each) those top rows never match, and it would stop.
         let whole = |f: Vec<Vec<u64>>| -> Vec<u64> { f.iter().map(|r| r.iter().fold(0u64, |h, c| h.wrapping_mul(31).wrapping_add(*c))).collect() };
-        assert_eq!(scroll_offset(&whole(frame(0)), &whole(frame(30)), None), None);
+        assert_eq!(scroll_offset(&whole(frame(0)), &whole(frame(30)), &[]), None);
     }
 
     #[test]

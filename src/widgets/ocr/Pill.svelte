@@ -1,10 +1,10 @@
 <script lang="ts">
   // Four buttons on the dock: Screenshot, Recording, OCR Snap, Clipboard. Each opens the
   // panel on its tab. Drag one sideways (or right-click › Move) to change their order.
-  import { Camera, ClipboardList, ScanText, Video } from '@lucide/svelte';
+  import { Camera, ClipboardList, ScanText, Square, Video } from '@lucide/svelte';
   import { flip } from 'svelte/animate';
   import { updateWidgetSettings } from '../../lib/config.svelte';
-  import { ipc } from '../../lib/ipc';
+  import { events, ipc } from '../../lib/ipc';
   import { insertIndex } from '../../lib/geometry';
   import { showMenu } from '../../lib/menu';
   import type { PillProps } from '../types';
@@ -31,6 +31,11 @@
   const saved = $derived([...(settings.icons ?? []).filter((k) => ALL.includes(k)), ...ALL.filter((k) => !(settings.icons ?? []).includes(k))]);
   let live = $state<CaptureTab[] | null>(null);
   const order = $derived(live ?? saved);
+
+  // While a scrolling screenshot runs, the buttons give way to a Stop button.
+  let scrolling = $state(false);
+  $effect(() => { const off = events.captureScrolling((on) => (scrolling = on)); return () => { off.then((f) => f()); }; });
+  function stop(e: Event) { e.stopPropagation(); hp.cancel(); ipc.shotScrollStop(); }
 
   // Hovering a button shows its quick menu (screenshot kinds, recorders, OCR, last copies).
   const hp = hoverPanel(300);
@@ -77,6 +82,11 @@
 </script>
 
 <div class="pill capture-pill" class:vertical bind:this={row}>
+  {#if scrolling}
+    <button class="stop" onpointerdown={(e) => e.stopPropagation()} onclick={stop} aria-label="Stop the scrolling screenshot and keep what's captured" title="Stop and keep what's captured">
+      <Square size={12} fill="currentColor" />{#if !vertical}<span>Stop</span>{/if}
+    </button>
+  {:else}
   {#each order as k (k)}
     {@const M = meta[k].icon}
     <!-- No tooltip: it pops up under the pointer and closed the hover menu (which shows the name). -->
@@ -86,6 +96,7 @@
       <CapIcon {k} icon={M} look={settings.iconStyle} size={22} />
     </button>
   {/each}
+  {/if}
 </div>
 
 <style>
@@ -94,5 +105,10 @@
   .ic { display: grid; place-items: center; width: 30px; height: 30px; border-radius: calc(9px * var(--rs)); transition: background 0.15s, transform 0.25s var(--spring); }
   .ic:hover { background: var(--pill-hover); }
   .ic:active { transform: scale(0.88); }
+  .stop { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border-radius: calc(9px * var(--rs)); background: #ff3b30; color: #fff; font-size: 12px; font-weight: 600; animation: pulse 1.4s ease-in-out infinite; }
+  .stop:hover { background: #e0352b; }
+  .vertical .stop { padding: 0 9px; }
+  @keyframes pulse { 50% { box-shadow: 0 0 0 4px color-mix(in srgb, #ff3b30 30%, transparent); } }
+  @media (prefers-reduced-motion: reduce) { .stop { animation: none; } }
   .ic.drag { transform: scale(1.18); background: var(--pill-hover); box-shadow: 0 4px 12px rgba(0,0,0,0.25); z-index: 1; }
 </style>
