@@ -1,6 +1,6 @@
 // Mirror widget: the small pure bits (crop math, time text), kept here so they can be tested.
 
-export type Shape = 'circle' | 'rect';
+export type Shape = 'circle' | 'square' | 'rect';
 
 export interface MirrorSettings {
   shape: Shape;
@@ -32,7 +32,7 @@ export interface Rect { x: number; y: number; w: number; h: number }
 export function cropOf(vw: number, vh: number, zoom: number, shape: Shape): Rect {
   const z = Math.min(3, Math.max(1, zoom || 1));
   let w = vw, h = vh;
-  if (shape === 'circle') w = h = Math.min(vw, vh);
+  if (shape === 'circle' || shape === 'square') w = h = Math.min(vw, vh);
   w /= z; h /= z;
   return { x: (vw - w) / 2, y: (vh - h) / 2, w, h };
 }

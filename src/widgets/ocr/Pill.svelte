@@ -94,7 +94,7 @@
     {@const M = meta[k].icon}
     <!-- No tooltip: it pops up under the pointer and closed the hover menu (which shows the name). -->
     <button class="ic" class:drag={dragging === k} class:sel={settings.tab === k} aria-label={meta[k].label}
-            animate:flip={{ duration: 200 }} onpointerdown={(e) => down(e, k)}
+            animate:flip={{ duration: 200 }} data-own-drag onpointerdown={(e) => down(e, k)}
             onpointerenter={(e) => { if (!dragging) hp.enter(e, `${CAP_MENU}${k}:${instance}`, 300, HEIGHT[k]); }} onpointerleave={hp.leave} onclick={(e) => click(e, k)} oncontextmenu={(e) => menu(e, k)}>
       <CapIcon {k} icon={M} look={settings.iconStyle} size={22} />
     </button>

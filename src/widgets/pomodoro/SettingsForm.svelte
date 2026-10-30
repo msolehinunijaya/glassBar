@@ -45,6 +45,10 @@
     </label>
   {/if}
   <label class="row tall">
+    <span class="txt">Show focus across the dock<small>The whole dock shows the time left, a timeline and the controls. Point at the dock to use your widgets.</small></span>
+    <input type="checkbox" class="switch" checked={settings.focusDock !== false} onchange={(e) => save({ focusDock: e.currentTarget.checked })} />
+  </label>
+  <label class="row tall">
     <span class="txt">Dim other dock widgets while focusing<small>Everything but this widget fades during a focus session.</small></span>
     <input type="checkbox" class="switch" checked={settings.dimOthers} onchange={(e) => save({ dimOthers: e.currentTarget.checked })} />
   </label>

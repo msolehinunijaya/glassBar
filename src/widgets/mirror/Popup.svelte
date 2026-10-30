@@ -144,13 +144,14 @@
 
 <PanelHeader title="Mirror">
   <button class="icon-btn" class:on={v.shape === 'circle'} title="Circle" aria-label="Circle" aria-pressed={v.shape === 'circle'} onclick={() => save({ shape: 'circle' })}><Circle size={16} /></button>
+  <button class="icon-btn" class:on={v.shape === 'square'} title="Square" aria-label="Square" aria-pressed={v.shape === 'square'} onclick={() => save({ shape: 'square' })}><Square size={16} /></button>
   <button class="icon-btn" class:on={v.shape === 'rect'} title="Rectangle" aria-label="Rectangle" aria-pressed={v.shape === 'rect'} onclick={() => save({ shape: 'rect' })}><RectangleHorizontal size={16} /></button>
   <button class="icon-btn" class:on={more} title="More options" aria-label="More options" aria-expanded={more} onclick={() => (more = !more)}><Ellipsis size={16} /></button>
 </PanelHeader>
 
 <div class="stage">
-  <div class="view" class:circle={v.shape === 'circle'}
-       style:aspect-ratio={v.shape === 'circle' ? '1' : video?.videoWidth ? `${video.videoWidth} / ${video.videoHeight}` : '16 / 9'}
+  <div class="view" class:circle={v.shape === 'circle'} class:square={v.shape === 'square'}
+       style:aspect-ratio={v.shape === 'circle' || v.shape === 'square' ? '1' : video?.videoWidth ? `${video.videoWidth} / ${video.videoHeight}` : '16 / 9'}
        style:box-shadow={ring ? `0 0 0 ${2 + ring * 10}px rgba(255,255,255,${0.55 + ring * 0.45}), 0 0 ${ring * 40}px ${ring * 14}px rgba(255,255,255,${ring * 0.9})` : 'none'}>
     {#if error}
       <div class="msg">
@@ -218,6 +219,8 @@
     border-radius: var(--r-outer); transition: border-radius 0.3s var(--spring), width 0.3s var(--spring), box-shadow 0.2s var(--ease);
   }
   .view.circle { width: 82%; border-radius: 50%; }
+  /* Square: the same size as the circle, with the panel's inner corners. */
+  .view.square { width: 82%; }
   video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: transform 0.2s var(--ease); }
   .msg { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--s-2);
          padding: var(--s-4); text-align: center; font-size: 12px; color: #fff; }

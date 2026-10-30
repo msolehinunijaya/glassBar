@@ -120,6 +120,11 @@ pub fn shots_open(app: AppHandle, id: Option<i64>) -> Result<(), String> {
 /// Whole-screen screenshot of the monitor under the mouse (no selection step).
 #[tauri::command]
 pub async fn shot_fullscreen(app: AppHandle) -> Result<i64, String> {
+    // More than one display: freeze them all and let the user pick one (or all of them).
+    if app.available_monitors().map(|m| m.len()).unwrap_or(1) > 1 {
+        super::ocr::start_purpose(&app, "display").await?;
+        return Ok(0);
+    }
     crate::widgets::blocking(move || {
         let s = screen().capture_at_cursor().ok_or("couldn't capture the screen")?;
         save(&app, s.bgra, s.w as u32, s.h as u32, "full")

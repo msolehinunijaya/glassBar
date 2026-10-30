@@ -143,7 +143,7 @@
       <div class="side shelf-side" class:gone={missing[f]} title={nameOf(f)} in:slide={{ ...inOf(i), axis: 'y' }} out:slide={{ ...outOf, axis: 'y' }}>
         <button type="button" class="grab" draggable={!missing[f]} disabled={missing[f]}
                 aria-label={missing[f] ? `${nameOf(f)} is no longer there` : `Open ${nameOf(f)}`}
-                ondragstart={(e) => startDrag(e, f)} onpointerdown={down}
+                ondragstart={(e) => startDrag(e, f)} data-own-drag onpointerdown={down}
                 onclick={(e) => open(e, f)} oncontextmenu={(e) => context(e, f)}>
           <FileIcon path={f} size={20} />
         </button>
@@ -165,7 +165,7 @@
       <button type="button" class="item" class:gone={missing[f]} draggable={!missing[f]} disabled={missing[f]} in:slide={inOf(i)} out:slide={outOf}
               title={missing[f] ? `${nameOf(f)} — moved or deleted. Right-click to take it off the shelf.` : nameOf(f)}
               aria-label={missing[f] ? `${nameOf(f)} is no longer there` : `Open ${nameOf(f)}`}
-              ondragstart={(e) => startDrag(e, f)} onpointerdown={down}
+              ondragstart={(e) => startDrag(e, f)} data-own-drag onpointerdown={down}
               onclick={(e) => open(e, f)} oncontextmenu={(e) => context(e, f)}>
         <FileIcon path={f} size={18} />
         {#if settings.showNames}<span class="nm ellipsis">{nameOf(f)}</span>{:else if extOf(f)}<span class="ext">{extOf(f)}</span>{/if}

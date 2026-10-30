@@ -40,7 +40,7 @@ pub fn pointer_away(rects: &[Rect], x: i32, y: i32) -> bool { !rects.iter().any(
 static WATCH: AtomicU64 = AtomicU64::new(0);
 
 fn rect_of(w: &WebviewWindow) -> Option<Rect> {
-    let (p, s) = (w.outer_position().ok()?, w.outer_size().ok()?);
+    let (p, s) = (w.inner_position().ok()?, w.inner_size().ok()?);
     Some(Rect { x: p.x, y: p.y, w: s.width as i32, h: s.height as i32 })
 }
 
@@ -69,7 +69,7 @@ fn watchdog(app: AppHandle, dock: WebviewWindow) {
 #[tauri::command]
 pub async fn magnify_show(app: AppHandle, window: WebviewWindow, x: f64, y: f64, w: f64, h: f64) {
     watchdog(app.clone(), window.clone());
-    let (Some(m), Ok(pos), Ok(s)) = (self::window(&app), window.outer_position(), window.scale_factor()) else { return };
+    let (Some(m), Ok(pos), Ok(s)) = (self::window(&app), window.inner_position(), window.scale_factor()) else { return };
     let _ = m.set_position(PhysicalPosition::new(pos.x + (x * s).round() as i32, pos.y + (y * s).round() as i32));
     let _ = m.set_size(PhysicalSize::new((w * s).round().max(1.0) as u32, (h * s).round().max(1.0) as u32));
     let _ = m.show();

@@ -7,7 +7,7 @@
 </script>
 
 <OptionsPopover title="Mirror" values={settings} save={(p) => save(p as Partial<MirrorSettings>)} options={[
-  { type: 'choice', key: 'shape', label: 'Shape', choices: [{ value: 'circle', label: 'Circle' }, { value: 'rect', label: 'Rectangle' }] },
+  { type: 'choice', key: 'shape', label: 'Shape', choices: [{ value: 'circle', label: 'Circle' }, { value: 'square', label: 'Square' }, { value: 'rect', label: 'Rectangle' }] },
   { type: 'toggle', key: 'flip', label: 'Flip like a mirror' },
   { type: 'range', key: 'brightness', label: 'Brightness', min: 50, max: 200, unit: '%' },
   { type: 'range', key: 'contrast', label: 'Contrast', min: 50, max: 200, unit: '%' },

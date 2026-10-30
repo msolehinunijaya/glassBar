@@ -16,7 +16,8 @@
   const ocr = $derived(ocrW?.settings ?? {});
   const picking = $derived(view?.purpose === 'window' || view?.purpose === 'scroll');
   const k = () => (img && innerWidth ? img.naturalWidth / innerWidth : devicePixelRatio); // screenshot px per CSS px
-  const hint = $derived(!view ? '' : view.purpose === 'color' ? 'Click to copy a colour · arrows to nudge · wheel to zoom'
+  const hint = $derived(!view ? '' : view.purpose === 'display' ? 'Click a display to capture it (or press its number)'
+    : view.purpose === 'color' ? 'Click to copy a colour · arrows to nudge · wheel to zoom'
     : view.purpose === 'ocr'
     ? `Drag to grab text · ${ocr.mode ?? 'text'}`
     : view.purpose === 'region' ? 'Drag to select an area'
@@ -42,6 +43,14 @@
     return () => { off.then((f) => f()); };
   });
 
+  // The hint sits at the top of the display with the pointer (the overlay may span several).
+  const hintAt = $derived.by(() => {
+    if (!view?.displays?.length) return null;
+    const c = view.cursor;
+    const d = (c && view.displays.find(([x, y, w, h]) => c[0] >= x && c[0] < x + w && c[1] >= y && c[1] < y + h)) ?? view.displays[0];
+    const s = k();
+    return { x: (d[0] + d[2] / 2) / s, y: d[1] / s + 18 };
+  });
   const rect = $derived(start && cur ? {
     x: Math.min(start.x, cur.x), y: Math.min(start.y, cur.y),
     w: Math.abs(cur.x - start.x), h: Math.abs(cur.y - start.y),
@@ -69,11 +78,28 @@
   }
   function down(e: PointerEvent) {
     if (e.button === 2) return cancel();
+    if (pickingDisplay) { const i = displayAt(e.clientX, e.clientY); if (i != null) finishDisplay(i); return; }
     if (color) { move(e); pickColor(); return; }
     if (picking) { const w = windowAt(e.clientX, e.clientY); if (w) finishWindow(w); return; }
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     start = cur = { x: e.clientX, y: e.clientY };
   }
+  // ---- Full screen with several displays: pick one (hover highlights it) or all of them ----
+  const pickingDisplay = $derived(view?.purpose === 'display');
+  let hoverDisplay = $state<number | null>(null);
+  const displayAt = (x: number, y: number) => {
+    const s = k();
+    const i = view?.displays.findIndex(([dx, dy, dw, dh]) => x * s >= dx && x * s < dx + dw && y * s >= dy && y * s < dy + dh) ?? -1;
+    return i >= 0 ? i : null;
+  };
+  async function finishDisplay(i: number | 'all') {
+    if (!view || !img) return;
+    const [x, y, w, h] = i === 'all' ? [0, 0, img.naturalWidth, img.naturalHeight] : view.displays[i];
+    hoverDisplay = null;
+    await ipc.ocrSnapFinish(x, y, w, h, null).catch(() => {});
+  }
+  const displayBox = $derived(pickingDisplay && hoverDisplay != null && view ? (() => { const s = k(); const [x, y, w, h] = view.displays[hoverDisplay]; return { x: x / s, y: y / s, w: w / s, h: h / s }; })() : null);
+
   // ---- Colour picker: a loupe over the frozen screen ----
   const color = $derived(view?.purpose === 'color');
   let px: ImageData | null = null;
@@ -139,16 +165,26 @@
   function wheel(e: WheelEvent) { if (color) zoom = Math.min(20, Math.max(6, zoom + (e.deltaY < 0 ? 2 : -2))); }
 
   function move(e: PointerEvent) {
+    if (pickingDisplay) { hoverDisplay = displayAt(e.clientX, e.clientY); return; }
     if (color) { const s = k(); pos = { x: Math.floor(e.clientX * s), y: Math.floor(e.clientY * s) }; return; }
     if (picking) hover = windowAt(e.clientX, e.clientY);
     else if (start) cur = { x: e.clientX, y: e.clientY };
   }
 </script>
 
-<svelte:window onkeydown={(e) => { if (e.key === 'Escape') cancel(); else colorKey(e); }} />
+<svelte:window onkeydown={(e) => {
+  if (e.key === 'Escape') return cancel();
+  if (pickingDisplay && view) {
+    if (e.key.toLowerCase() === 'a') return finishDisplay('all');
+    const n = parseInt(e.key, 10);
+    if (n >= 1 && n <= view.displays.length) return finishDisplay(n - 1);
+    return;
+  }
+  colorKey(e);
+}} />
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="snap" class:picking class:color style:background-image={view ? `url(${view.img})` : 'none'}
+<div class="snap" class:picking={picking || pickingDisplay} class:color style:background-image={view ? `url(${view.img})` : 'none'}
      onpointerdown={down} onpointermove={move} onwheel={wheel} onpointerup={() => { if (!picking) finishRect(); }} oncontextmenu={(e) => e.preventDefault()}>
   {#if view}<img bind:this={img} src={view.img} alt="" class="probe" />{/if}
   {#if box && view}
@@ -163,7 +199,24 @@
       <div class="val"><i style:background={hex} style:color={textOn(hex)}></i><b>{hex}</b><span>{formatColor(hex, 'rgb').slice(4, -1)}</span></div>
     </div>
   {/if}
-  {#if view}<div class="hint">{hint} · Esc to cancel</div>{/if}
+  {#if displayBox && view && hoverDisplay != null}
+    <div class="sel disp" style:left="{displayBox.x}px" style:top="{displayBox.y}px" style:width="{displayBox.w}px" style:height="{displayBox.h}px"
+         style:background-image="url({view.img})" style:background-position="{-displayBox.x}px {-displayBox.y}px">
+      <span class="tag big">{view.displayNames[hoverDisplay] ?? `Display ${hoverDisplay + 1}`}</span>
+    </div>
+  {/if}
+  {#if pickingDisplay && view && hintAt}
+    <!-- Above the hint: one button per display, and All displays. -->
+    <div class="dpick" style:left="{hintAt.x}px" style:top="{hintAt.y + 46}px" role="group" aria-label="Choose a display">
+      {#each view.displays as _, i (i)}
+        <button onpointerdown={(e) => e.stopPropagation()} onclick={() => finishDisplay(i)} onpointerenter={() => (hoverDisplay = i)}>
+          <b>{i + 1}</b>{(view.displayNames[i] ?? '').replace(/^Display \d+ · /, '')}
+        </button>
+      {/each}
+      <button class="all" onpointerdown={(e) => e.stopPropagation()} onclick={() => finishDisplay('all')}><b>A</b>All displays</button>
+    </div>
+  {/if}
+  {#if view}<div class="hint" style:left={hintAt ? `${hintAt.x}px` : null} style:top={hintAt ? `${hintAt.y}px` : null}>{hint} · Esc to cancel</div>{/if}
 </div>
 
 <style>
@@ -172,6 +225,16 @@
   :global(html[data-window='snap']), :global(html[data-window='snap'] body) { margin: 0; background: #000; overflow: hidden; }
   .snap { position: fixed; inset: 0; cursor: crosshair; background-size: 100% 100%; user-select: none; }
   .snap.picking { cursor: pointer; }
+  /* Picking a display: the highlighted one shows bright with its name in the middle. */
+  .sel.disp { outline-width: 3px; display: grid; place-items: center; }
+  .tag.big { position: static; max-width: none; padding: 8px 16px; font-size: 15px; border-radius: 12px; }
+  .dpick { position: absolute; transform: translateX(-50%); display: flex; gap: 6px; padding: 6px; border-radius: 14px;
+           background: rgba(20, 20, 24, 0.8); backdrop-filter: blur(var(--blur)); z-index: 2; }
+  .dpick button { display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 12px; border-radius: 10px; color: #fff;
+                  font: 500 12.5px Poppins, 'Segoe UI Variable', sans-serif; background: rgba(255, 255, 255, 0.08); cursor: pointer; white-space: nowrap; }
+  .dpick button:hover { background: #0a84ff; }
+  .dpick b { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 6px; background: rgba(255, 255, 255, 0.18); font-size: 11px; }
+  .dpick .all { background: rgba(10, 132, 255, 0.35); }
   /* Colour picking: the screen as it is (no dimming), a fine crosshair, the loupe beside it. */
   .snap.color::before { display: none; }
   .loupe { position: absolute; pointer-events: none; display: flex; flex-direction: column; align-items: center; gap: 6px; }

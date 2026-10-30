@@ -19,6 +19,9 @@
   import Feedback from '../widgets/ocr/Feedback.svelte';
   import type { CaptureDone } from '../lib/ipc';
   import SearchPanel from '../widgets/start/SearchPanel.svelte';
+  import WhatsNew from './WhatsNew.svelte';
+  /** "__whatsnew:<version>": the card after an update. */
+  const WHATS_NEW = '__whatsnew:';
   import { SEARCH_PANEL } from '../widgets/start/search';
 
   // Which widget's panel is showing. Cleared when Rust hides the popup, so hidden
@@ -126,6 +129,8 @@
       {@const snd = soundOf(qs.settings as never)}
       <SoundPanel settings={snd} save={(p) => updateWidgetSettings(qs.instance, { sound: { ...snd, ...p } })} />
     {/if}
+  {:else if instance?.startsWith(WHATS_NEW)}
+    <WhatsNew version={instance.slice(WHATS_NEW.length)} {close} />
   {:else if instance?.startsWith(SEARCH_PANEL)}
     <SearchPanel {close} />
   {:else if instance?.startsWith(WEATHER)}

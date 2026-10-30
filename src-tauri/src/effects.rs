@@ -156,7 +156,7 @@ fn main_dock() -> Option<(Rect, Edge)> {
     use tauri::Manager;
     let app = APP.get()?;
     let w = app.get_webview_window("bar")?;
-    let (p, s) = (w.outer_position().ok()?, w.outer_size().ok()?);
+    let (p, s) = (w.inner_position().ok()?, w.inner_size().ok()?);
     let edge = app.state::<crate::AppState>().config.lock().unwrap().profile().bar.edge;
     Some((Rect { x: p.x, y: p.y, w: s.width as i32, h: s.height as i32 }, edge))
 }
@@ -171,7 +171,7 @@ pub fn effects_targets(app: tauri::AppHandle, window: WebviewWindow, t: EffectTa
     use tauri::Manager;
     if !crate::docks::is_dock(window.label()) { return; } // Settings' dock preview isn't a dock
     let edge = app.state::<crate::AppState>().config.lock().unwrap().profile().bar.edge;
-    let (Ok(pos), Ok(s)) = (window.outer_position(), window.scale_factor()) else { return };
+    let (Ok(pos), Ok(s)) = (window.inner_position(), window.scale_factor()) else { return };
     let o = (pos.x, pos.y);
     let was = effect_now();
     TARGETS.lock().unwrap().get_or_insert_with(HashMap::new).insert(window.label().to_string(), Targets {

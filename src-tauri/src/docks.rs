@@ -116,7 +116,7 @@ pub fn place_one(app: &AppHandle, label: &str) {
     if bar.auto_hide && !revealed(label) { return; }
     let (mut r, _) = rect_on(&bar, &mon, bar.length, label);
     // Keep where Windows put it across the edge (it may have nudged it when reserving).
-    if let Ok(p) = w.outer_position() {
+    if let Ok(p) = w.inner_position() {
         match bar.edge { crate::config::Edge::Top | crate::config::Edge::Bottom => r.y = p.y, _ => r.x = p.x }
     }
     set_rect(&w, r);
@@ -157,7 +157,7 @@ fn slide(app: &AppHandle, label: &str, to: Rect, show: bool) {
     let Some(w) = app.get_webview_window(label) else { return };
     let _ = w.emit_to(label, "bar:away", !show);
     if show { shell().raise_top(&w); }
-    let from = w.outer_position().map(|p| (p.x, p.y)).unwrap_or((to.x, to.y));
+    let from = w.inner_position().map(|p| (p.x, p.y)).unwrap_or((to.x, to.y));
     // ponytail: one slide counter for all copies; a second dock sliding at the same moment snaps instead.
     let gen = SLIDE.fetch_add(1, Ordering::SeqCst) + 1;
     std::thread::spawn(move || {
