@@ -56,6 +56,7 @@ fn collect(app: &AppHandle) -> Vec<Due> {
     v.extend(crate::widgets::focus::due_items(app));
     v.extend(crate::widgets::solat::due_items(app));
     v.extend(crate::widgets::water::due_items(app));
+    v.extend(crate::widgets::countdown::due_items(app));
     // Due "now" so it sorts after anything else that is due (alerts go first).
     v.push(Due {
         key: format!("house:{}", chrono::Local::now().format("%Y-%m-%d")),

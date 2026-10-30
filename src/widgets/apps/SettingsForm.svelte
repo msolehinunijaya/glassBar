@@ -39,6 +39,7 @@
 <OptionsPopover title="Start & Search" values={settings} save={(p) => save(p as Partial<AppsSettings>)} options={[
   { type: 'choice', key: 'startPlacement', label: 'Placement', choices: [{ value: 'inline', label: 'Left of apps' }, { value: 'after', label: 'Right of apps' }, { value: 'separate', label: 'Own widget' }] },
   { type: 'choice', key: 'searchStyle', label: 'Search', choices: [{ value: 'icon', label: 'Icon' }, { value: 'bar', label: 'Search bar' }] },
+  { type: 'choice', key: 'searchOpens', label: 'Search opens', choices: [{ value: 'glassbar', label: 'GlassBar', hint: 'Calculator, units, currency and apps as you type' }, { value: 'windows', label: 'Windows', hint: 'Windows Search (Win+S)' }] },
   { type: 'choice', key: 'startColor', label: 'Windows logo colour', menu: true, choices: [
     { value: 'blue', label: 'Windows blue' },
     { value: 'accent', label: 'Accent colour', hint: 'Follows Settings > Appearance' },

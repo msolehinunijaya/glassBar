@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.6.7 — 2026-10-30
+
+### New
+- **Mirror widget:** your webcam as a mirror, one click away on the dock. Choose a circle or a rectangle, flip it like a real mirror, and adjust the brightness, zoom and a ring light that brightens your face in a dark room. Take a photo (with an optional 3-second timer) or record a video. They save what you see: photos go to Pictures › GlassBar Mirror, videos to Videos › GlassBar Mirror. More options: contrast, a grid, and which camera to use. The camera is on only while the panel is open.
+- **Recycle Bin widget:** a can on the dock that shows at a glance whether the bin is full, and how much is in it. Drop files on it to move them to the Recycle Bin (never deleted outright), with Undo. Its panel lists what you deleted most recently with a Restore button for each, and empties the bin after asking. Right-click: open, empty (Windows asks first), restore the last item. It updates within a couple of seconds when you delete something anywhere.
+- **Countdowns widget:** days to Hari Raya, Merdeka, Tahun Baru Cina, a deadline or any date, with a progress ring on the dock. Start from a preset (Hijri and Chinese dates are calculated, so they may differ by a day) or set your own date and time. Repeating ones move to next year by themselves. A notification on the day, and a day before if you like.
+- **Quick Settings › Keep awake:** one tile stops the PC sleeping (and the screen dimming) for 30 minutes to 4 hours or until you turn it off. A cup on the dock shows it's on; it always ends when GlassBar closes.
+- **Quick Settings › Microphone:** mute every app's microphone with one tile. Its page has the mic level, the input device, and which apps are using the microphone or camera right now. On the dock, a muted mic shows red, and an orange dot (mic) or green dot (camera) shows when an app is using it. Click the mic there to mute or unmute.
+- **Quick Settings › Bluetooth battery:** connected headphones, phones and other devices that report their battery show it in the panel and on the Bluetooth page, with one notification when one drops to 15 %.
+- **Capture › Colour picker:** a fifth button and a hotkey (Win+Shift+C, or Ctrl+Alt+C when that's taken) freeze the screen and show a magnifier. Click a pixel and its colour is copied as HEX, RGB or HSL; the last 16 colours are kept.
+- **Waktu Solat › Hijri date and Tasbih:** the panel shows today's Hijri date in Malay (JAKIM's, or calculated), turning to the next day at Maghrib. A Tasbih counter sits beside the prayer pill (click to count, scroll down to undo, right-click for target and dhikr) and in the panel, with Tasbih Fatimah (33 · 33 · 34) and reset by holding. Both can be switched off.
+- **Search that calculates:** the Search button now opens GlassBar's search. Type a sum (`15% of 2400 + 18`), a conversion (`5 km to mi`, `100 f to c`) or money (`100 usd to myr`) and the answer is there as you type; Enter copies it. It also finds installed apps, and passes anything else to Windows Search or the web. Choose Windows Search instead in the App Launcher's Start & Search options.
+
 ## 0.6.6 — 2026-10-29
 
 ### Changed

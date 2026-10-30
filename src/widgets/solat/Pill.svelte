@@ -12,11 +12,18 @@
   import { countdown } from './next';
   import { liveSolat } from './solat.svelte';
   import { prayerState } from './state';
+  import TasbihPart from './TasbihPart.svelte';
+  import { hijriNow, MONTHS_MS } from './hijri';
+  import { ipc } from '../../lib/ipc';
 
-  let { instance, size, settings }: PillProps<SolatSettings> = $props();
+  let { instance, size, settings, vertical }: PillProps<SolatSettings> = $props();
   const s = liveSolat(() => settings);
   const st = $derived(s.info ? prayerState(s.info.days, s.now, settings.ackKey || null, settings.showImsak) : null);
   const at = (ms: number) => new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' }).format(ms);
+
+  // "12 Jamadilawal" as the large pill's second line (Settings: Hijri date on the dock).
+  const hijri = $derived(settings.hijriOnDock && s.info ? hijriNow(s.info.days, s.now) : null);
+  const openPanel = (el: HTMLElement) => ipc.popupOpen(instance, el.closest('.solatwrap')!.getBoundingClientRect(), 320, 420);
 
   function ack(e: Event) {
     e.stopPropagation();
@@ -25,6 +32,7 @@
   }
 </script>
 
+<div class="solatwrap" class:vertical class:joined={settings.tasbihOnDock}>
 <div class="pill solat {st?.phase ?? ''}" title={s.error || (st ? `${st.next.name} at ${at(st.next.at)}` : 'Waktu Solat')}>
   {#if st && st.phase !== 'reached'}<span class="fill" style:transform="scaleX({st.progress})"></span>{/if}
   <Moon size={15} />
@@ -35,7 +43,7 @@
     <!-- Stacked: name on top, countdown below (compact on the dock). -->
     <span class="stack">
       <span class="name">{st.next.name}</span>
-      {#if size !== 'small'}<span class="t">in {countdown(st.next.at - s.now)}{#if size === 'large'}<span class="dim">&nbsp;·&nbsp;{at(st.next.at)}</span>{/if}</span>{/if}
+      {#if size !== 'small'}<span class="t">in {countdown(st.next.at - s.now)}{#if size === 'large'}<span class="dim">&nbsp;·&nbsp;{hijri ? `${hijri.h.d} ${MONTHS_MS[hijri.h.m - 1]}` : at(st.next.at)}</span>{/if}</span>{/if}
     </span>
   {:else}
     <span class="dim">–</span>
@@ -46,8 +54,17 @@
             aria-label="Stop the adhan" title="Stop the adhan"><Square size={10} fill="currentColor" /></button>
   {/if}
 </div>
+{#if settings.tasbihOnDock}<TasbihPart {instance} {settings} {vertical} open={openPanel} />{/if}
+</div>
 
 <style>
+  .solatwrap { display: flex; align-items: stretch; gap: 2px; height: 100%; }
+  .solatwrap.vertical { flex-direction: column; height: auto; }
+  /* Joined segments (as Quick Settings): the inner corners are nearly square. */
+  .joined > :global(:first-child) { border-top-right-radius: calc(4px * var(--rs)); border-bottom-right-radius: calc(4px * var(--rs)); }
+  .joined > :global(:last-child) { border-top-left-radius: calc(4px * var(--rs)); border-bottom-left-radius: calc(4px * var(--rs)); }
+  .joined.vertical > :global(:first-child) { border-radius: var(--r-inner) var(--r-inner) calc(4px * var(--rs)) calc(4px * var(--rs)); }
+  .joined.vertical > :global(:last-child) { border-radius: calc(4px * var(--rs)) calc(4px * var(--rs)) var(--r-inner) var(--r-inner); }
   .solat { position: relative; overflow: hidden; }
   .solat > :not(.fill) { position: relative; z-index: 1; }
   .fill {

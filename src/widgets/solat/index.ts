@@ -6,17 +6,20 @@ import SettingsForm from './SettingsForm.svelte';
 
 /** azanSound: what plays at prayer time: the opening of the adzan, all of it, or the normal chime.
  *  pauseMusic: pause other playing media during the adzan and resume it afterwards. */
-export interface SolatSettings { zone: string; showImsak: boolean; alerts: boolean; azanSound: 'short' | 'full' | 'chime'; azanFile: string; pauseMusic: boolean; /** Adzan volume, 0-100 %. */ azanVolume: number; ackKey: string }
+/** showHijri / hijriOnDock: the Hijri date in the panel / as the large pill's second line.
+ *  showTasbih / tasbihOnDock: the Tasbih counter in the panel / joined to the prayer pill.
+ *  tasbihTarget and dhikr: what is counted (Tasbih Fatimah has its own 33 · 33 · 34). */
+export interface SolatSettings { showHijri: boolean; hijriOnDock: boolean; showTasbih: boolean; tasbihOnDock: boolean; tasbihTarget: number; dhikr: import('./tasbih').DhikrKey; zone: string; showImsak: boolean; alerts: boolean; azanSound: 'short' | 'full' | 'chime'; azanFile: string; pauseMusic: boolean; /** Adzan volume, 0-100 %. */ azanVolume: number; ackKey: string }
 
 export default defineWidget<SolatSettings>({
   id: 'solat',
   name: 'Waktu Solat',
-  description: 'Prayer times (JAKIM zones, worldwide fallback), countdown, alerts',
+  description: 'Prayer times (JAKIM zones, worldwide fallback), countdown, alerts, Hijri date and a Tasbih counter',
   category: 'info',
   icon: Moon,
   sizes: ['small', 'medium', 'large'],
   defaultSize: 'medium',
-  defaults: { zone: 'auto', showImsak: false, alerts: true, azanSound: 'short', azanFile: '', pauseMusic: true, azanVolume: 100, ackKey: '' },
+  defaults: { showHijri: true, hijriOnDock: false, showTasbih: true, tasbihOnDock: true, tasbihTarget: 33, dhikr: 'subhanallah', zone: 'auto', showImsak: false, alerts: true, azanSound: 'short', azanFile: '', pauseMusic: true, azanVolume: 100, ackKey: '' },
   Pill,
   Popup: { component: Popup, width: 320, height: 420 },
   SettingsForm,

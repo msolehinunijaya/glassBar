@@ -251,7 +251,7 @@ fn recycle_cached() -> Result<crate::platform::RecycleInfo, String> {
     *BIN.lock().unwrap() = Some((std::time::Instant::now(), i.clone()));
     Ok(i)
 }
-fn recycle_stale() { *BIN.lock().unwrap() = None; }
+pub fn recycle_stale() { *BIN.lock().unwrap() = None; }
 
 /// Empty the bin (all drives, or one). The panel has already asked the user.
 #[tauri::command]

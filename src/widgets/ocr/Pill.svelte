@@ -1,7 +1,7 @@
 <script lang="ts">
   // Four buttons on the dock: Screenshot, Recording, OCR Snap, Clipboard. Each opens the
   // panel on its tab. Drag one sideways (or right-click › Move) to change their order.
-  import { Camera, ClipboardList, ScanText, Square, Video } from '@lucide/svelte';
+  import { Camera, ClipboardList, Pipette, ScanText, Square, Video } from '@lucide/svelte';
   import { flip } from 'svelte/animate';
   import { updateWidgetSettings } from '../../lib/config.svelte';
   import { events, ipc } from '../../lib/ipc';
@@ -18,14 +18,17 @@
   let { instance, settings, vertical }: PillProps<OcrSettings> = $props();
   // The hotkey actually registered (the default may have fallen back to Ctrl+Alt+T).
   let activeKey = $state('');
+  let colorKey = $state('');
   $effect(() => { settings.hotkey; ipc.ocrHotkeyStatus().then((s) => (activeKey = s.hotkey)).catch(() => {}); });
-  const ALL: CaptureTab[] = ['shot', 'record', 'ocr', 'clip'];
+  $effect(() => { settings.colorHotkey; ipc.colorHotkeyStatus().then((s) => (colorKey = s.hotkey)).catch(() => {}); });
+  const ALL: CaptureTab[] = ['shot', 'record', 'ocr', 'clip', 'color'];
   const STYLES = [['tile', 'Colour'], ['plain', 'Simple'], ['outline', 'Outline']] as const;
   const meta = $derived({
     shot: { icon: Camera, label: 'Screenshot' },
     record: { icon: Video, label: 'Screen recording' },
     ocr: { icon: ScanText, label: `OCR Snap (${hotkeyLabel(activeKey || settings.hotkey)})` },
     clip: { icon: ClipboardList, label: 'Clipboard history' },
+    color: { icon: Pipette, label: `Colour picker (${hotkeyLabel(colorKey || settings.colorHotkey || 'Super+Shift+C')})` },
   } as const);
   // Saved order, plus any tab the saved order doesn't know yet.
   const saved = $derived([...(settings.icons ?? []).filter((k) => ALL.includes(k)), ...ALL.filter((k) => !(settings.icons ?? []).includes(k))]);
@@ -39,7 +42,7 @@
 
   // Hovering a button shows its quick menu (screenshot kinds, recorders, OCR, last copies).
   const hp = hoverPanel(300);
-  const HEIGHT: Record<CaptureTab, number> = { shot: 150, record: 150, ocr: 130, clip: 300 };
+  const HEIGHT: Record<CaptureTab, number> = { shot: 150, record: 150, ocr: 130, clip: 300, color: 170 };
   let row = $state<HTMLElement>();
   let dragging = $state<CaptureTab | null>(null);
   let swallow = false;

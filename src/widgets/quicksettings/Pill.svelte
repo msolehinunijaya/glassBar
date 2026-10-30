@@ -16,6 +16,7 @@
   import SoundPart from '../sound/SoundPart.svelte';
   import { BATTERY_PANEL, soundOf } from '../sound/settings';
   import { reallyLeft } from '../../lib/hoverPanel';
+  import DockMarks from './DockMarks.svelte';
 
   let { instance, size, settings, vertical }: PillProps<QuickSettings> = $props();
   // Tray icons on the dock (switch in the panel), collapsed behind a chevron by default.
@@ -90,6 +91,7 @@
   {/if}
   <div class="side">
     <span class="grid">
+      <DockMarks mode={settings.micOnDock} />
       {#if airplane}
         <Plane size={16} />
       {:else}
@@ -133,6 +135,7 @@
     </span>
     <span class="sep"></span>
   {/if}
+  <DockMarks mode={settings.micOnDock} />
   {#if lang}<b class="lang" title={lang.name}>{lang.code}</b>{/if}
   {#if airplane}
     <Plane size={16} />

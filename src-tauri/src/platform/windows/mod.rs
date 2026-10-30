@@ -1,6 +1,8 @@
 //! Windows implementation of the platform traits.
 mod appbar;
 mod audio;
+mod awake;
+mod btbattery;
 mod display;
 mod effects;
 mod files;
@@ -10,6 +12,7 @@ mod hotspot;
 mod lang;
 mod osd;
 mod power;
+mod privacy;
 mod packages;
 mod powermode;
 mod promoted;
@@ -118,6 +121,15 @@ impl Shell for WinShell {
         let inputs: Vec<INPUT> = keys.iter().map(|&k| key(k, false)).chain(keys.iter().rev().map(|&k| key(k, true))).collect();
         unsafe { SendInput(&inputs, std::mem::size_of::<INPUT>() as i32); }
     }
+    fn type_text(&self, text: &str) {
+        use windows::Win32::UI::Input::KeyboardAndMouse::*;
+        let key = |c: u16, up: bool| INPUT {
+            r#type: INPUT_KEYBOARD,
+            Anonymous: INPUT_0 { ki: KEYBDINPUT { wScan: c, dwFlags: KEYEVENTF_UNICODE | if up { KEYEVENTF_KEYUP } else { KEYBD_EVENT_FLAGS(0) }, ..Default::default() } },
+        };
+        let inputs: Vec<INPUT> = text.encode_utf16().flat_map(|c| [key(c, false), key(c, true)]).collect();
+        unsafe { SendInput(&inputs, std::mem::size_of::<INPUT>() as i32); }
+    }
     fn keyboard_layouts(&self) -> Vec<KeyboardLayout> { lang::list() }
     fn keyboard_layout_set(&self, id: isize) -> bool { lang::set(id) }
     fn time_12h(&self) -> Option<bool> { lang::time_12h() }
@@ -207,6 +219,12 @@ impl Audio for WinAudio {
     fn watch(&self, f: Box<dyn Fn(AudioState) + Send>, level: Box<dyn Fn(f32, bool) + Send>) { audio::watch(f, level) }
     fn peak(&self) -> Option<f32> { audio::peak() }
     fn loopback(&self, f: &mut dyn FnMut(&[f32], u32) -> bool) -> Res<()> { audio::loopback(f) }
+    fn mic_state(&self) -> Res<MicState> { audio::mic_state() }
+    fn mic_set_mute(&self, m: bool) -> Res<()> { audio::mic_set_mute(m) }
+    fn mic_set_volume(&self, v: f32) -> Res<()> { audio::mic_set_volume(v) }
+    fn watch_mic(&self, f: Box<dyn Fn() + Send>) { audio::watch_mic(f) }
+    fn using(&self, what: &str) -> Vec<UsingApp> { privacy::in_use(what) }
+    fn watch_using(&self, f: Box<dyn Fn() + Send>) { privacy::watch(f) }
 }
 
 impl Media for WinMedia {
@@ -254,6 +272,8 @@ impl Power for WinPower {
     fn saver_on(&self) -> Option<bool> { powermode::saver_on() }
     fn other_plan(&self) -> Option<String> { powermode::other_plan() }
     fn use_balanced_plan(&self) -> Res<()> { powermode::use_balanced_plan() }
+    fn keep_awake(&self, display: bool) -> Res<()> { awake::set(display) }
+    fn allow_sleep(&self) { awake::clear() }
 }
 
 impl Gpu for WinGpu {
@@ -273,4 +293,8 @@ impl Files for WinFiles {
     fn drag_out(&self, hwnd: isize, path: &str) -> Res<()> { files::drag_out(hwnd, path) }
     fn recycle_info(&self) -> Res<RecycleInfo> { files::recycle_info() }
     fn recycle_empty(&self, root: Option<&str>) -> Res<()> { files::recycle_empty(root) }
+    fn recycle_empty_ask(&self) -> Res<()> { files::recycle_empty_ask() }
+    fn recycle_items(&self) -> Res<Vec<BinItem>> { files::recycle_items() }
+    fn recycle_restore(&self, keys: &[String]) -> Res<u32> { files::recycle_restore(keys) }
+    fn watch_recycle(&self, f: Box<dyn Fn() + Send>) { files::watch_recycle(f) }
 }

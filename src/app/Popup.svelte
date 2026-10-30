@@ -18,6 +18,8 @@
   import { parseFolderKey } from '../widgets/folders/folders';
   import Feedback from '../widgets/ocr/Feedback.svelte';
   import type { CaptureDone } from '../lib/ipc';
+  import SearchPanel from '../widgets/start/SearchPanel.svelte';
+  import { SEARCH_PANEL } from '../widgets/start/search';
 
   // Which widget's panel is showing. Cleared when Rust hides the popup, so hidden
   // panels stop their timers. (Rust sends hide before the next show, so no race.)
@@ -124,6 +126,8 @@
       {@const snd = soundOf(qs.settings as never)}
       <SoundPanel settings={snd} save={(p) => updateWidgetSettings(qs.instance, { sound: { ...snd, ...p } })} />
     {/if}
+  {:else if instance?.startsWith(SEARCH_PANEL)}
+    <SearchPanel {close} />
   {:else if instance?.startsWith(WEATHER)}
     <WeatherPanel />
   {:else if instance === GALLERY}

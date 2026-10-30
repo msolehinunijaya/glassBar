@@ -5,8 +5,17 @@
   import { ipc } from '../../lib/ipc';
 
   import { logoFills, type LogoColor } from './logo';
+  import { SEARCH_PANEL } from './search';
 
-  let { searchStyle = 'icon', color = 'blue', custom = '#0a84ff' }: { searchStyle?: 'icon' | 'bar'; color?: LogoColor; custom?: string } = $props();
+  // searchOpens: 'glassbar' = GlassBar's search panel (maths, units, currency, apps) for the
+  // widget `instance`; 'windows' = Windows Search (Win+S).
+  let { searchStyle = 'icon', color = 'blue', custom = '#0a84ff', searchOpens = 'glassbar', instance = '' }:
+    { searchStyle?: 'icon' | 'bar'; color?: LogoColor; custom?: string; searchOpens?: 'glassbar' | 'windows'; instance?: string } = $props();
+  function search(e: MouseEvent) {
+    e.stopPropagation();
+    if (searchOpens === 'windows' || !instance) return ipc.windowsSearch();
+    ipc.popupOpen(SEARCH_PANEL + instance, (e.currentTarget as HTMLElement).getBoundingClientRect(), 420, 360);
+  }
   const fills = $derived(logoFills(color, custom));
   const press = (f: () => Promise<void>) => (e: MouseEvent) => { e.stopPropagation(); f(); };
   const down = (e: PointerEvent) => e.stopPropagation();
@@ -21,11 +30,11 @@
   </svg>
 </button>
 {#if searchStyle === 'bar'}
-  <button class="sbar" title="Search (Win+S)" aria-label="Search" onpointerdown={down} onclick={press(ipc.windowsSearch)}>
+  <button class="sbar" title="Search (Win+S)" aria-label="Search" onpointerdown={down} onclick={search}>
     <Search size={14} /><span>Search</span>
   </button>
 {:else}
-  <button class="b" title="Search" aria-label="Search" onpointerdown={down} onclick={press(ipc.windowsSearch)}><Search size={17} /></button>
+  <button class="b" title={searchOpens === 'windows' ? 'Search' : 'Search, calculate, convert'} aria-label="Search" onpointerdown={down} onclick={search}><Search size={17} /></button>
 {/if}
 
 <style>

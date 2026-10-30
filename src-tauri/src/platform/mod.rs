@@ -14,6 +14,12 @@ pub struct RecycleInfo { pub size: u64, pub items: u64, pub drives: Vec<RecycleD
 #[serde(rename_all = "camelCase")]
 pub struct RecycleDrive { pub root: String, pub size: u64, pub items: u64, pub free: u64 }
 
+/// One item in the Recycle Bin. `id` is its parsing name inside the bin (stable while it is
+/// there); `path` is where it came from, `from` that folder, `deleted_at` Unix ms.
+#[derive(Serialize, Clone, Debug, Default, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct BinItem { pub id: String, pub name: String, pub path: String, pub from: String, pub deleted_at: i64, pub size: u64, pub folder: bool }
+
 /// Files and the Recycle Bin (Downloads widget, System Monitor).
 pub trait Files: Send + Sync {
     fn downloads_dir(&self) -> Option<String>;
@@ -25,6 +31,15 @@ pub trait Files: Send + Sync {
     fn drag_out(&self, hwnd: isize, path: &str) -> Res<()>;
     fn recycle_info(&self) -> Res<RecycleInfo>;
     fn recycle_empty(&self, root: Option<&str>) -> Res<()>;
+    /// Empty the bin with Windows' own "are you sure" dialog (Err when the user said no).
+    fn recycle_empty_ask(&self) -> Res<()>;
+    /// Every item in the bin, newest deleted first.
+    fn recycle_items(&self) -> Res<Vec<BinItem>>;
+    /// Put items back where they came from (Windows' Restore). `keys` are item ids or
+    /// original paths; returns how many were restored.
+    fn recycle_restore(&self, keys: &[String]) -> Res<u32>;
+    /// Calls `f` (debounced) whenever something enters or leaves a Recycle Bin.
+    fn watch_recycle(&self, f: Box<dyn Fn() + Send>);
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Default)]
@@ -47,6 +62,17 @@ pub struct AudioState { pub volume: f32, pub muted: bool, pub devices: Vec<Audio
 #[derive(Serialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct AudioSession { pub pid: u32, pub name: String, pub exe: String, pub volume: f32, pub muted: bool }
+
+/// The default recording device: mute, level 0..1, and the recording devices to choose from.
+#[derive(Serialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct MicState { pub muted: bool, pub volume: f32, pub devices: Vec<AudioDevice> }
+
+/// An app using the microphone or camera now: its name, program path (empty for Store
+/// apps) and since when (Unix ms).
+#[derive(Serialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct UsingApp { pub name: String, pub exe: String, pub since: i64 }
 
 #[derive(Serialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -144,6 +170,8 @@ pub trait Shell: Send + Sync {
     fn clipboard_is_private(&self) -> bool;
     /// Press keys together (in order) and release them: e.g. [LWIN] opens Start.
     fn press_keys(&self, keys: &[u16]);
+    /// Type text into whatever has the keyboard (Unicode, so any language).
+    fn type_text(&self, _text: &str) {}
     /// Installed input languages; `active` = the one in the last app you used.
     fn keyboard_layouts(&self) -> Vec<KeyboardLayout>;
     /// Windows' regional time format: Some(true) = 12-hour.
@@ -219,6 +247,15 @@ pub trait Audio: Send + Sync {
     fn peak(&self) -> Option<f32>;
     /// Capture what the speakers play, as mono chunks (see windows/audio.rs `loopback`).
     fn loopback(&self, on_chunk: &mut dyn FnMut(&[f32], u32) -> bool) -> Res<()>;
+    fn mic_state(&self) -> Res<MicState>;
+    fn mic_set_mute(&self, m: bool) -> Res<()>;
+    fn mic_set_volume(&self, v: f32) -> Res<()>;
+    /// Mic mute/level or the default recording device changed (any source).
+    fn watch_mic(&self, f: Box<dyn Fn() + Send>);
+    /// Apps using "microphone" or "webcam" right now (Windows' privacy store).
+    fn using(&self, what: &str) -> Vec<UsingApp>;
+    /// An app started or stopped using the microphone or camera.
+    fn watch_using(&self, f: Box<dyn Fn() + Send>);
 }
 
 pub trait Media: Send + Sync {
@@ -298,7 +335,9 @@ pub struct InstalledApp { pub name: String, pub path: String, pub args: String }
 pub struct WifiNetwork { pub ssid: String, pub bars: u8, pub secured: bool, pub security: String, pub connected: bool, pub saved: bool }
 
 #[derive(Serialize, Clone, Debug)]
-pub struct BtDevice { pub id: String, pub name: String, pub kind: String, pub paired: bool, pub connected: bool }
+pub struct BtDevice { pub id: String, pub name: String, pub kind: String, pub paired: bool, pub connected: bool,
+    /// Battery % when the connected device reports one to Windows.
+    pub battery: Option<u8> }
 
 pub trait Wireless: Send + Sync {
     /// (connected SSID, networks). `scan` asks the adapter for a fresh scan first.
@@ -354,6 +393,10 @@ pub trait Power: Send + Sync {
     fn other_plan(&self) -> Option<String> { None }
     /// Switch to Windows' Balanced power plan (so power modes work again).
     fn use_balanced_plan(&self) -> Res<()> { Err("Not supported".into()) }
+    /// Keep the PC awake (and the screen on, with `display`) until `allow_sleep`. Belongs to
+    /// this process: it ends when GlassBar quits or crashes.
+    fn keep_awake(&self, _display: bool) -> Res<()> { Err("Not supported".into()) }
+    fn allow_sleep(&self) {}
 }
 
 pub trait Gpu: Send + Sync {

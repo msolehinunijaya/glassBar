@@ -13,6 +13,8 @@ export interface AppsSettings {
   /** Icons shown before a "+N" chip (0 = all); hovering the launcher shows them all. */
   maxIcons: number;
   searchStyle: 'icon' | 'bar';
+  /** What the Search button opens: GlassBar's search (maths, units, currency, apps) or Windows Search. */
+  searchOpens?: 'glassbar' | 'windows';
   /** The Windows logo on the Start button: blue (as Windows), the accent, the text colour,
    *  the classic four colours, or `startCustom`. */
   startColor?: 'blue' | 'accent' | 'text' | 'classic' | 'custom';

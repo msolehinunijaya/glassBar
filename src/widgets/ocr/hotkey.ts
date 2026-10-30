@@ -1,5 +1,5 @@
-/** "Super+Shift+T" -> "Win+Shift+T" for display. */
-export const hotkeyLabel = (s: string) => (s || 'Super+Shift+T').replace(/super|meta|cmd/i, 'Win');
+/** "Super+Shift+T" -> "Win+Shift+T", "Control+Alt+C" -> "Ctrl+Alt+C" for display. */
+export const hotkeyLabel = (s: string) => (s || 'Super+Shift+T').replace(/super|meta|cmd/i, 'Win').replace(/control/i, 'Ctrl');
 
 const MODS = new Set(['Control', 'Shift', 'Alt', 'Meta']);
 
