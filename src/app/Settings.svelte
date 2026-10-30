@@ -33,6 +33,22 @@
   const sides = $derived(GAP_SIDES[bar.edge]);
   const outer = $derived(bar.gap ?? 6);
   const inner = $derived(bar.gapInner ?? outer);
+  // Length and spacing sliders: the dock follows while you drag (bar_preview moves only the
+  // window, once per frame); the config is saved once on release.
+  let live = $state<{ length?: number; gap?: number; inner?: number }>({});
+  const lenNow = $derived(live.length ?? bar.length);
+  const outerNow = $derived(live.gap ?? outer);
+  const innerNow = $derived(live.inner ?? inner);
+  let frame = 0;
+  function preview(p: { length?: number; gap?: number; inner?: number }) {
+    live = { ...live, ...p };
+    cancelAnimationFrame(frame);
+    frame = requestAnimationFrame(() => ipc.barPreview(lenNow, outerNow, innerNow).catch(() => {}));
+  }
+  function commit(f: (b: typeof bar) => void) {
+    cancelAnimationFrame(frame);
+    setBar(f).finally(() => (live = {}));
+  }
   const set = (f: (c: Config) => void) => update(f);
   const setBar = (f: (b: Config['profiles'][string]['bar']) => void) => set((c) => f(c.profiles[c.activeProfile].bar));
 
@@ -111,16 +127,17 @@
           </div>
         </div>
         <p class="hint">How wide the bar is on the left or right edge ({bar.edge === 'left' || bar.edge === 'right' ? 'in use now' : 'used when you move it there'}). Wider shows labels next to the values.</p>
-        <div class="field"><span>Length {Math.round(bar.length * 100)}%</span>
-          <input type="range" min="0.2" max="1" step="0.01" value={bar.length} onchange={(e) => setBar((b) => (b.length = +e.currentTarget.value))} />
+        <div class="field"><span>Length {Math.round(lenNow * 100)}%</span>
+          <input type="range" min="0.2" max="1" step="0.01" value={lenNow} aria-label="Dock length"
+                 oninput={(e) => preview({ length: +e.currentTarget.value })} onchange={(e) => { const v = +e.currentTarget.value; commit((b) => (b.length = v)); }} />
         </div>
-        <div class="field"><span>Space {sides[0]} the dock {outer}px</span>
-          <input type="range" min="0" max="48" step="1" value={outer} aria-label="Space between the dock and the screen edge"
-                 onchange={(e) => setBar((b) => { b.gapInner = inner; b.gap = +e.currentTarget.value; })} />
+        <div class="field"><span>Space {sides[0]} the dock {outerNow}px</span>
+          <input type="range" min="0" max="48" step="1" value={outerNow} aria-label="Space between the dock and the screen edge"
+                 oninput={(e) => preview({ gap: +e.currentTarget.value, inner })} onchange={(e) => { const v = +e.currentTarget.value; commit((b) => { b.gapInner = inner; b.gap = v; }); }} />
         </div>
-        <div class="field"><span>Space {sides[1]} the dock {inner}px</span>
-          <input type="range" min="0" max="48" step="1" value={inner} aria-label="Space between the dock and your windows"
-                 onchange={(e) => setBar((b) => (b.gapInner = +e.currentTarget.value))} />
+        <div class="field"><span>Space {sides[1]} the dock {innerNow}px</span>
+          <input type="range" min="0" max="48" step="1" value={innerNow} aria-label="Space between the dock and your windows"
+                 oninput={(e) => preview({ inner: +e.currentTarget.value })} onchange={(e) => { const v = +e.currentTarget.value; commit((b) => (b.gapInner = v)); }} />
         </div>
         <p class="hint">The first is towards the screen edge, the second towards your windows (with "Reserve screen space" on, maximised windows stop there). They follow the dock to any edge.</p>
         <label class="field"><span>Auto-hide</span>

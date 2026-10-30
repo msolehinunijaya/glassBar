@@ -86,9 +86,22 @@ pub fn popup_rect(bar: Rect, anchor: Rect, w: i32, h: i32, edge: Edge, mon: Rect
 
 /// Move first, then size: moving onto a monitor with another DPI rescales the
 /// window, and the size we set afterwards must win.
+/// Put a window's *content* exactly on `r`. A frameless window with a shadow keeps Windows'
+/// invisible resize borders (8 px left, right and bottom at 100 %, 1 px top): its outer
+/// position is the border's corner, while its size is the content's. Placing the outer corner
+/// at `r` drew the dock 8 px right and 1 px down (uneven gaps at the ends).
 pub(crate) fn set_rect(w: &WebviewWindow, r: Rect) {
-    let _ = w.set_position(PhysicalPosition::new(r.x, r.y));
     let _ = w.set_size(PhysicalSize::new(r.w.max(1) as u32, r.h.max(1) as u32));
+    let (dx, dy) = border_of(w);
+    let _ = w.set_position(PhysicalPosition::new(r.x - dx, r.y - dy));
+}
+
+/// How far a window's content sits inside its outer corner (its invisible border).
+pub(crate) fn border_of(w: &WebviewWindow) -> (i32, i32) {
+    match (w.outer_position(), w.inner_position()) {
+        (Ok(o), Ok(i)) => ((i.x - o.x).clamp(0, 32), (i.y - o.y).clamp(0, 32)),
+        _ => (0, 0),
+    }
 }
 
 pub(crate) fn monitor_rect(m: &tauri::Monitor) -> Rect {
@@ -171,7 +184,7 @@ pub fn replace(app: &AppHandle) {
     if cfg.auto_hide || cfg.floating.is_some() || !cfg.reserve_space { return; }
     let Some(r) = *RESERVED_AT.lock().unwrap() else { return };
     let Some(win) = app.get_webview_window("bar") else { return };
-    let at = win.outer_position().map(|p| (p.x, p.y)).unwrap_or((r.x, r.y));
+    let at = win.inner_position().map(|p| (p.x, p.y)).unwrap_or((r.x, r.y));
     if at != (r.x, r.y) { set_rect(&win, r); }
 }
 
@@ -297,8 +310,11 @@ pub fn cleanup(_app: &AppHandle) {
 /// Live preview while dragging a resize handle: only the window moves. The AppBar,
 /// taskbar and config are updated once, by the save on release.
 #[tauri::command]
-pub fn bar_preview(app: AppHandle, length: f64) {
-    let cfg = app.state::<AppState>().config.lock().unwrap().profile().bar.clone();
+pub fn bar_preview(app: AppHandle, length: f64, gap: Option<f64>, gap_inner: Option<f64>) {
+    let mut cfg = app.state::<AppState>().config.lock().unwrap().profile().bar.clone();
+    // Settings' spacing sliders preview where the dock will sit, too (saved on release).
+    if let Some(g) = gap { cfg.gap = g; }
+    if let Some(g) = gap_inner { cfg.gap_inner = Some(g); }
     if let (Some(win), Some((r, _))) = (app.get_webview_window("bar"), bar_rect(&app, &cfg, length.clamp(0.2, 1.0))) {
         set_rect(&win, r);
     }
@@ -335,7 +351,7 @@ pub fn reveal(app: &AppHandle, show: bool) {
     let _ = app.emit_to("bar", "bar:away", !show); // animations pause while it's away
     let (Some(win), Some((r, _)), Some(mon)) = (app.get_webview_window("bar"), bar_rect(app, &cfg, cfg.length), bar_monitor(app, cfg.monitor)) else { return };
     let to = if show { r } else { hidden_rect(r, cfg.edge, monitor_rect(&mon), PEEK) };
-    let from = win.outer_position().map(|p| (p.x, p.y)).unwrap_or((to.x, to.y));
+    let from = win.inner_position().map(|p| (p.x, p.y)).unwrap_or((to.x, to.y));
     // Sliding in is always on purpose: come out above whatever window covers the edge.
     if show { let _ = win.set_always_on_top(true); shell().raise_top(&win); }
     let gen = SLIDE.fetch_add(1, Ordering::SeqCst) + 1;
@@ -537,7 +553,7 @@ pub fn popup_width(app: AppHandle, width: f64) {
         *pl
     };
     let Some(win) = app.get_webview_window("popup") else { return };
-    let h = win.outer_size().map(|s| s.height as i32).unwrap_or(400);
+    let h = win.inner_size().map(|s| s.height as i32).unwrap_or(400);
     set_rect(&win, popup_rect(p.bar, p.anchor, p.width, h, p.edge, p.mon, p.gap));
 }
 
@@ -598,8 +614,8 @@ pub fn popup_open(app: AppHandle, window: WebviewWindow, instance: String, x: f6
         return Err("windows not ready".into());
     };
     let s = bar.scale_factor().map_err(e)?;
-    let pos = bar.outer_position().map_err(e)?;
-    let size = bar.outer_size().map_err(e)?;
+    let pos = bar.inner_position().map_err(e)?;
+    let size = bar.inner_size().map_err(e)?;
     let br = Rect { x: pos.x, y: pos.y, w: size.width as i32, h: size.height as i32 };
     let anchor = Rect { x: pos.x + (x * s) as i32, y: pos.y + (y * s) as i32, w: (w * s) as i32, h: (h * s) as i32 };
     let mon = bar.current_monitor().ok().flatten().map(|m| monitor_rect(&m)).unwrap_or(br);
@@ -657,7 +673,7 @@ fn pointer_on_hover_panel(app: &AppHandle) -> Option<bool> {
     let win = app.get_webview_window("popup")?;
     if !win.is_visible().unwrap_or(false) { return None; }
     let Some((x, y)) = shell().cursor_pos() else { return Some(true) }; // can't tell: leave it open
-    let over_panel = match (win.outer_position(), win.outer_size()) {
+    let over_panel = match (win.inner_position(), win.inner_size()) {
         (Ok(p), Ok(s)) => crate::autohide::contains(Rect { x: p.x, y: p.y, w: s.width as i32, h: s.height as i32 }, x, y, 2),
         _ => false,
     };
@@ -730,7 +746,7 @@ fn banner_rect(app: &AppHandle, w_css: f64, h_css: f64) -> Option<Rect> {
     // Where the dock is when shown (also while auto-hidden or floating).
     let r = if bar.floating.is_some() {
         let win = app.get_webview_window("bar")?;
-        let (p, z) = (win.outer_position().ok()?, win.outer_size().ok()?);
+        let (p, z) = (win.inner_position().ok()?, win.inner_size().ok()?);
         Rect { x: p.x, y: p.y, w: z.width as i32, h: z.height as i32 }
     } else { bar_rect(app, &bar, bar.length)?.0 };
     let edge = match (bar.floating, bar.edge) {

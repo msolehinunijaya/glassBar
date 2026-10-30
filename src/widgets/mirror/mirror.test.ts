@@ -7,6 +7,7 @@ describe('cropOf', () => {
   });
   it('takes the centre square for a circle', () => {
     expect(cropOf(1280, 720, 1, 'circle')).toEqual({ x: 280, y: 0, w: 720, h: 720 });
+    expect(cropOf(1280, 720, 1, 'square')).toEqual({ x: 280, y: 0, w: 720, h: 720 });
   });
   it('zooms into the centre and keeps the zoom between 1 and 3', () => {
     expect(cropOf(1000, 800, 2, 'rect')).toEqual({ x: 250, y: 200, w: 500, h: 400 });

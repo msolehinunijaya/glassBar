@@ -74,7 +74,8 @@ export interface Todo { id: number; text: string; done: boolean; dueAt: number |
 export interface Note { id: number; text: string; color: string; pinned: boolean; images: string[]; updatedAt: number; deletedAt: number | null }
 export type Phase = 'work' | 'short' | 'long';
 /** volume 0–100; goal = focus sessions a day; dimOthers dims the other dock widgets while focusing. */
-export interface PomoCfg { workMin: number; shortMin: number; longMin: number; every: number; autoStart: boolean; sound: boolean; volume: number; goal: number; dimOthers: boolean }
+export interface PomoCfg { workMin: number; shortMin: number; longMin: number; every: number; autoStart: boolean; sound: boolean; volume: number; goal: number; dimOthers: boolean;
+  /** Show the focus session across the whole dock (hover the dock for the widgets). Default on. */ focusDock?: boolean }
 export interface FocusDay { day: string; sessions: number; minutes: number; longest: number }
 /** week = the last 7 days, oldest first (today last); streak in days; longest session in minutes. */
 export interface PomoState { pomo: { phase: Phase; done: number; endsAt: number | null; pausedMs: number | null; completed: Phase | null }; cfg: PomoCfg; label: string; today: FocusDay; week: FocusDay[]; streak: number; longest: number }
@@ -116,7 +117,9 @@ export interface PowerInfo { mode: PowerMode | null; saverOn: boolean | null; ot
 export interface Sample { cpu: number; mem: number; gpu: number | null; rxBps: number; txBps: number; at: number; cpuTemp: number | null }
 export interface Rates { base: string; rates: Record<string, number>; rateTime: number; fetchedAt: number; source: string; cached: boolean }
 export interface WinRect { id: number; title: string; x: number; y: number; w: number; h: number }
-export interface SnapView { img: string; purpose: 'ocr' | 'region' | 'window' | 'scroll' | 'color'; windows: WinRect[]; /** pointer in screenshot px */ cursor: [number, number] | null }
+export interface SnapView { img: string; purpose: 'ocr' | 'region' | 'window' | 'scroll' | 'color' | 'display'; windows: WinRect[]; /** pointer in screenshot px */ cursor: [number, number] | null;
+  /** each display in the shot (screenshot px): the overlay spans them all */ displays: [number, number, number, number][];
+  /** "Display 2 · 1920×1080 · Main", one per display */ displayNames: string[] }
 export interface ShotItem { id: number; at: number; w: number; h: number; kind: 'full' | 'region' | 'window' | 'scroll'; thumb: string }
 export interface ClipItem { id: number; at: number; kind: 'text' | 'image'; text: string | null; thumb: string | null; w: number | null; h: number | null; pinned: boolean }
 export type CaptureDone =
@@ -168,7 +171,8 @@ export const ipc = {
   importConfig: (text: string) => invoke<void>('import_config', { text }),
   // bar + windows
   applyBar: () => invoke<void>('apply_bar'),
-  barPreview: (length: number) => invoke<void>('bar_preview', { length }),
+  /** Move the dock to this length (and spacing) without saving: a slider or handle being dragged. */
+  barPreview: (length: number, gap: number | null = null, gapInner: number | null = null) => invoke<void>('bar_preview', { length, gap, gapInner }),
   barDrag: (on: boolean) => invoke<void>('bar_drag', { on }),
   /** Magnification: lengthen this dock by `along` CSS px (0 = normal). */
   barGrow: (along: number) => invoke<void>('bar_grow', { along }),
@@ -196,6 +200,9 @@ export const ipc = {
   popupHide: () => invoke<void>('popup_hide'),
   popupReveal: () => invoke<void>('popup_reveal'),
   healthPong: (seq: number) => invoke<void>('health_pong', { seq }),
+  /** The version to show "What's new" for, if GlassBar was just updated. */
+  whatsNewPending: () => invoke<string | null>('whats_new_pending'),
+  whatsNewSeen: () => invoke<void>('whats_new_seen'),
   popupLeaveClose: () => invoke<void>('popup_leave_close'),
   /** Close a hover-opened panel now (a right-click on the dock); click-opened ones stay. */
   popupHoverHide: () => invoke<void>('popup_hover_hide'),
@@ -375,6 +382,7 @@ export const ipc = {
   ocrSnapStart: (purpose: SnapView['purpose'] = 'ocr') => invoke<void>('ocr_snap_start', { purpose }),
   ocrShot: () => invoke<SnapView | null>('ocr_shot'),
   ocrSnapFinish: (x: number, y: number, w: number, h: number, window: number | null = null) => invoke<string>('ocr_snap_finish', { x, y, w, h, window }),
+  /** One display: saved at once. Several: the overlay opens to pick one (or all). */
   shotFullscreen: () => invoke<number>('shot_fullscreen'),
   shotsList: () => invoke<ShotItem[]>('shots_list'),
   shotsCopy: (id: number) => invoke<void>('shots_copy', { id }),

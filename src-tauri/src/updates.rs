@@ -45,3 +45,56 @@ pub fn check_now(app: AppHandle) {
         }
     });
 }
+
+// ---- What's new: once per version, after an update ----
+
+/// The version whose "What's new" was last shown ("" on a fresh install).
+const SEEN_KEY: &str = "whatsnew:seen";
+
+/// Pure: the version to show "What's new" for. `seen` = the last version shown (None = never
+/// recorded); `had_config` = GlassBar was used before this start (a config file existed). A fresh
+/// install shows nothing; someone updating from a version before this feature sees it once.
+pub fn whats_new_for(current: &str, seen: Option<&str>, had_config: bool) -> Option<String> {
+    match seen {
+        Some(s) if s == current => None,
+        Some(_) => Some(current.to_string()),
+        None if had_config => Some(current.to_string()),
+        None => None,
+    }
+}
+
+/// Did a config file exist when GlassBar started? Set once in main() before loading it.
+pub static HAD_CONFIG: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// The version to show "What's new" for now, if any (the dock asks once it is up). A fresh
+/// install is recorded as seen at once.
+#[tauri::command]
+pub fn whats_new_pending(app: AppHandle) -> Option<String> {
+    let current = app.package_info().version.to_string();
+    let db = app.state::<Db>();
+    let c = db.lock();
+    let seen = crate::db::kv_get(&c, SEEN_KEY);
+    let show = whats_new_for(&current, seen.as_deref(), HAD_CONFIG.load(std::sync::atomic::Ordering::Relaxed));
+    if show.is_none() && seen.as_deref() != Some(current.as_str()) { crate::db::kv_set(&c, SEEN_KEY, &current); }
+    show
+}
+
+/// The card was shown: don't show it again for this version.
+#[tauri::command]
+pub fn whats_new_seen(app: AppHandle) {
+    let current = app.package_info().version.to_string();
+    let db = app.state::<Db>();
+    crate::db::kv_set(&db.lock(), SEEN_KEY, &current);
+}
+
+#[cfg(test)]
+mod whats_new_tests {
+    use super::whats_new_for;
+    #[test]
+    fn once_per_version_and_never_on_a_fresh_install() {
+        assert_eq!(whats_new_for("0.6.8", Some("0.6.7"), true).as_deref(), Some("0.6.8"));
+        assert_eq!(whats_new_for("0.6.8", Some("0.6.8"), true), None);
+        assert_eq!(whats_new_for("0.6.8", None, true).as_deref(), Some("0.6.8"), "updated from before this feature");
+        assert_eq!(whats_new_for("0.6.8", None, false), None, "fresh install");
+    }
+}

@@ -21,6 +21,9 @@
   import { jumpTarget } from '../lib/notify';
   import { PARTS, partPanel } from '../widgets/productivity/parts';
   import { livePomo } from '../widgets/pomodoro/pomo.svelte';
+  import { tickingNow } from '../lib/now.svelte';
+  import FocusDock from './FocusDock.svelte';
+  import { focusDock, focusShown } from './focusDock';
 
   const win = getCurrentWindow();
   let edit = $state(false);
@@ -37,6 +40,47 @@
   // Pomodoro "Dim other dock widgets while focusing": every widget but Productivity fades.
   const pomo = livePomo();
   const focusDim = $derived(!!pomo.state?.cfg.dimOthers && pomo.running && pomo.state?.pomo.phase === 'work');
+
+  // ---- Focus on the dock ----
+  // During a focus session the whole dock shows it (FocusDock.svelte). With the pointer on
+  // the dock the widgets come back (after 250 ms, so passing through doesn't flicker; never
+  // from the focus controls themselves); leaving it brings the focus view back after 700 ms,
+  // but not while a panel or menu opened from the dock is still open. On by default
+  // (Pomodoro settings: "Show focus across the dock").
+  const focusOn = $derived((profile().widgets.find((w) => w.id === 'productivity')?.settings as { focusDock?: boolean } | undefined)?.focusDock !== false);
+  const fNow = tickingNow(() => focusOn && pomo.running);
+  const focus = $derived(focusOn ? focusDock(pomo.state, fNow.now) : null);
+  let peek = $state(false);
+  let hovering = false;
+  let panelOpen = false;
+  let peekIn: ReturnType<typeof setTimeout> | undefined;
+  let peekOut: ReturnType<typeof setTimeout> | undefined;
+  // A session that starts while the pointer is on the dock (Start was clicked here) waits
+  // for the pointer to leave before covering the widgets.
+  let wasActive = false;
+  $effect(() => {
+    const active = !!focus;
+    if (active && !wasActive) peek = hovering;
+    wasActive = active;
+  });
+  function focusMove(e: PointerEvent) {
+    hovering = true;
+    clearTimeout(peekOut);
+    if (!focus || peek) return;
+    if ((e.target as Element).closest('.focus-acts')) { clearTimeout(peekIn); peekIn = undefined; return; }
+    peekIn ??= setTimeout(() => { peek = true; peekIn = undefined; }, 250);
+  }
+  function focusLeave() {
+    hovering = false;
+    clearTimeout(peekIn); peekIn = undefined;
+    if (!peek) return;
+    clearTimeout(peekOut);
+    peekOut = setTimeout(async function back() {
+      if (hovering) return;
+      if (panelOpen || (await ipc.menuOpen().catch(() => false))) { peekOut = setTimeout(back, 400); return; }
+      peek = false;
+    }, 700);
+  }
 
   // ---- Auto-hide ----
   // Showing and hiding are decided in Rust from the real mouse position (bar.rs
@@ -58,6 +102,8 @@
   /** Bumped by a new alert (not an update), so only a new one replays the entrance. */
   let alertSeq = $state(0);
   let leaving = $state(false);
+  // The focus view (above) steps aside for an alert.
+  const showFocus = $derived(!!focus && focusShown({ on: focusOn, active: true, peek, edit, alert: !!alert }));
   let alertTimers: ReturnType<typeof setTimeout>[] = [];
   const alertCfg = $derived({ ...ALERT_DEFAULTS, ...(store.config?.dockAlerts ?? {}) });
   const view = $derived(alert ? viewOf(alert) : null);
@@ -128,6 +174,19 @@
     alertTimers = [setTimeout(endAlert, FLASH.exit)];
   }
 
+  // After an update: "What's new" once, from the main dock, when the dock has settled.
+  onMount(() => {
+    if (!isMainDock(win.label)) return;
+    const t = setTimeout(async () => {
+      const v = await ipc.whatsNewPending().catch(() => null);
+      if (!v || !scroller) return;
+      const r = (scroller.closest('.bar') as HTMLElement).getBoundingClientRect();
+      const mid = new DOMRect(r.x + r.width / 2 - 20, r.y, 40, r.height);
+      ipc.popupOpen(`__whatsnew:${v}`, mid, 420, 520, true).catch(() => {});
+    }, 3000);
+    return () => clearTimeout(t);
+  });
+
   onMount(() => {
     const offs = [
       // Self-check: answer the core's ping through the same path the buttons use.
@@ -168,6 +227,8 @@
       }),
       events.soundPlay((s) => (s.kind === 'azan' || s.kind === 'adhan' ? (setAdhanPlaying(true), playAdzan(s.kind === 'azan' ? s.src : adhanUrl, !!s.short, !!s.pauseMusic, { pause: ipc.mediaPausePlaying, resume: ipc.mediaResume }, s.volume ?? 1, () => setAdhanPlaying(false))) : s.kind === 'connect' || s.kind === 'disconnect' ? deviceTone(s.kind === 'connect', s.volume) : s.kind === 'plug' || s.kind === 'unplug' ? chargerTone(s.kind === 'plug', s.volume) : chime(s.volume))),
       events.chargerFlip((f) => showAlert({ kind: 'charger', ...f })),
+      events.popupShow((i) => { panelOpen = i !== '__feedback'; }),
+      events.popupHide(() => { panelOpen = false; }),
       events.dockAlert(showAlert),
     ];
     return () => {
@@ -185,7 +246,7 @@
   async function onBarDown(e: PointerEvent) {
     if (e.button !== 0 || edit || (e.target as HTMLElement).closest('.slot, .handle, .edit-tools')) return;
     dragging = true;
-    const p = await win.outerPosition();
+    const p = await win.innerPosition();
     dragFrom = { x: p.x, y: p.y };
     await ipc.barDrag(true);
     win.startDragging();
@@ -203,7 +264,7 @@
     if (await ipc.mouseDown()) { dragTimer = setTimeout(finishDrag, 150); return; }
     dragging = false;
     await ipc.barDrag(false);
-    const [pos, size, scale, mons] = await Promise.all([win.outerPosition(), win.outerSize(), win.scaleFactor(), availableMonitors()]);
+    const [pos, size, scale, mons] = await Promise.all([win.innerPosition(), win.innerSize(), win.scaleFactor(), availableMonitors()]);
     if (pos.x === dragFrom.x && pos.y === dragFrom.y) return; // a click, not a drag
     const rects = mons.map((m) => ({ x: m.position.x, y: m.position.y, w: m.size.width, h: m.size.height }));
     const s = snap({ x: pos.x, y: pos.y, w: size.width, h: size.height }, rects, 48 * scale);
@@ -385,6 +446,10 @@
   let dragId = $state<string | null>(null);
   let ghost = $state<{ x: number; y: number; w: number; h: number } | null>(null);
 
+  // Press-and-hold anywhere on a widget picks it up, even on its buttons (Downloads' file,
+  // Start, the volume): the slot listens in the capture phase, before a button stops the
+  // press. Only parts with their own drag (App Launcher icons, Capture buttons, shelved files:
+  // `data-own-drag`) keep theirs outside edit mode.
   function onSlotDown(e: PointerEvent, instance: string) {
     swallowClick = false;
     if (e.button !== 0 || (e.target as HTMLElement).closest('.badge')) return;
@@ -412,16 +477,30 @@
     };
     const pickTimer = setTimeout(pick, editing ? 250 : 500);
 
+    // Where the dragged widget goes is decided by the pointer against the other widgets'
+    // *layout* centres (offsetLeft/Top: the scroller is their offset parent; only the dock's
+    // own slots, not a widget's inner elements that happen to be called "slot").
+    // On-screen boxes would include the slide (flip) animation in progress, and the target
+    // flipped back and forth while the widgets moved. Near either end the dock scrolls.
+    const EDGE = 48;
     const frame = () => {
       raf = 0;
       if (!ghost || !order) return;
-      ghost = { ...ghost, x: last.clientX - grab.dx, y: vertical ? last.clientY - grab.dy : ghost.y };
-      const others = [...scroller.querySelectorAll<HTMLElement>('.slot:not(.placeholder)')]
-        .map((s) => { const r = s.getBoundingClientRect(); return vertical ? r.top + r.height / 2 : r.left + r.width / 2; });
-      const to = insertIndex(others, vertical ? last.clientY : last.clientX);
+      ghost = { ...ghost, x: vertical ? ghost.x : last.clientX - grab.dx, y: vertical ? last.clientY - grab.dy : ghost.y };
+      const box = scroller.getBoundingClientRect();
+      const p = vertical ? last.clientY : last.clientX;
+      const [lo, hi] = vertical ? [box.top, box.bottom] : [box.left, box.right];
+      const speed = p < lo + EDGE ? -Math.ceil((lo + EDGE - p) / 4) : p > hi - EDGE ? Math.ceil((p - (hi - EDGE)) / 4) : 0;
+      if (speed) { if (vertical) scroller.scrollTop += speed; else scroller.scrollLeft += speed; }
+      // The pointer decides (it goes where you point), in the scroller's layout coordinates.
+      const centre = p - (vertical ? box.top : box.left) + (vertical ? scroller.scrollTop : scroller.scrollLeft);
+      const others = [...scroller.querySelectorAll<HTMLElement>(':scope > .slot:not(.placeholder)')]
+        .map((s) => (vertical ? s.offsetTop + s.offsetHeight / 2 : s.offsetLeft + s.offsetWidth / 2));
+      const to = insertIndex(others, centre);
       const rest = order.filter((id) => id !== instance);
       const next = [...rest.slice(0, to), instance, ...rest.slice(to)];
       if (next.join() !== order.join()) order = next;
+      if (speed) raf = requestAnimationFrame(frame); // keep scrolling while held at an edge
     };
     const move = (ev: PointerEvent) => {
       last = ev;
@@ -431,13 +510,17 @@
       }
       if (picked && !raf) raf = requestAnimationFrame(frame);
     };
+    // Once picked up, the widget's own drag (a shelved file, an icon image) must not start:
+    // the browser's drag cancels the pointer and the widget dropped wherever it was.
+    const noNativeDrag = (d: DragEvent) => { if (picked) { d.preventDefault(); d.stopPropagation(); } };
     const reset = () => {
       clearTimeout(pickTimer);
       cancelAnimationFrame(raf);
       removeEventListener('pointermove', move);
       removeEventListener('pointerup', up);
-      removeEventListener('pointercancel', up);
+      removeEventListener('pointercancel', cancel);
       removeEventListener('keydown', onKey);
+      removeEventListener('dragstart', noNativeDrag, true);
       dragId = null;
       ghost = null;
     };
@@ -446,6 +529,8 @@
       order = null; // back to where it was
       reset();
     };
+    // Windows took the pointer away (a system gesture): put the widget back.
+    const cancel = () => { order = null; reset(); };
     const up = async () => {
       const final = order;
       reset();
@@ -461,17 +546,18 @@
         order = null;
       }
     };
+    addEventListener('dragstart', noNativeDrag, true);
     addEventListener('pointermove', move);
     addEventListener('pointerup', up);
-    addEventListener('pointercancel', up);
+    addEventListener('pointercancel', cancel);
     addEventListener('keydown', onKey);
   }
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="surface bar dock" class:vertical class:edit class:flashing={!!alert} onpointerdown={onBarDown} oncontextmenu={onContext}
+<div class="surface bar dock" class:vertical class:edit class:flashing={!!alert} class:focusing={showFocus} onpointerdown={onBarDown} oncontextmenu={onContext}
      oncontextmenucapture={() => ipc.popupHoverHide()}
-     onpointerenter={onEnter} data-size={bar.size} data-side={bar.sideWidth ?? 'regular'}>
+     onpointerenter={onEnter} onpointermove={focusMove} onpointerleave={focusLeave} data-size={bar.size} data-side={bar.sideWidth ?? 'regular'}>
   <div class="handle start" onpointerdown={(e) => onHandleDown(e, -1)}></div>
 
   <div class="scrollbox">
@@ -482,11 +568,13 @@
       <div
         class="slot"
         class:placeholder={dragId === w.instance}
+        style:width={dragId === w.instance && ghost && !vertical ? `${ghost.w}px` : null}
+        style:height={dragId === w.instance && ghost && vertical ? `${ghost.h}px` : null}
         class:dimmed={focusDim && !edit && w.id !== 'productivity'}
         role="button"
         tabindex="-1"
         animate:flip={{ duration: 280 }}
-        onpointerdown={(e) => onSlotDown(e, w.instance)}
+        onpointerdowncapture={(e) => { if (edit || !(e.target as Element).closest('[data-own-drag], input, textarea, select')) onSlotDown(e, w.instance); }}
         onclickcapture={(e) => { if (swallowClick) { swallowClick = false; e.stopPropagation(); e.preventDefault(); } }}
         onclick={(e) => onSlotClick(w, e.currentTarget as HTMLElement)}
       >
@@ -514,6 +602,10 @@
     </button>
   {/if}
   </div>
+
+  {#if showFocus && focus}
+    <FocusDock f={focus} {vertical} />
+  {/if}
 
   {#if alert && view}
     {#key alertSeq}
@@ -601,6 +693,8 @@
     min-height: 0;
   }
   .vertical .scroller { flex-direction: column; }
+  /* The widgets' offset parent, so drag-to-reorder can read their layout positions. */
+  .scroller { position: relative; }
   .scrollbox { flex: 1; position: relative; display: flex; min-width: 0; min-height: 0; }
   /* Cut-off ends fade out, so it's clear the row/column goes on. */
   .scroller { --fb: 0px; --fa: 0px; }
@@ -655,6 +749,9 @@
   .slot { transition: opacity 0.4s var(--ease); }
   .slot.placeholder { animation: none !important; border-radius: var(--radius-pill); outline: 2px dashed color-mix(in srgb, var(--accent) 70%, transparent); outline-offset: -2px; }
   .slot.placeholder > :global(*) { opacity: 0; }
+  /* The gap keeps the size the widget had when picked up: a widget that is wider while
+     hovered (Downloads) shrank once the pointer left it, shifting every target under it. */
+  .slot.placeholder { overflow: hidden; flex: none; }
   .ghost {
     position: fixed; left: 0; top: 0; z-index: 10; pointer-events: none; display: flex;
     border-radius: var(--radius-pill); box-shadow: 0 10px 26px rgba(0, 0, 0, 0.35);
@@ -670,6 +767,8 @@
      (which drops every animation) the flash still draws correctly — it appears instead of
      growing. Durations come from chargeFlash.ts, so the CSS and the timeouts can't drift. */
   .flashing .slot, .flashing .empty, .flashing .more { opacity: 0; pointer-events: none; }
+  /* Focus on the dock: the widgets fade out under it (and back in on hover). */
+  .focusing .slot, .focusing .empty, .focusing .more { opacity: 0; pointer-events: none; }
   .flash {
     position: absolute; inset: 0; z-index: 4; cursor: default;
     display: grid; place-items: center;

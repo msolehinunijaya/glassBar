@@ -395,6 +395,7 @@
       in:reveal={{ axis: vertical ? 'y' : 'x', duration: 240, easing: cubicOut }}
       title={failed === g.key ? `Couldn't start ${g.name}. Right-click to unpin.` : gone ? `${g.name} wasn't found at ${g.path}. Right-click to unpin.`
         : g.windows.length ? g.windows.map((w) => w.title).join('\n') : `${g.name} (pinned)`}
+      data-own-drag
       onpointerdown={(e) => onDown(e, g)}
       onclick={(e) => { e.stopPropagation(); open(g); }}
       onauxclick={(e) => { if (e.button === 1) launch(g); }}

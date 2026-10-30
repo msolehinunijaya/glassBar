@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.6.8 — 2026-10-30
+
+### New
+- **Focus across the dock:** while a Pomodoro focus session runs, the whole dock shows the time left, a timeline from start to end, your session dots, and Pause, Skip and Stop. Point at the dock and your widgets come back so you can use them as usual; move away and the focus view returns. On by default; switch it off in the Pomodoro settings ("Show focus across the dock").
+- **What's new after an update:** the first time a new version starts, a card by the dock shows what changed. Close it, or open all changes in Settings › About.
+- **Mirror › Square:** a square shape between Circle and Rectangle; photos save square too.
+- **Capture on every display:** with more than one screen, area and window screenshots, scrolling screenshots, OCR Snap and the colour picker cover all of them, so you can select on any screen. The hint appears on the screen with your pointer.
+- **Full-screen screenshot: choose the display.** With more than one screen, Full screen freezes them all and lets you pick: point at a display and click (or press its number), or choose All displays (A).
+- **Sliders follow the mouse wheel** in Settings and panels (rest the pointer on one first, so scrolling a panel still scrolls it).
+
+### Fixed
+- **The dock is centred.** It sat 8 px to the right (and 1 px low): Windows' invisible window border was counted as part of the dock. The gaps at both ends are now equal, at any length. Panels open exactly above their widget for the same reason.
+- **Length and spacing sliders are smooth:** the dock follows them while you drag, and the setting is saved once you let go. Other sliders (music and volume lengths, Equalizer, Mirror, water) no longer save on every step, which made them stutter.
+- **Moving widgets lands where you point.** Holding a widget and moving it now works on every widget, also when you press on one of its buttons (Downloads' file, Start). Widgets that grow while pointed at (Downloads) no longer throw the target off, the dock scrolls when you drag near either end, and a shelved file or icon image can't hijack the move.
+
 ## 0.6.7 — 2026-10-30
 
 ### New

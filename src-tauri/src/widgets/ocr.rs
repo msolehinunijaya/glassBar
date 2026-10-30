@@ -106,9 +106,41 @@ pub fn color_pick_finish(app: AppHandle, hex: String, text: String) -> Result<()
 
 // ---- snap ----
 
+/// Every display as (x, y, w, h) in physical desktop pixels.
+fn displays(app: &AppHandle) -> Vec<(i32, i32, i32, i32)> {
+    app.available_monitors().unwrap_or_default().iter()
+        .map(|m| (m.position().x, m.position().y, m.size().width as i32, m.size().height as i32)).collect()
+}
+
+/// Pure: the rectangle around all `rects` (the overlay then covers every display).
+pub fn union(rects: &[(i32, i32, i32, i32)]) -> Option<(i32, i32, i32, i32)> {
+    let x0 = rects.iter().map(|r| r.0).min()?;
+    let y0 = rects.iter().map(|r| r.1).min()?;
+    let x1 = rects.iter().map(|r| r.0 + r.2).max()?;
+    let y1 = rects.iter().map(|r| r.1 + r.3).max()?;
+    Some((x0, y0, x1 - x0, y1 - y0))
+}
+
+/// The displays in the frozen shot (relative to it), for the overlay's hint placement.
+static DISPLAYS: Mutex<Vec<(i32, i32, i32, i32)>> = Mutex::new(Vec::new());
+/// "Display 2 · 1920×1080 · Main", one per entry in DISPLAYS.
+static DISPLAY_NAMES: Mutex<Vec<String>> = Mutex::new(Vec::new());
+
+/// Pure: how a display is named in the picker.
+pub fn display_name(i: usize, w: i32, h: i32, main: bool) -> String {
+    format!("Display {} · {w}×{h}{}", i + 1, if main { " · Main" } else { "" })
+}
+
+/// Open the frozen-screen overlay for `purpose` (Full screen with several displays uses it).
+pub async fn start_purpose(app: &AppHandle, purpose: &str) -> Result<(), String> { start(app, purpose).await }
+
 async fn start(app: &AppHandle, purpose: &str) -> Result<(), String> {
-    let (shot, wins) = crate::widgets::blocking(|| {
-        let s = screen().capture_at_cursor();
+    // With more than one display the overlay covers them all, so a selection, a window or a
+    // colour can be picked on any of them; with one, just that display.
+    let mons = displays(app);
+    let all = if mons.len() > 1 { union(&mons) } else { None };
+    let (shot, wins) = crate::widgets::blocking(move || {
+        let s = match all { Some((x, y, w, h)) => screen().capture_rect(x, y, w, h), None => screen().capture_at_cursor() };
         let w = s.as_ref().map(|s| screen().window_rects((s.x, s.y, s.w, s.h))).unwrap_or_default();
         (s, w)
     }).await?;
@@ -117,6 +149,9 @@ async fn start(app: &AppHandle, purpose: &str) -> Result<(), String> {
     *SHOT.lock().unwrap() = Some(shot);
     *PURPOSE.lock().unwrap() = purpose.to_string();
     *WINDOWS.lock().unwrap() = wins;
+    *DISPLAYS.lock().unwrap() = if mons.len() > 1 { mons.iter().map(|m| (m.0 - x, m.1 - y, m.2, m.3)).collect() } else { vec![(0, 0, w, h)] };
+    let primary = app.primary_monitor().ok().flatten().map(|m| (m.position().x, m.position().y));
+    *DISPLAY_NAMES.lock().unwrap() = mons.iter().enumerate().map(|(i, m)| display_name(i, m.2, m.3, primary == Some((m.0, m.1)))).collect();
     let win = match app.get_webview_window("snap") {
         Some(w) => w,
         None => WebviewWindowBuilder::new(app, "snap", WebviewUrl::App("index.html".into()))
@@ -128,6 +163,16 @@ async fn start(app: &AppHandle, purpose: &str) -> Result<(), String> {
     };
     win.set_position(PhysicalPosition::new(x, y)).map_err(|e| e.to_string())?;
     win.set_size(PhysicalSize::new(w as u32, h as u32)).map_err(|e| e.to_string())?;
+    // Spanning displays with different scaling, Windows may resize the window for the DPI of
+    // the display it now mostly sits on: set the rectangle again once that has happened.
+    if mons.len() > 1 {
+        let w2 = win.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(120));
+            let _ = w2.set_position(PhysicalPosition::new(x, y));
+            let _ = w2.set_size(PhysicalSize::new(w as u32, h as u32));
+        });
+    }
     // The overlay shows itself (ocr_snap_show) once the screenshot is drawn: shown now, it
     // would be a black window until the image has loaded.
     let _ = app.emit_to("snap", "snap:ready", ());
@@ -143,13 +188,16 @@ pub fn ocr_snap_show(app: AppHandle) {
 #[tauri::command]
 pub async fn ocr_snap_start(app: AppHandle, purpose: Option<String>) -> Result<(), String> {
     let p = purpose.unwrap_or_else(|| "ocr".into());
-    if !matches!(p.as_str(), "ocr" | "region" | "window" | "scroll" | "color") { return Err("unknown capture".into()); }
+    if !matches!(p.as_str(), "ocr" | "region" | "window" | "scroll" | "color" | "display") { return Err("unknown capture".into()); }
     start(&app, &p).await
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SnapView { img: String, purpose: String, windows: Vec<crate::platform::WinRect>,
-    /** The pointer, in screenshot pixels (the colour picker's loupe starts there). */ cursor: Option<(i32, i32)> }
+    /** The pointer, in screenshot pixels (the colour picker's loupe starts there). */ cursor: Option<(i32, i32)>,
+    /** Each display in the shot (screenshot pixels): the hint shows on the one with the pointer. */ displays: Vec<(i32, i32, i32, i32)>,
+    /** Their names, for picking a display to capture. */ display_names: Vec<String> }
 
 /// The frozen screenshot (PNG data URL) for the overlay, what it's for, and the windows in
 /// it (coordinates relative to the screenshot).
@@ -161,7 +209,7 @@ pub async fn ocr_shot() -> Option<SnapView> {
         let img = format!("data:image/png;base64,{}", base64::engine::general_purpose::STANDARD.encode(png(&s.bgra, s.w as u32, s.h as u32)?));
         let windows = WINDOWS.lock().unwrap().iter().map(|w| crate::platform::WinRect { x: w.x - s.x, y: w.y - s.y, ..w.clone() }).collect();
         let cursor = crate::platform::shell().cursor_pos().map(|(x, y)| (x - s.x, y - s.y)).filter(|(x, y)| *x >= 0 && *y >= 0 && *x < s.w && *y < s.h);
-        Some(SnapView { img, purpose: PURPOSE.lock().unwrap().clone(), windows, cursor })
+        Some(SnapView { img, purpose: PURPOSE.lock().unwrap().clone(), windows, cursor, displays: DISPLAYS.lock().unwrap().clone(), display_names: DISPLAY_NAMES.lock().unwrap().clone() })
     }).await.ok().flatten()
 }
 
@@ -229,7 +277,8 @@ pub async fn ocr_snap_finish(app: AppHandle, x: u32, y: u32, w: u32, h: u32, win
                 super::screenshots::save(&a, px, pw, ph, "scroll")?;
             } else {
                 let (px, cw, ch) = crop(&shot.bgra, shot.w as u32, shot.h as u32, x, y, w, h).ok_or("selection too small")?;
-                super::screenshots::save(&a, px, cw, ch, if purpose == "window" { "window" } else { "region" })?;
+                let kind = match purpose.as_str() { "window" => "window", "display" => "full", _ => "region" };
+                super::screenshots::save(&a, px, cw, ch, kind)?;
             }
             Ok("saved".into())
         }).await?;
@@ -285,6 +334,18 @@ pub fn ocr_copy(app: AppHandle, text: String) -> Result<(), String> { app.clipbo
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn names_displays_for_the_picker() {
+        assert_eq!(super::display_name(1, 1920, 1080, true), "Display 2 · 1920×1080 · Main");
+        assert_eq!(super::display_name(0, 2560, 1440, false), "Display 1 · 2560×1440");
+    }
+    #[test]
+    fn union_covers_every_display() {
+        // A 1920-wide display left of the main one, and the main one.
+        assert_eq!(super::union(&[(-1920, 0, 1920, 1080), (0, 0, 1920, 1080)]), Some((-1920, 0, 3840, 1080)));
+        assert_eq!(super::union(&[(0, 0, 1920, 1080), (1920, -200, 1280, 1024)]), Some((0, -200, 3200, 1280)));
+        assert_eq!(super::union(&[]), None);
+    }
     #[test]
     fn crop_takes_rows_and_clamps() {
         // 4x2 image, pixel value = index
