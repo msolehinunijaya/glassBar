@@ -85,6 +85,10 @@ export interface DlState { folder: string; items: DlItem[]; totalSize: number; e
 /** Recycle Bin: total and per fixed drive (bytes, items, free bytes on that drive). */
 export interface RecycleDrive { root: string; size: number; items: number; free: number }
 export interface RecycleInfo { size: number; items: number; drives: RecycleDrive[] }
+/** An item in the Recycle Bin: `id` its place in the bin, `path` where it came from. */
+export interface BinItem { id: string; name: string; path: string; from: string; deletedAt: number; size: number; folder: boolean }
+/** Files dropped on the bin: how many moved, and [path, reason] for each that didn't. */
+export interface TrashResult { moved: number; failed: [string, string][] }
 export interface Stopwatch { startedAt: number | null; accMs: number; laps: number[] }
 export interface Place { lat: number; lon: number; name: string; source: 'windows' | 'ip' | 'manual'; tz?: string; accuracy?: number; via?: string; note?: string }
 /** The shared location: `place` null = Unavailable (`reason` says why). */
@@ -95,6 +99,8 @@ export interface Weather {
   hourly: { time: number; temp: number; code: number; pop?: number | null }[];
   daily: { date: number; min: number; max: number; code: number; sunrise?: number | null; sunset?: number | null; pop?: number | null }[];
 }
+/** Tasbih: count in the current step, which phrase step, full rounds, taps today. */
+export interface TasbihState { count: number; round: number; step: number; today: number; day: string }
 export interface PrayerDay { date: string; zone: string; source: 'jakim' | 'aladhan'; hijri: string | null; times: [string, number][] }
 export interface SolatInfo { days: PrayerDay[]; zoneName: string | null; place: Place | null }
 export type Band = 'good' | 'moderate' | 'unhealthy' | 'very_unhealthy' | 'hazardous';
@@ -110,18 +116,26 @@ export interface PowerInfo { mode: PowerMode | null; saverOn: boolean | null; ot
 export interface Sample { cpu: number; mem: number; gpu: number | null; rxBps: number; txBps: number; at: number; cpuTemp: number | null }
 export interface Rates { base: string; rates: Record<string, number>; rateTime: number; fetchedAt: number; source: string; cached: boolean }
 export interface WinRect { id: number; title: string; x: number; y: number; w: number; h: number }
-export interface SnapView { img: string; purpose: 'ocr' | 'region' | 'window' | 'scroll'; windows: WinRect[] }
+export interface SnapView { img: string; purpose: 'ocr' | 'region' | 'window' | 'scroll' | 'color'; windows: WinRect[]; /** pointer in screenshot px */ cursor: [number, number] | null }
 export interface ShotItem { id: number; at: number; w: number; h: number; kind: 'full' | 'region' | 'window' | 'scroll'; thumb: string }
 export interface ClipItem { id: number; at: number; kind: 'text' | 'image'; text: string | null; thumb: string | null; w: number | null; h: number | null; pinned: boolean }
 export type CaptureDone =
   | { kind: 'shot'; id: number; thumb: string; w: number; h: number; shotKind: string }
   | { kind: 'ocr'; text: string; copied: boolean; lines: number }
+  | { kind: 'color'; hex: string; text: string }
   | { kind: 'error'; text: string };
 export interface OcrItem { id: number; at: number; text: string; mode: 'text' | 'code' | 'terminal'; engine: string }
 export interface PinTarget { path: string; args: string }
 export interface InstalledApp { name: string; path: string; args: string }
 export interface WifiNetwork { ssid: string; bars: number; secured: boolean; security: string; connected: boolean; saved: boolean }
-export interface BtDevice { id: string; name: string; kind: string; paired: boolean; connected: boolean }
+export interface BtDevice { id: string; name: string; kind: string; paired: boolean; connected: boolean; /** % when the connected device reports it */ battery: number | null }
+/** Keep awake: until = Unix ms, null = until turned off; screen = the screen stays on too. */
+export interface AwakeState { on: boolean; until: number | null; screen: boolean }
+/** The default recording device: mute, level 0..1, the recording devices. */
+export interface MicState { muted: boolean; volume: number; devices: AudioDevice[] }
+/** An app using the microphone or camera now (exe empty for Store apps). */
+export interface UsingApp { name: string; exe: string; since: number }
+export interface InUse { mic: UsingApp[]; cam: UsingApp[] }
 export interface TrayIcon { id: string; tip: string; icon: string | null; exe: string; promoted: boolean; rev: number }
 export interface KeyboardLayout { id: number; code: string; name: string; locale: string; active: boolean }
 export interface DiskInfo { mount: string; label: string; total: number; available: number; removable: boolean; fs: string }
@@ -252,6 +266,14 @@ export const ipc = {
   shelfPick: () => invoke<string[]>('shelf_pick'),
   recycleInfo: () => invoke<RecycleInfo>('recycle_info'),
   recycleEmpty: (root: string | null) => invoke<void>('recycle_empty', { root }),
+  /** The newest items in the bin (a big bin takes a moment). */
+  trashItems: (limit: number) => invoke<BinItem[]>('trash_items', { limit }),
+  /** Restore by item id, or by original path (Undo after a drop). Returns how many came back. */
+  trashRestore: (keys: string[]) => invoke<number>('trash_restore', { keys }),
+  /** Move files to the Recycle Bin (never a permanent delete). */
+  trashRecycle: (paths: string[]) => invoke<TrashResult>('trash_recycle', { paths }),
+  /** Empty with Windows' own "are you sure" dialog. */
+  trashEmptyConfirm: () => invoke<void>('trash_empty_confirm'),
   swGet: () => invoke<Stopwatch>('sw_get'),
   swToggle: () => invoke<Stopwatch>('sw_toggle'),
   swLap: () => invoke<Stopwatch>('sw_lap'),
@@ -266,6 +288,10 @@ export const ipc = {
   solatDays: (force = false) => invoke<SolatInfo>('solat_days', { force }),
   solatZones: () => invoke<[string, string, string][]>('solat_zones'),
   solatTestSound: (settings: object) => invoke<void>('solat_test_sound', { settings }),
+  tasbihGet: () => invoke<TasbihState>('tasbih_get'),
+  /** +1 (a tap) or -1 (undo); `steps` = the targets of the current dhikr, e.g. [33, 33, 34]. */
+  tasbihAdd: (delta: 1 | -1, steps: number[]) => invoke<TasbihState>('tasbih_add', { delta, steps }),
+  tasbihReset: () => invoke<TasbihState>('tasbih_reset'),
   // IPU
   ipuGet: (force = false) => invoke<IpuReading | null>('ipu_get', { force }),
   // battery + system monitor
@@ -287,6 +313,8 @@ export const ipc = {
   // start + search
   startMenu: () => invoke<void>('start_menu'),
   windowsSearch: () => invoke<void>('windows_search'),
+  /** Open Windows Search with `text` typed in (the search panel's fallback). */
+  windowsSearchText: (text: string) => invoke<void>('windows_search_text', { text }),
   // apps
   appsList: () => invoke<AppWindow[]>('apps_list'),
   appIcon: (exe: string, window: number | null = null, aumid: string | null = null) => invoke<string | null>('app_icon', { exe, window, aumid }),
@@ -334,6 +362,15 @@ export const ipc = {
   /** 'Later': no water reminder for this many minutes. */
   waterSnooze: (minutes: number) => invoke<void>('water_snooze', { minutes }),
   hotspotSet: (on: boolean) => invoke<void>('hotspot_set', { on }),
+  awakeGet: () => invoke<AwakeState>('awake_get'),
+  /** minutes null or 0 = until turned off. */
+  awakeSet: (minutes: number | null, screen: boolean) => invoke<AwakeState>('awake_set', { minutes, screen }),
+  awakeOff: () => invoke<AwakeState>('awake_off'),
+  micState: () => invoke<MicState>('mic_state'),
+  micSetMute: (muted: boolean) => invoke<void>('mic_set_mute', { muted }),
+  micSetVolume: (volume: number) => invoke<void>('mic_set_volume', { volume }),
+  micSetDefault: (id: string) => invoke<void>('mic_set_default', { id }),
+  privacyInUse: () => invoke<InUse>('privacy_in_use'),
   fxRates: (base: string, force = false) => invoke<Rates>('fx_rates', { base, force }),
   ocrSnapStart: (purpose: SnapView['purpose'] = 'ocr') => invoke<void>('ocr_snap_start', { purpose }),
   ocrShot: () => invoke<SnapView | null>('ocr_shot'),
@@ -346,6 +383,8 @@ export const ipc = {
   /** Stop a running scrolling screenshot; what was captured so far is saved. */
   shotScrollStop: () => invoke<void>('shot_scroll_stop'),
   recordScreen: (kind: 'area' | 'app') => invoke<void>('record_screen', { kind }),
+  /** Save a Mirror photo (PNG) or video (WebM); the bytes go raw, not as JSON. Returns the path. */
+  mirrorSave: (kind: 'photo' | 'video', bytes: Uint8Array) => invoke<string>('mirror_save', bytes, { headers: { kind } }),
   clipList: (query: string | null = null) => invoke<ClipItem[]>('clip_list', { query }),
   clipCopy: (id: number) => invoke<void>('clip_copy', { id }),
   clipPin: (id: number, on: boolean) => invoke<void>('clip_pin', { id, on }),
@@ -356,6 +395,9 @@ export const ipc = {
   ocrHistoryDelete: (id: number | null) => invoke<void>('ocr_history_delete', { id }),
   ocrCopy: (text: string) => invoke<void>('ocr_copy', { text }),
   ocrHotkeyStatus: () => invoke<{ hotkey: string; error: string | null }>('ocr_hotkey_status'),
+  colorHotkeyStatus: () => invoke<{ hotkey: string; error: string | null }>('color_hotkey_status'),
+  /** A colour was picked in the overlay: `text` goes to the clipboard, the card shows `hex`. */
+  colorPickFinish: (hex: string, text: string) => invoke<void>('color_pick_finish', { hex, text }),
   appPinTarget: (path: string) => invoke<PinTarget>('app_pin_target', { path }),
   appBrowse: () => invoke<PinTarget | null>('app_browse'),
   appsInstalled: () => invoke<InstalledApp[]>('apps_installed'),

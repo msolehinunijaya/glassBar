@@ -16,6 +16,10 @@
   </select>
 </label>
 {#if settings.zone === 'auto'}<div>Shared location: <LocationTag /></div>{/if}
+<label><input type="checkbox" checked={settings.showHijri !== false} onchange={(e) => save({ showHijri: e.currentTarget.checked })} /> Show the Hijri date in the panel</label>
+<label><input type="checkbox" checked={!!settings.hijriOnDock} onchange={(e) => save({ hijriOnDock: e.currentTarget.checked })} /> Hijri date on the large prayer pill</label>
+<label><input type="checkbox" checked={settings.showTasbih !== false} onchange={(e) => save({ showTasbih: e.currentTarget.checked })} /> Tasbih counter in the panel</label>
+<label><input type="checkbox" checked={settings.tasbihOnDock !== false} onchange={(e) => save({ tasbihOnDock: e.currentTarget.checked })} /> Tasbih counter beside the prayer pill</label>
 <label><input type="checkbox" checked={settings.showImsak} onchange={(e) => save({ showImsak: e.currentTarget.checked })} /> Show Imsak</label>
 <label><input type="checkbox" checked={settings.alerts} onchange={(e) => save({ alerts: e.currentTarget.checked })} /> Alert at each prayer time</label>
 <label>At prayer time play

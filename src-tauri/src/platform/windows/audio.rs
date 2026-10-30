@@ -450,3 +450,57 @@ mod tests {
         assert_eq!(outside_level(&[(0.669, false, false)], true), None, "just after ours");
     }
 }
+
+// ---- Microphone (the default recording device) ----
+
+fn mic_device() -> windows::core::Result<IMMDevice> {
+    unsafe { enumerator()?.GetDefaultAudioEndpoint(eCapture, eConsole) }
+}
+fn mic_endpoint() -> windows::core::Result<IAudioEndpointVolume> {
+    unsafe { mic_device()?.Activate(CLSCTX_ALL, None) }
+}
+
+pub fn mic_state() -> Res<super::super::MicState> {
+    let ep = mic_endpoint().map_err(|_| "No microphone is connected".to_string())?;
+    let (volume, muted) = unsafe { (ep.GetMasterVolumeLevelScalar().map_err(err)?, ep.GetMute().map_err(err)?.as_bool()) };
+    let default_id = mic_device().map(|d| id_of(&d)).unwrap_or_default();
+    let mut devices = Vec::new();
+    unsafe {
+        let all = enumerator().and_then(|e| e.EnumAudioEndpoints(eCapture, DEVICE_STATE_ACTIVE)).map_err(err)?;
+        for i in 0..all.GetCount().map_err(err)? {
+            let d = all.Item(i).map_err(err)?;
+            let id = id_of(&d);
+            devices.push(AudioDevice { is_default: id == default_id, name: name_of(&d), id });
+        }
+    }
+    Ok(super::super::MicState { muted, volume, devices })
+}
+
+pub fn mic_set_mute(m: bool) -> Res<()> { unsafe { mic_endpoint().and_then(|e| e.SetMute(m, &OURS)).map_err(err) } }
+pub fn mic_set_volume(v: f32) -> Res<()> { unsafe { mic_endpoint().and_then(|e| e.SetMasterVolumeLevelScalar(v.clamp(0.0, 1.0), &OURS)).map_err(err) } }
+
+/// Calls `f` when the microphone's mute or level changes (any source: a headset button, Windows,
+/// another app) or the default recording device changes. Core Audio's notification, re-registered
+/// when the default device changes (checked every 3 s).
+pub fn watch_mic(f: Box<dyn Fn() + Send>) {
+    std::thread::spawn(move || {
+        com_init();
+        let (tx, rx) = std::sync::mpsc::channel::<Level>();
+        let mut reg: Option<(String, IAudioEndpointVolume, IAudioEndpointVolumeCallback)> = None;
+        loop {
+            let id = mic_device().map(|d| id_of(&d)).unwrap_or_default();
+            if reg.as_ref().map(|r| r.0.as_str()) != Some(id.as_str()) {
+                if let Some((_, ep, cb)) = reg.take() { unsafe { let _ = ep.UnregisterControlChangeNotify(&cb); } }
+                if let Ok(ep) = mic_endpoint() {
+                    let cb: IAudioEndpointVolumeCallback = VolumeCallback(tx.clone()).into();
+                    if unsafe { ep.RegisterControlChangeNotify(&cb) }.is_ok() { reg = Some((id.clone(), ep, cb)); }
+                }
+                f(); // a new default device is news too
+            }
+            if rx.recv_timeout(Duration::from_secs(3)).is_ok() {
+                while rx.try_recv().is_ok() {}
+                f();
+            }
+        }
+    });
+}

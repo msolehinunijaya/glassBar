@@ -136,7 +136,7 @@ pub fn bt_list(discover: bool) -> Res<Vec<BtDevice>> {
             let id = i.Id().map_err(err)?;
             if !seen.insert(id.to_string()) { continue; }
             let (kind, connected) = details(&id, le);
-            out.push(BtDevice { kind, id: id.to_string(), name, paired, connected: paired && connected });
+            out.push(BtDevice { kind, id: id.to_string(), name, paired, connected: paired && connected, battery: None });
         }
         Ok(())
     };
@@ -145,6 +145,14 @@ pub fn bt_list(discover: bool) -> Res<Vec<BtDevice>> {
     if discover {
         add(BluetoothDevice::GetDeviceSelectorFromPairingState(false).map_err(err)?, false, false)?;
         add(BluetoothLEDevice::GetDeviceSelectorFromPairingState(false).map_err(err)?, false, true)?;
+    }
+    // Battery: only for connected devices (a disconnected one's last value is stale).
+    if out.iter().any(|d| d.connected) {
+        let levels = super::btbattery::levels();
+        for d in out.iter_mut().filter(|d| d.connected) {
+            let mac = super::btbattery::mac_from_winrt_id(&d.id);
+            d.battery = levels.iter().find(|(m, _)| Some(m) == mac.as_ref()).map(|(_, p)| *p);
+        }
     }
     Ok(out)
 }

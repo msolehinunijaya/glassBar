@@ -6,6 +6,7 @@ export const TINT: Record<CaptureTab, [string, string]> = {
   record: ['#ff7a6e', '#e3342b'], // Recording: red
   ocr: ['#cf8bff', '#8b3fd6'],    // OCR Snap: purple
   clip: ['#ffbf4d', '#f08c00'],   // Clipboard: orange
+  color: ['#4be0c0', '#10a37f'],  // Colour picker: teal
 };
 export const tile = (k: CaptureTab) => `linear-gradient(160deg, ${TINT[k][0]}, ${TINT[k][1]})`;
 

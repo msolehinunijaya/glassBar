@@ -22,5 +22,9 @@
   { type: 'toggle', key: 'langOnDock', label: 'Show keyboard language on the dock', hint: 'EN, MS… next to the Wi-Fi icon' },
   { type: 'toggle', key: 'soundOnDock', label: 'Volume on the dock', hint: 'Click the speaker to mute, hover to adjust, click the % for the sound panel' },
   { type: 'toggle', key: 'showTray', label: 'System tray icons in the panel' },
+  { type: 'choice', key: 'micOnDock', label: 'Microphone on the dock', choices: [
+    { value: 'auto', label: 'Automatic', hint: 'Only when muted or in use' }, { value: 'always', label: 'Always' }, { value: 'never', label: 'Never' }] },
+  { type: 'toggle', key: 'btBattery', label: 'Bluetooth device battery', hint: 'Headphones, phones and other devices that report it' },
+  { type: 'toggle', key: 'btLowAlert', label: 'Notify when a device battery is low', hint: 'Once at 15 %' },
   { type: 'toggle', key: 'trayOnDock', label: 'Show tray icons on the dock', hint: 'Next to the Wi-Fi and Bluetooth icons' },
 ]} />

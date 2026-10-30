@@ -5,12 +5,12 @@
   import { profile } from '../../lib/config.svelte';
   import type { AppsSettings } from '../apps/index';
 
-  let {}: PillProps = $props();
+  let { instance }: PillProps = $props();
   // The logo colour is chosen in the App Launcher's Start & Search options: the same here.
   const apps = $derived(profile().widgets.find((w) => w.id === 'apps')?.settings as Partial<AppsSettings> | undefined);
 </script>
 
-<div class="pill start"><StartButtons color={apps?.startColor} custom={apps?.startCustom} /></div>
+<div class="pill start"><StartButtons color={apps?.startColor} custom={apps?.startCustom} searchOpens={apps?.searchOpens ?? 'glassbar'} {instance} /></div>
 
 <style>
   .start { gap: 2px; padding: 0 3px; }

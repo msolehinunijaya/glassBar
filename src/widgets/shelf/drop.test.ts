@@ -42,8 +42,8 @@ describe('the shelf listens for drops where Tauri actually sends them', () => {
       }
     };
     walk('src');
-    // The shelf, and App Folders (its dock tiles and its open panel).
-    expect(hits.sort()).toEqual(['src/widgets/folders/FolderPanel.svelte', 'src/widgets/folders/Pill.svelte', 'src/widgets/shelf/Pill.svelte']);
+    // The shelf, App Folders (its dock tiles and its open panel), and the Recycle Bin.
+    expect(hits.sort()).toEqual(['src/widgets/folders/FolderPanel.svelte', 'src/widgets/folders/Pill.svelte', 'src/widgets/shelf/Pill.svelte', 'src/widgets/trash/Pill.svelte']);
     for (const p of hits) {
       const code = fs.readFileSync(p, 'utf8');
       expect(code, p).toContain('getCurrentWebviewWindow');

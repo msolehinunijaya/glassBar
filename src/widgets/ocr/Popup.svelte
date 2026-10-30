@@ -1,8 +1,9 @@
 <script lang="ts">
-  // Capture: Screenshot | Screen Recording | OCR Snap | Clipboard. Opens on the tab used last.
+  // Capture: Screenshot | Screen Recording | OCR Snap | Clipboard | Colour. Opens on the tab used last.
   // On a bottom dock the panel is upside down, so what you click most is nearest the dock:
   // the tab buttons at the bottom, the tab's options above them, its history on top.
-  import { Camera, ClipboardList, ScanText, Video } from '@lucide/svelte';
+  import { Camera, ClipboardList, Pipette, ScanText, Video } from '@lucide/svelte';
+  import ColorTab from './ColorTab.svelte';
   import ClipTab from './ClipTab.svelte';
   import { updateWidgetSettings } from '../../lib/config.svelte';
   import type { PopupProps } from '../types';
@@ -25,7 +26,7 @@
     const t = setTimeout(toEnd, 300); // history arrives a moment later
     return () => clearTimeout(t);
   });
-  const tabs = [['shot', 'Screenshot', Camera], ['record', 'Recording', Video], ['ocr', 'OCR', ScanText], ['clip', 'Clipboard', ClipboardList]] as const;
+  const tabs = [['shot', 'Screenshot', Camera], ['record', 'Recording', Video], ['ocr', 'OCR', ScanText], ['clip', 'Clipboard', ClipboardList], ['color', 'Colour', Pipette]] as const;
 </script>
 
 <div class="cap" class:up bind:this={root}>
@@ -38,12 +39,13 @@
 {#if settings.tab === 'record'}<RecordTab />
 {:else if settings.tab === 'ocr'}<OcrTab {instance} {settings} />
 {:else if settings.tab === 'clip'}<ClipTab {instance} {settings} />
+{:else if settings.tab === 'color'}<ColorTab {instance} {settings} />
 {:else}<ShotsTab {instance} {settings} />{/if}
 </div>
 </div>
 
 <style>
-  .tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; padding: 3px; border-radius: calc(12px * var(--rs)); background: var(--pill); margin-bottom: 12px; }
+  .tabs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; padding: 3px; border-radius: calc(12px * var(--rs)); background: var(--pill); margin-bottom: 12px; }
   /* Colour tile above the label: four tabs fit side by side without crowding. */
   .tabs button { min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 7px 2px 6px; border-radius: calc(9px * var(--rs)); font-size: 11px; font-weight: 500; }
   .tabs .sel { background: var(--accent); color: var(--on-accent); }

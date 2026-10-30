@@ -138,9 +138,9 @@
       // After a screenshot / OCR snap: sound + a feedback card next to the Capture widget.
       events.captureDone((d) => {
         if (!isMainDock(win.label)) return; // one shutter and one card, from the main dock
-        if (d.kind === 'shot') shutter(); else if (d.kind === 'ocr') tick();
+        if (d.kind === 'shot') shutter(); else if (d.kind === 'ocr' || d.kind === 'color') tick();
         const el = document.querySelector('.capture-pill') ?? scroller;
-        const h = d.kind === 'shot' ? 208 : d.kind === 'ocr' ? 168 : 100;
+        const h = d.kind === 'shot' ? 208 : d.kind === 'ocr' ? 168 : d.kind === 'color' ? 176 : 100;
         setTimeout(() => ipc.popupOpen('__feedback', el.getBoundingClientRect(), 300, h, false), 60);
       }),
       // A notification was clicked: scroll to the widget that sent it, pulse a soft glow,

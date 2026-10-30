@@ -54,6 +54,7 @@ pub fn commit(app: &AppHandle, cfg: Config) -> Result<(), String> {
     widgets::quick::sync_tray(app);
     sync_autostart(app, &cfg);
     perf::refresh(app);
+    scheduler::poke(); // due items read from settings (countdowns, water) may have changed
     let _ = app.emit("config:changed", &cfg);
     if moved { widgets::location::poke(); }
     Ok(())
@@ -130,7 +131,7 @@ fn main() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new()
-            .with_handler(|app, _sc, ev| if ev.state == tauri_plugin_global_shortcut::ShortcutState::Pressed { widgets::ocr::on_hotkey(app) })
+            .with_handler(|app, sc, ev| if ev.state == tauri_plugin_global_shortcut::ShortcutState::Pressed { widgets::ocr::on_hotkey(app, sc) })
             .build())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
@@ -169,6 +170,8 @@ fn main() {
             backdrop::watch(h);
             widgets::sound::charger_init();
             widgets::screenshots::prune(h);
+            #[cfg(windows)]
+            if let Some(p) = app.get_webview_window("popup") { widgets::mirror::allow_camera(&p); }
             widgets::clipboard::prune(h);
             widgets::quick::sync_tray(h);
             let n = h.clone();
@@ -187,6 +190,8 @@ fn main() {
             perf::start(h.clone());
             widgets::screentime::start(h.clone());
             widgets::downloads::start(h.clone());
+            widgets::trash::start(h.clone());
+            widgets::quick::start_bt_battery(h.clone());
             updates::start(h.clone());
             applog::log(format!("GlassBar {} started", env!("CARGO_PKG_VERSION")));
             // Started with Windows: monitors and Explorer may still be settling. Place again soon.
@@ -229,9 +234,11 @@ fn main() {
             widgets::downloads::downloads_recycle, widgets::downloads::downloads_drag, widgets::downloads::file_icon,
             widgets::shelf::shelf_drag, widgets::shelf::shelf_pick,
             widgets::downloads::recycle_info, widgets::downloads::recycle_empty,
+            widgets::trash::trash_items, widgets::trash::trash_restore, widgets::trash::trash_recycle, widgets::trash::trash_empty_confirm,
             widgets::focus::sw_get, widgets::focus::sw_toggle, widgets::focus::sw_lap, widgets::focus::sw_reset,
             widgets::location::location_status, widgets::location::location_clear, widgets::location::location_open_map, widgets::location::location_search, widgets::weather::weather_get,
             widgets::solat::solat_days, widgets::solat::solat_zones, widgets::solat::solat_test_sound,
+            widgets::tasbih::tasbih_get, widgets::tasbih::tasbih_add, widgets::tasbih::tasbih_reset,
             widgets::ipu::ipu_get,
             perf::perf_history, perf::perf_state, perf::perf_watch, bar::bar_away,
             widgets::sysmon::sysmon_history, widgets::sysmon::battery_get, widgets::sysmon::disks_list,
@@ -251,17 +258,19 @@ fn main() {
             widgets::quick::display_mode, widgets::quick::display_set_mode, widgets::quick::display_count,
             widgets::quick::brightness_get, widgets::quick::brightness_set,
             widgets::quick::hotspot_get, widgets::quick::hotspot_set,
+            widgets::awake::awake_get, widgets::awake::awake_set, widgets::awake::awake_off,
+            widgets::mic::mic_state, widgets::mic::mic_set_mute, widgets::mic::mic_set_volume, widgets::mic::mic_set_default, widgets::mic::privacy_in_use,
             widgets::quick::night_light_get, widgets::quick::night_light_set, widgets::quick::nearby_get, widgets::quick::nearby_set, widgets::quick::cast_get,
             widgets::water::water_today, widgets::water::water_add, widgets::water::water_remove, widgets::water::water_snooze,
             widgets::currency::fx_rates,
             widgets::apps::app_pin_target, widgets::apps::app_browse, widgets::apps::apps_installed, widgets::apps::paths_exist,
-            widgets::ocr::ocr_hotkey_status, widgets::ocr::ocr_snap_start, widgets::ocr::ocr_shot, widgets::ocr::ocr_snap_cancel, widgets::ocr::ocr_snap_show,
+            widgets::ocr::ocr_hotkey_status, widgets::ocr::color_hotkey_status, widgets::ocr::color_pick_finish, widgets::ocr::ocr_snap_start, widgets::ocr::ocr_shot, widgets::ocr::ocr_snap_cancel, widgets::ocr::ocr_snap_show,
             widgets::ocr::ocr_snap_finish, widgets::screenshots::shots_list, widgets::clipboard::clip_list, widgets::clipboard::clip_copy, widgets::clipboard::clip_delete, widgets::clipboard::clip_pin, widgets::screenshots::shots_copy,
-            widgets::screenshots::shots_delete, widgets::screenshots::shots_open, widgets::screenshots::shot_fullscreen, widgets::screenshots::shot_scroll_stop, widgets::quick::record_screen, widgets::ocr::ocr_history, widgets::ocr::ocr_history_delete, widgets::ocr::ocr_copy,
+            widgets::screenshots::shots_delete, widgets::screenshots::shots_open, widgets::screenshots::shot_fullscreen, widgets::screenshots::shot_scroll_stop, widgets::quick::record_screen, widgets::mirror::mirror_save, widgets::ocr::ocr_history, widgets::ocr::ocr_history_delete, widgets::ocr::ocr_copy,
             widgets::quick::wifi_list, widgets::quick::wifi_connect, widgets::quick::wifi_disconnect,
             widgets::quick::bt_list, widgets::quick::bt_pair, widgets::quick::bt_unpair, widgets::quick::open_settings_uri,
             bar::popup_fit, widgets::quick::tray_icons, widgets::quick::tray_click, widgets::quick::tray_refresh, widgets::sound::audio_meter, widgets::spectrum::audio_spectrum, widgets::spectrum::audio_spectrum_stream,
-            widgets::quick::clock_system_12h, widgets::quick::lang_list, widgets::quick::lang_set, widgets::quick::windows_notifications, widgets::quick::show_desktop,
+            widgets::quick::clock_system_12h, widgets::quick::lang_list, widgets::quick::lang_set, widgets::quick::windows_notifications, widgets::quick::show_desktop, widgets::quick::windows_search_text,
         ])
         .build(tauri::generate_context!())
         .expect("error while building GlassBar")

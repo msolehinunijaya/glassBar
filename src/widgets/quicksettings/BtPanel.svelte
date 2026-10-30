@@ -4,6 +4,7 @@
   // that goes to Windows Bluetooth settings rather than a button that only pretends.
   import { Bluetooth, ChevronLeft, Headphones, Keyboard, RefreshCw, Settings2, Smartphone, Laptop } from '@lucide/svelte';
   import { ipc, type BtDevice, type RadioInfo } from '../../lib/ipc';
+  import { levelTone } from './extras';
 
   let { back, radio, toggle }: { back: () => void; radio: RadioInfo | undefined; toggle: () => Promise<void> } = $props();
   let devices = $state<BtDevice[]>([]);
@@ -54,6 +55,7 @@
       <div class="dev" class:on={d.connected}>
         <Icon size={16} />
         <span class="name"><span class="ellipsis">{d.name}</span><span class="dim small">{d.connected ? 'Connected' : 'Paired'} · {d.kind}</span></span>
+        {#if d.connected && d.battery != null}<span class="batt {levelTone(d.battery)}" title="Battery {d.battery}%"><span class="gauge"><i style:width="{d.battery}%"></i></span><b>{d.battery}%</b></span>{/if}
         <button class="btn sm" onclick={() => ipc.openSettingsUri('ms-settings:bluetooth')} title="Windows has no public API for apps to connect or disconnect a device">{d.connected ? 'Disconnect…' : 'Connect…'}</button>
         <button class="btn sm" disabled={busy === d.id} onclick={() => act(d, () => ipc.btUnpair(d.id), 'Removed')}>{busy === d.id ? '…' : 'Remove'}</button>
         {#if msg?.id === d.id}<p class="small" class:err={!msg.ok}>{msg.text}</p>{/if}
@@ -85,6 +87,13 @@
   .name { flex: 1; min-width: 0; display: flex; flex-direction: column; font-size: 13px; }
   .dev p { width: 100%; margin: 0; }
   .btn.sm { padding: 4px 8px; font-size: 11px; }
+  /* Battery chip: a small gauge with the % beside it. */
+  .batt { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-variant-numeric: tabular-nums; }
+  .gauge { width: 22px; height: 6px; border-radius: 3px; background: var(--track); overflow: hidden; }
+  .gauge i { display: block; height: 100%; background: #30d158; }
+  .low .gauge i { background: #ff9f0a; }
+  .critical .gauge i { background: #ff453a; }
+  .batt b { font-weight: 500; }
   .primary { background: var(--accent); color: var(--on-accent); }
   .small { font-size: 11px; }
   .err { color: #ff453a; }

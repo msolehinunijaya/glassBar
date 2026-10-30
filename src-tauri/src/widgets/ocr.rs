@@ -14,12 +14,16 @@ use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
 
 pub const DEFAULT_HOTKEY: &str = "Super+Shift+T";
 const FALLBACK_HOTKEY: &str = "Control+Alt+T";
+/// The colour picker's hotkey. PowerToys' Color Picker also uses Win+Shift+C: fall back then.
+pub const DEFAULT_COLOR_HOTKEY: &str = "Super+Shift+C";
+const FALLBACK_COLOR_HOTKEY: &str = "Control+Alt+C";
 static SHOT: Mutex<Option<Shot>> = Mutex::new(None);
 /// What the open overlay is for: "ocr", or a screenshot of a "region", "window" or "scroll"ing window.
 static PURPOSE: Mutex<String> = Mutex::new(String::new());
 /// Windows visible in the frozen shot (absolute coords), for picking one.
 static WINDOWS: Mutex<Vec<crate::platform::WinRect>> = Mutex::new(Vec::new());
 static HOTKEY: Mutex<(String, Option<String>)> = Mutex::new((String::new(), None)); // (registered, error)
+static COLOR_HOTKEY: Mutex<(String, Option<String>)> = Mutex::new((String::new(), None));
 
 struct Opts { mode: Mode, engine: String, auto_copy: bool, toast: bool }
 fn opts(app: &AppHandle) -> Opts {
@@ -37,33 +41,40 @@ fn opts(app: &AppHandle) -> Opts {
 
 // ---- hotkey ----
 
-/// (Re)register the snap hotkey from settings; call at startup and after config saves.
+/// (Re)register the OCR Snap and colour picker hotkeys from settings; call at startup and
+/// after config saves. Each falls back once when its default is taken.
 pub fn register_hotkey(app: &AppHandle) {
-    let want = {
+    let (want, want_color) = {
         let st = app.state::<crate::AppState>();
         let cfg = st.config.lock().unwrap();
-        cfg.widget_settings("ocr")["hotkey"].as_str().filter(|s| !s.is_empty()).unwrap_or(DEFAULT_HOTKEY).to_string()
+        let s = cfg.widget_settings("ocr");
+        let pick = |k: &str, d: &str| s[k].as_str().filter(|s| !s.is_empty()).unwrap_or(d).to_string();
+        (pick("hotkey", DEFAULT_HOTKEY), pick("colorHotkey", DEFAULT_COLOR_HOTKEY))
     };
     let mut cur = HOTKEY.lock().unwrap();
-    if (cur.0 == want || (want == DEFAULT_HOTKEY && cur.0 == FALLBACK_HOTKEY)) && cur.1.is_none() { return; }
+    let mut col = COLOR_HOTKEY.lock().unwrap();
+    let same = |c: &(String, Option<String>), want: &str, d: &str, fb: &str| (c.0 == want || (want == d && c.0 == fb)) && c.1.is_none();
+    if same(&cur, &want, DEFAULT_HOTKEY, FALLBACK_HOTKEY) && same(&col, &want_color, DEFAULT_COLOR_HOTKEY, FALLBACK_COLOR_HOTKEY) { return; }
     let gs = app.global_shortcut();
     let _ = gs.unregister_all();
     let try_reg = |s: &str| s.parse::<Shortcut>().map_err(|e| format!("\"{s}\" isn't a valid shortcut ({e})"))
         .and_then(|sc| gs.register(sc).map_err(|_| format!("{s} is already used by Windows or another app")));
-    cur.1 = try_reg(&want).err();
-    cur.0 = want.clone();
-    // The default is often taken (PowerToys Text Extractor uses Win+Shift+T): fall back once.
-    if cur.1.is_some() && want == DEFAULT_HOTKEY && try_reg(FALLBACK_HOTKEY).is_ok() {
-        cur.0 = FALLBACK_HOTKEY.into();
-        cur.1 = None;
-    }
+    // The default is often taken (PowerToys uses Win+Shift+T and Win+Shift+C): fall back once.
+    let reg = |c: &mut (String, Option<String>), want: &str, d: &str, fb: &str| {
+        c.1 = try_reg(want).err();
+        c.0 = want.to_string();
+        if c.1.is_some() && want == d && try_reg(fb).is_ok() { c.0 = fb.into(); c.1 = None; }
+    };
+    reg(&mut cur, &want, DEFAULT_HOTKEY, FALLBACK_HOTKEY);
+    reg(&mut col, &want_color, DEFAULT_COLOR_HOTKEY, FALLBACK_COLOR_HOTKEY);
 }
 
-/// Called by the global-shortcut plugin on key press.
-pub fn on_hotkey(app: &AppHandle) {
+/// Called by the global-shortcut plugin on key press: OCR Snap or the colour picker.
+pub fn on_hotkey(app: &AppHandle, sc: &Shortcut) {
+    let color = COLOR_HOTKEY.lock().unwrap().0.parse::<Shortcut>().is_ok_and(|c| c == *sc);
     let a = app.clone();
     // Never build/show windows on the event-loop thread (deadlocks on Windows).
-    tauri::async_runtime::spawn(async move { let _ = start(&a, "ocr").await; });
+    tauri::async_runtime::spawn(async move { let _ = start(&a, if color { "color" } else { "ocr" }).await; });
 }
 
 #[derive(Serialize)]
@@ -73,6 +84,24 @@ pub struct HotkeyStatus { hotkey: String, error: Option<String> }
 pub fn ocr_hotkey_status() -> HotkeyStatus {
     let h = HOTKEY.lock().unwrap();
     HotkeyStatus { hotkey: h.0.clone(), error: h.1.clone() }
+}
+/// The colour picker's hotkey as registered (it may have fallen back), and why it failed.
+#[tauri::command]
+pub fn color_hotkey_status() -> HotkeyStatus {
+    let h = COLOR_HOTKEY.lock().unwrap();
+    HotkeyStatus { hotkey: h.0.clone(), error: h.1.clone() }
+}
+
+/// The colour under the pointer was picked in the overlay: `text` (in the chosen format) goes
+/// to the clipboard and the card by the dock shows `hex`.
+#[tauri::command]
+pub fn color_pick_finish(app: AppHandle, hex: String, text: String) -> Result<(), String> {
+    hide(&app);
+    *SHOT.lock().unwrap() = None;
+    PURPOSE.lock().unwrap().clear();
+    app.clipboard().write_text(text.clone()).map_err(|e| e.to_string())?;
+    let _ = app.emit("capture:done", json!({ "kind": "color", "hex": hex, "text": text }));
+    Ok(())
 }
 
 // ---- snap ----
@@ -110,16 +139,17 @@ pub fn ocr_snap_show(app: AppHandle) {
     if let Some(w) = app.get_webview_window("snap") { let _ = w.show(); let _ = w.set_focus(); }
 }
 
-/// purpose: "ocr" (default) | "region" | "window" | "scroll".
+/// purpose: "ocr" (default) | "region" | "window" | "scroll" | "color".
 #[tauri::command]
 pub async fn ocr_snap_start(app: AppHandle, purpose: Option<String>) -> Result<(), String> {
     let p = purpose.unwrap_or_else(|| "ocr".into());
-    if !matches!(p.as_str(), "ocr" | "region" | "window" | "scroll") { return Err("unknown capture".into()); }
+    if !matches!(p.as_str(), "ocr" | "region" | "window" | "scroll" | "color") { return Err("unknown capture".into()); }
     start(&app, &p).await
 }
 
 #[derive(Serialize)]
-pub struct SnapView { img: String, purpose: String, windows: Vec<crate::platform::WinRect> }
+pub struct SnapView { img: String, purpose: String, windows: Vec<crate::platform::WinRect>,
+    /** The pointer, in screenshot pixels (the colour picker's loupe starts there). */ cursor: Option<(i32, i32)> }
 
 /// The frozen screenshot (PNG data URL) for the overlay, what it's for, and the windows in
 /// it (coordinates relative to the screenshot).
@@ -130,7 +160,8 @@ pub async fn ocr_shot() -> Option<SnapView> {
         let s = g.as_ref()?;
         let img = format!("data:image/png;base64,{}", base64::engine::general_purpose::STANDARD.encode(png(&s.bgra, s.w as u32, s.h as u32)?));
         let windows = WINDOWS.lock().unwrap().iter().map(|w| crate::platform::WinRect { x: w.x - s.x, y: w.y - s.y, ..w.clone() }).collect();
-        Some(SnapView { img, purpose: PURPOSE.lock().unwrap().clone(), windows })
+        let cursor = crate::platform::shell().cursor_pos().map(|(x, y)| (x - s.x, y - s.y)).filter(|(x, y)| *x >= 0 && *y >= 0 && *x < s.w && *y < s.h);
+        Some(SnapView { img, purpose: PURPOSE.lock().unwrap().clone(), windows, cursor })
     }).await.ok().flatten()
 }
 

@@ -2,7 +2,8 @@
   // Quick menu shown while hovering a Capture button: the screenshot kinds, the recorders,
   // OCR Snap with its mode, or the last 5 copies. A click acts at once; the full panel is
   // still one click on the button away.
-  import { AppWindow, Check, Monitor, Pin, ScanText, ScrollText, SquareDashed } from '@lucide/svelte';
+  import { AppWindow, Check, Monitor, Pin, Pipette, ScanText, ScrollText, SquareDashed } from '@lucide/svelte';
+  import { formatColor, textOn } from './color';
   import { updateWidgetSettings } from '../../lib/config.svelte';
   import { ipc, type ClipItem } from '../../lib/ipc';
   import { relTime } from '../../lib/time';
@@ -29,7 +30,13 @@
     copied = c.id;
     setTimeout(() => ipc.popupHide(), 500);
   }
-  const titles: Record<CaptureTab, string> = { shot: 'Screenshot', record: 'Screen recording', ocr: 'OCR Snap', clip: 'Pinned and recent copies' };
+  const titles: Record<CaptureTab, string> = { shot: 'Screenshot', record: 'Screen recording', ocr: 'OCR Snap', clip: 'Pinned and recent copies', color: 'Colour picker' };
+  async function copyColor(hex: string) {
+    await ipc.ocrCopy(formatColor(hex, settings.colorFormat ?? 'hex')).catch(() => {});
+    copiedColor = hex;
+    setTimeout(() => ipc.popupHide(), 500);
+  }
+  let copiedColor = $state<string | null>(null);
 </script>
 
 <div class="menu">
@@ -53,6 +60,19 @@
         <button class:sel={settings.mode === m} onclick={() => updateWidgetSettings(instance, { mode: m })}>{label}</button>
       {/each}
     </div>
+  {:else if tab === 'color'}
+    <button class="go" onclick={() => after(() => ipc.ocrSnapStart('color').catch(() => {}))}><Pipette size={16} /> Pick a colour <span class="k">{hotkeyLabel(settings.colorHotkey || 'Super+Shift+C')}</span></button>
+    {#if (settings.colors ?? []).length}
+      <div class="sw">
+        {#each (settings.colors ?? []).slice(0, 8) as c (c)}
+          <button class="swc" style:background={c} style:color={textOn(c)} title="Copy {formatColor(c, settings.colorFormat ?? 'hex')}" onclick={() => copyColor(c)}>
+            {#if copiedColor === c}<Check size={13} strokeWidth={3} />{/if}
+          </button>
+        {/each}
+      </div>
+    {:else}
+      <p class="dim empty">Colours you pick show up here.</p>
+    {/if}
   {:else}
     <div class="clips">
       {#each clips ?? [] as c (c.id)}
@@ -85,6 +105,9 @@
   .seg button { flex: 1; padding: 5px; border-radius: calc(8px * var(--rs)); font-size: 12px; }
   .seg .sel { background: var(--pill-hover); font-weight: 600; }
   .clips { display: flex; flex-direction: column; gap: 4px; }
+  .sw { display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; margin-top: 8px; }
+  .swc { display: grid; place-items: center; aspect-ratio: 1; border-radius: calc(8px * var(--rs)); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12); transition: transform 0.2s var(--spring); }
+  .swc:hover { transform: scale(1.1); }
   .clip { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; padding: 7px 10px; border-radius: calc(10px * var(--rs)); background: var(--pill); }
   .clip:hover { background: var(--pill-hover); }
   .txt { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }

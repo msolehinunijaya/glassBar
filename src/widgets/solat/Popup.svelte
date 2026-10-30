@@ -10,6 +10,8 @@
   import { countdown } from './next';
   import { liveSolat } from './solat.svelte';
   import LocationTag from '../../lib/LocationTag.svelte';
+  import { hijriNow } from './hijri';
+  import TasbihSection from './TasbihSection.svelte';
 
   let { instance, settings }: PopupProps<SolatSettings> = $props();
   let showOpts = $state(false);
@@ -63,10 +65,15 @@
     {#if today.source === 'aladhan'} · Aladhan (MWL){/if}
   </div>
   {#if settings.zone === 'auto'}<LocationTag />{/if}
-  <div class="dim small">
-    {new Intl.DateTimeFormat(undefined, { dateStyle: 'full' }).format(new Date(today.date + 'T12:00'))}
-    {#if today.hijri} · {today.hijri} H{/if}
-  </div>
+  {#if settings.showHijri !== false}
+    {@const h = hijriNow(s.info.days, s.now)}
+    <div class="hijri">
+      <b>{h.label}</b>
+      {#if h.afterMaghrib}<span class="tag" title="The Islamic day begins at Maghrib">since Maghrib</span>{/if}
+      {#if h.estimate}<span class="dim est" title="Calculated (Umm al-Qura); JAKIM's date may differ by a day">estimate</span>{/if}
+    </div>
+  {/if}
+  <div class="dim small">{new Intl.DateTimeFormat(undefined, { dateStyle: 'full' }).format(new Date(today.date + 'T12:00'))}</div>
   {#if s.next}
     <div class="next card">
       <span class="dim">Next</span>
@@ -82,6 +89,7 @@
       </div>
     {/each}
   </div>
+{#if settings.showTasbih !== false}<TasbihSection {instance} {settings} />{/if}
 {:else if s.error}
   <p class="err">{s.error}</p>
   {#if settings.zone === 'auto'}<LocationTag />{/if}
@@ -111,6 +119,10 @@
   .test:disabled { opacity: 0.4; }
   .hint { margin: 4px 0 10px; }
   .small { font-size: 12px; }
+  .hijri { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin: 6px 0 2px; }
+  .hijri b { font-size: 16px; font-weight: 600; }
+  .hijri .tag { padding: 1px 8px; border-radius: var(--r-chip); background: var(--bg-2); font-size: 11px; color: var(--fg-dim); }
+  .hijri .est { font-size: 11px; }
   .loc { display: flex; align-items: center; gap: 4px; }
   .next { display: flex; align-items: baseline; gap: 8px; margin: 12px 0; padding: 12px 14px; }
   .next b { font-size: 18px; }

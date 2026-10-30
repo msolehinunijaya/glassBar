@@ -1,5 +1,11 @@
 <script lang="ts">
-  import { Bluetooth, Cast, ChevronRight, Monitor, Plane, RadioTower, Settings, Share2, Sun, SunMoon, Wifi } from '@lucide/svelte';
+  import { Bluetooth, Cast, ChevronRight, Coffee, Headphones, Keyboard, Mic, MicOff, Monitor, Mouse, Plane, RadioTower, Settings, Share2, Smartphone, Sun, SunMoon, Wifi } from '@lucide/svelte';
+  import AwakePanel from './AwakePanel.svelte';
+  import MicPanel from './MicPanel.svelte';
+  import { awakeText, levelTone, usingText } from './extras';
+  import { live } from '../../lib/live.svelte';
+  import { tickingNow } from '../../lib/now.svelte';
+  import type { BtDevice, InUse, MicState } from '../../lib/ipc';
   import CastPanel from './CastPanel.svelte';
   import WifiPanel from './WifiPanel.svelte';
   import BtPanel from './BtPanel.svelte';
@@ -12,7 +18,25 @@
   import TraySection from './TraySection.svelte';
 
   let { instance, settings }: PopupProps<QuickSettings> = $props();
-  let view = $state<'main' | 'wifi' | 'bluetooth' | 'cast'>('main');
+  let view = $state<'main' | 'wifi' | 'bluetooth' | 'cast' | 'awake' | 'mic'>('main');
+  // Keep awake, the microphone and who uses it: live from Rust (events, no polling).
+  const awake = live('awake', ipc.awakeGet, { on: false, until: null, screen: true });
+  const awakeNow = tickingNow(() => awake.v.on && awake.v.until != null, 15_000);
+  const mic = live<MicState | null>('mic', ipc.micState, null);
+  const using = live<InUse>('privacy', ipc.privacyInUse, { mic: [], cam: [] });
+  async function toggleAwake() {
+    awake.v = awake.v.on ? await ipc.awakeOff() : await ipc.awakeSet((settings.awakeMinutes ?? 0) || null, settings.awakeScreen ?? true).catch((e) => { error = String(e); return awake.v; });
+  }
+  async function toggleMic() {
+    if (!mic.v) return page('ms-settings:sound');
+    const m = !mic.v.muted;
+    mic.v = { ...mic.v, muted: m };
+    await ipc.micSetMute(m).catch((e) => (error = String(e)));
+  }
+  // Bluetooth devices that report their battery (connected ones only).
+  let btDevices = $state<BtDevice[]>([]);
+  const withBattery = $derived(btDevices.filter((d) => d.connected && d.battery != null));
+  const btIcon = (k: string) => (k === 'Audio' ? Headphones : k === 'Input' ? Keyboard : k === 'Phone' ? Smartphone : k === 'Bluetooth LE' ? Mouse : Bluetooth);
   let radios = $state<RadioInfo[]>([]);
   let mode = $state<DisplayMode | null>(null);
   /** Displays plugged in: with one, only "PC only" makes sense. */
@@ -63,8 +87,8 @@
   const loadLinks = () => {
     ipc.wifiList(false).then((r) => { wifiNet = r.current; wifiNone = 'Not connected'; })
       .catch((e) => { wifiNet = null; wifiNone = /blocked|Location/i.test(String(e)) ? 'Name hidden (Location off)' : 'Unknown'; });
-    ipc.btList(false).then((d) => { btNames = [...new Set(d.filter((x) => x.connected).map((x) => x.name))]; btNone = 'No devices connected'; })
-      .catch(() => { btNames = []; btNone = 'Unknown'; });
+    ipc.btList(false).then((d) => { btDevices = d; btNames = [...new Set(d.filter((x) => x.connected).map((x) => x.name))]; btNone = 'No devices connected'; })
+      .catch(() => { btDevices = []; btNames = []; btNone = 'Unknown'; });
   };
   const linked = (kind: 'wifi' | 'bluetooth') =>
     kind === 'wifi' ? connectedText(wifiNet ? [wifiNet] : [], wifiNone) : connectedText(btNames, btNone);
@@ -105,6 +129,10 @@
   <WifiPanel back={() => (view = 'main')} />
 {:else if view === 'cast'}
   <CastPanel back={() => (view = 'main')} />
+{:else if view === 'awake'}
+  <AwakePanel back={() => (view = 'main')} {instance} {settings} />
+{:else if view === 'mic'}
+  <MicPanel back={() => (view = 'main')} />
 {:else if view === 'bluetooth'}
   <BtPanel back={() => (view = 'main')} radio={find('bluetooth')} toggle={() => run(() => ipc.setRadio('bluetooth', !find('bluetooth')!.on))} />
 {:else}
@@ -173,6 +201,28 @@
     <button class="more" aria-label="Night light settings" title="Night light settings (strength, schedule)" onclick={() => page('ms-settings:nightlight')}><ChevronRight size={16} /></button>
   </div>
   {/if}
+  {#if showTile('awake')}
+  <div class="tilewrap">
+    <button class="tile" class:on={awake.v.on} onclick={toggleAwake} title="Stops the PC sleeping or dimming. › for how long">
+      <Coffee size={18} />
+      <span>Keep awake</span>
+      <span class="state">{awakeText(awake.v, awakeNow.now)}</span>
+    </button>
+    <button class="more" aria-label="Keep awake options" title="How long, and the screen" onclick={() => (view = 'awake')}><ChevronRight size={16} /></button>
+  </div>
+  {/if}
+  {#if showTile('mic')}
+  {@const onAir = using.v.mic.length > 0}
+  <div class="tilewrap">
+    <button class="tile mic" class:muted={mic.v?.muted} class:on={!!mic.v && !mic.v.muted && onAir} disabled={busy} onclick={toggleMic}
+            title={!mic.v ? 'No microphone found' : mic.v.muted ? 'Muted for every app. Click to unmute' : 'Click to mute for every app'}>
+      {#if mic.v?.muted}<MicOff size={18} />{:else}<Mic size={18} />{/if}
+      <span>Microphone{#if onAir && !mic.v?.muted}<i class="air" aria-hidden="true"></i>{/if}</span>
+      <span class="state">{!mic.v ? 'Not found' : mic.v.muted ? 'Muted' : onAir ? `On · ${usingText(using.v.mic)}` : 'On'}</span>
+    </button>
+    <button class="more" aria-label="Microphone options" title="Level, device, apps using it" onclick={() => (view = 'mic')}><ChevronRight size={16} /></button>
+  </div>
+  {/if}
   {#if showTile('cast')}
   <div class="tilewrap">
     <button class="tile" onclick={() => (view = 'cast')} title="Show this screen on a TV or wireless display">
@@ -184,6 +234,21 @@
   </div>
   {/if}
 </div>
+
+{#if settings.btBattery !== false && withBattery.length}
+  <h4 class="dim"><Bluetooth size={13} /> Devices</h4>
+  <div class="devs">
+    {#each withBattery as d (d.id)}
+      {@const Icon = btIcon(d.kind)}
+      <div class="dev" title="{d.name} · {d.battery}%">
+        <Icon size={15} />
+        <span class="ellipsis dn">{d.name}</span>
+        <span class="bar {levelTone(d.battery!)}"><i style:width="{d.battery}%"></i></span>
+        <span class="pc">{d.battery}%</span>
+      </div>
+    {/each}
+  </div>
+{/if}
 
 <h4 class="dim"><Monitor size={13} /> Display</h4>
 <div class="seg">
@@ -248,4 +313,17 @@
   .note { font-size: 11px; margin: 6px 2px 0; }
   .small { font-size: 12px; }
   .err { color: #ff453a; font-size: 12px; }
+  /* Muted mic: a red tile, so a muted mic is never missed. */
+  .tile.mic.muted { background: color-mix(in srgb, #ff453a 22%, var(--pill)); }
+  .tile.mic.muted :global(svg) { color: #ff453a; }
+  .tilewrap:has(.tile.mic.muted) .more { color: inherit; }
+  .air { display: inline-block; width: 6px; height: 6px; margin-left: 5px; vertical-align: middle; border-radius: 50%; background: #ff9f0a; box-shadow: 0 0 6px #ff9f0a; }
+  .devs { display: flex; flex-direction: column; gap: 2px; }
+  .dev { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 var(--s-3); border-radius: var(--r-inner); background: var(--bg-2); font-size: 13px; }
+  .dn { flex: 1; min-width: 0; }
+  .bar { width: 64px; height: 6px; border-radius: 3px; background: var(--track); overflow: hidden; flex: none; }
+  .bar i { display: block; height: 100%; border-radius: 3px; background: #30d158; transition: width 0.4s var(--ease); }
+  .bar.low i { background: #ff9f0a; }
+  .bar.critical i { background: #ff453a; }
+  .pc { width: 36px; text-align: right; font-size: 12px; font-variant-numeric: tabular-nums; }
 </style>

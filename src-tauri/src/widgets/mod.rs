@@ -1,6 +1,8 @@
 //! Backend command modules, one per widget. Each only calls `crate::platform` traits.
 pub mod apps;
+pub mod awake;
 pub mod clipboard;
+pub mod countdown;
 pub mod currency;
 pub mod downloads;
 pub mod focus;
@@ -8,7 +10,9 @@ pub mod ipu;
 pub mod jumplist;
 pub mod location;
 pub mod lyrics;
+pub mod mirror;
 pub mod media;
+pub mod mic;
 pub mod notes;
 pub mod ocr;
 pub mod ocr_text;
@@ -22,7 +26,9 @@ pub mod sound;
 pub mod spectrum;
 pub mod stitch;
 pub mod sysmon;
+pub mod tasbih;
 pub mod todo;
+pub mod trash;
 pub mod weather;
 
 use tauri::{AppHandle, Emitter};
@@ -33,6 +39,7 @@ pub fn start_watchers(app: &AppHandle) {
     let a = app.clone();
     p.watch_windows(Box::new(move || { let _ = a.emit("apps:changed", crate::platform::shell().list_windows()); }));
     crate::effects::init(app);
+    mic::start(app);
     p.watch_minimize(Box::new(crate::effects::on_minimize));
     let a = app.clone();
     let b = app.clone();

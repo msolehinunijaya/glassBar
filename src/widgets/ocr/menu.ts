@@ -7,5 +7,5 @@ export function parseCapMenu(key: string | null): { tab: CaptureTab; instance: s
   const rest = key.slice(CAP_MENU.length);
   const i = rest.indexOf(':');
   const tab = rest.slice(0, i) as CaptureTab;
-  return i > 0 && ['shot', 'record', 'ocr', 'clip'].includes(tab) ? { tab, instance: rest.slice(i + 1) } : null;
+  return i > 0 && ['shot', 'record', 'ocr', 'clip', 'color'].includes(tab) ? { tab, instance: rest.slice(i + 1) } : null;
 }

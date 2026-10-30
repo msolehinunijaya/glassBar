@@ -8,6 +8,8 @@ export const SOURCE_WIDGET: Record<string, { widget: string; part?: 'pomodoro' |
   solat: { widget: 'solat', label: 'Prayer times' },
   ipu: { widget: 'ipu', label: 'Air quality' },
   downloads: { widget: 'downloads', label: 'Downloads' },
+  bluetooth: { widget: 'quicksettings', label: 'Bluetooth battery' },
+  countdown: { widget: 'countdown', label: 'Countdowns' },
 };
 
 export type JumpTarget =

@@ -1,6 +1,6 @@
 [package]
 name = "glassbar"
-version = "0.6.6"
+version = "0.6.7"
 description = "GlassBar - a customizable glass taskbar"
 edition = "2021"
 
@@ -53,6 +53,8 @@ features = [
   "Win32_System_Threading",
   "Win32_System_Diagnostics_ToolHelp",
   "Win32_System_Power",
+  "Win32_System_SystemServices",
+  "Win32_Security",
   "Win32_Storage_FileSystem",
   "Win32_Storage_Packaging_Appx",
   "Win32_System_SystemInformation",
@@ -75,6 +77,7 @@ features = [
   "Win32_Devices_FunctionDiscovery",
   "Win32_Devices_Display",
   "Win32_Devices_Properties",
+  "Win32_Devices_DeviceAndDriverInstallation",
   "Foundation",
   "Foundation_Collections",
   "Media_Control",
