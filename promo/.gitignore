@@ -1,0 +1,6 @@
+# Raw captures (prep.py turns them into assets/film) and anything rendered or regenerated.
+assets/cap/
+audio/music.wav
+audio/sfx.wav
+audio/mix.wav
+capture/config-original.json

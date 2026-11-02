@@ -1,0 +1,12 @@
+import { windows, sleep, lodpi } from './cdp.mjs';
+import fs from 'node:fs';
+const w = await windows(); const bar = w.bar;
+await bar.ev(`window.__TAURI_INTERNALS__.invoke('set_edit_mode', { on: false })`);
+const orig = fs.readFileSync(new URL('./config-original.json', import.meta.url), 'utf8');
+await bar.ev(`window.__TAURI_INTERNALS__.invoke('save_config', { config: ${orig} }).then(() => 'saved')`).then(console.log);
+for (const k of Object.keys(w)) await lodpi(w[k]).catch(() => {});
+await sleep(800);
+const now = await bar.ev(`window.__TAURI_INTERNALS__.invoke('get_config').then(JSON.stringify)`);
+const a = JSON.parse(orig), b = JSON.parse(now);
+console.log('same theme', JSON.stringify(a.theme) === JSON.stringify(b.theme), 'same widgets', JSON.stringify(a.profiles) === JSON.stringify(b.profiles));
+process.exit(0);
