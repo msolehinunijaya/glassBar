@@ -354,7 +354,7 @@ function sceneNotify(ctx, u, IMG) {
 }
 
 function sceneAdhan(ctx, u, IMG) {
-  caption(ctx, u, 57, 70.5, 'Never miss a prayer.', 'Music pauses by itself while the adhan plays.', { y: 170 });
+  caption(ctx, u, 57, 70.5, 'Never miss a prayer.', 'Prayer times for your zone, and an alert right on the dock.', { y: 170 });
   const img = P(IMG, 'solat'), src = [0, 0, 800, 520], w = 480, h = w * src[3] / src[2];
   card(ctx, img, src, 1340, 170, w, h, u, 60, { from: [0, 60], out: [70.5, 71.5] });
 }

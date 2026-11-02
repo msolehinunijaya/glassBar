@@ -4,7 +4,7 @@ A 60 s, 16:9 promo built with the motion-reel skill. `film.js` is a canvas film 
 
 ## Re-render after a tweak (run from the repo root; `SK` = the motion-reel skill folder)
 
-    sh -c 'cd promo && sh capture/audio.sh'                  # music.wav (bed + adhan pause)
+    MOTION_REEL_SKILL=$SK uv run promo/audio/score.py         # music.wav (bespoke marimba/piano score)
     node $SK/scripts/render.mjs --film promo --hits
     node $SK/scripts/sfx.mjs promo && node $SK/scripts/mix.mjs promo --no-mux
     node $SK/scripts/render.mjs --film promo --contact --every 2   # quick review sheets
