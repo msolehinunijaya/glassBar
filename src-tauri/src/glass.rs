@@ -32,7 +32,13 @@ pub fn nudge() { NUDGE.store(true, Ordering::Relaxed); }
 pub fn take(app: &AppHandle, label: &str, area: Rect) -> bool {
     let glass: Vec<(HWND, Rect, bool)> = app.webview_windows().into_iter()
         .filter(|(l, _)| is_glass(l))
-        .filter_map(|(_, w)| Some((HWND(w.hwnd().ok()?.0), crate::magnify::rect_of(&w).filter(|r| overlaps(*r, area))?, w.is_visible().unwrap_or(false))))
+        .filter_map(|(l, w)| {
+            let shown = w.is_visible().unwrap_or(false);
+            // Not the hidden flyout: changing its capture setting before it was ever shown made
+            // Windows show it, blank and with a title bar, at every start.
+            if l == "popup" && !shown { return None; }
+            Some((HWND(w.hwnd().ok()?.0), crate::magnify::rect_of(&w).filter(|r| overlaps(*r, area))?, shown))
+        })
         .collect();
     // The screen as it is, glass and all. A picture that looks like it inside a shown glass
     // window caught that window too: Windows hadn't applied the exclusion yet (it lags when
