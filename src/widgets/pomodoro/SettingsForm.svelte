@@ -1,6 +1,7 @@
 <script lang="ts">
   // Pomodoro settings: shown by the flyout's gear and in Settings › Widgets.
-  import { Minus, Plus } from '@lucide/svelte';
+  import { Minus, Plus, X } from '@lucide/svelte';
+  import { youtubeId } from './music';
   import type { PomoCfg } from '../../lib/ipc';
   import { chime } from '../../lib/sound';
   import type { SettingsProps } from '../types';
@@ -15,6 +16,17 @@
   const step = (k: Num, v: number, dir: 1 | -1) => (!k.endsWith('Min') || (dir < 0 ? v <= 5 : v < 5) ? 1 : 5) * dir;
   const set = (k: Num, max: number, v: number) => save({ [k]: Math.min(max, Math.max(1, Math.round(v))) });
   const val = (k: Num) => settings[k] ?? (k === 'goal' ? 4 : 1);
+
+  // Focus music: YouTube links, played in order (then from the top) while focusing.
+  const links = $derived(settings.musicLinks ?? []);
+  let draft = $state('');
+  const draftOk = $derived(!!youtubeId(draft));
+  const addLink = () => {
+    if (!draftOk) return;
+    save({ musicLinks: [...links, draft.trim()], music: true });
+    draft = '';
+  };
+  const removeLink = (i: number) => save({ musicLinks: links.filter((_, j) => j !== i) });
 </script>
 
 <div class="pset">
@@ -52,6 +64,29 @@
     <span class="txt">Dim other dock widgets while focusing<small>Everything but this widget fades during a focus session.</small></span>
     <input type="checkbox" class="switch" checked={settings.dimOthers} onchange={(e) => save({ dimOthers: e.currentTarget.checked })} />
   </label>
+  <label class="row tall">
+    <span class="txt">Azan during focus<small>Off: while a focus session runs, the azan doesn't play and the prayer alert doesn't show. It's still in Notifications.</small></span>
+    <input type="checkbox" class="switch" checked={settings.azanInFocus !== false} onchange={(e) => save({ azanInFocus: e.currentTarget.checked })} />
+  </label>
+  <label class="row tall">
+    <span class="txt">Play music while focusing<small>Your YouTube links play as sound when a focus session starts, one after another, and pause with it. Breaks are quiet.</small></span>
+    <input type="checkbox" class="switch" checked={!!settings.music} onchange={(e) => save({ music: e.currentTarget.checked })} />
+  </label>
+  {#if settings.music || links.length}
+    <div class="links" class:off={!settings.music}>
+      {#each links as l, i (i)}
+        <div class="link">
+          <span class="ellipsis" class:bad={!youtubeId(l)} title={l}>{l}</span>
+          <button class="sbtn" onclick={() => removeLink(i)} aria-label="Remove this link" title="Remove"><X size={13} /></button>
+        </div>
+      {/each}
+      <form class="add" onsubmit={(e) => { e.preventDefault(); addLink(); }}>
+        <input type="url" placeholder="Paste a YouTube link" bind:value={draft} aria-label="YouTube link" />
+        <button class="btn" type="submit" disabled={!draftOk}><Plus size={13} /> Add</button>
+      </form>
+      {#if draft && !draftOk}<small class="warn">That isn't a YouTube video link.</small>{/if}
+    </div>
+  {/if}
   <p class="note">When a phase ends you also get a banner, following your Notifications and Do Not Disturb settings.</p>
 </div>
 
@@ -70,5 +105,13 @@
   .sbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .sbtn:disabled { opacity: 0.35; }
   .slider { width: 140px; }
+  .links { display: flex; flex-direction: column; gap: 6px; padding: 0 var(--s-1) var(--s-2); }
+  .links.off { opacity: 0.5; }
+  .link { display: flex; align-items: center; gap: var(--s-2); font-size: 12px; padding: 4px 4px 4px 10px; border-radius: var(--r-inner); background: var(--bg-2); }
+  .link span { flex: 1; min-width: 0; }
+  .link .bad { color: #ff3b30; }
+  .add { display: flex; gap: 6px; }
+  .add input { flex: 1; min-width: 0; font-size: 12px; }
+  .warn { color: #ff9f0a; }
   .note { margin: var(--s-2) var(--s-1) 0; font-size: 11px; color: var(--fg-dim); }
 </style>

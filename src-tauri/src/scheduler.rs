@@ -91,9 +91,11 @@ fn handle(app: &AppHandle, d: &Due, missed: bool) {
         "solat" => {
             // The adzan is the prayer widget's own sound setting, not a banner chime: it plays
             // whether or not prayer banners are muted or their sound is off. Only Do Not Disturb
-            // (and a prayer missed while GlassBar was off) keeps it quiet.
-            let dnd = app.state::<crate::AppState>().config.lock().unwrap().dnd;
-            crate::alerts::notify_full(app, d.source, &d.title, &d.body, missed, serde_json::Value::Null, serde_json::json!({ "key": d.key }));
+            // (and a prayer missed while GlassBar was off) keeps it quiet -- and, with Pomodoro's
+            // "Azan during focus" off, a running focus session (it stays in the list).
+            let hushed = crate::widgets::focus::hush_azan(app);
+            let dnd = app.state::<crate::AppState>().config.lock().unwrap().dnd || hushed;
+            crate::alerts::notify_quiet(app, d.source, &d.title, &d.body, missed, serde_json::Value::Null, serde_json::json!({ "key": d.key }), hushed);
             if !missed && !dnd {
                 let sound = d.sound.as_ref().map(crate::widgets::solat::sound_payload).unwrap_or(serde_json::json!({ "kind": "chime" }));
                 let _ = app.emit_to("bar", "sound:play", sound);

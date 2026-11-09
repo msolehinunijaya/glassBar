@@ -150,6 +150,17 @@ fn load_history(c: &rusqlite::Connection) -> Vec<FocusDay> {
     })
 }
 
+/// Pomodoro "Azan during focus" off, and a focus session is running now: the prayer alert is
+/// kept to the list, without the azan, banner or dock alert.
+pub fn azan_hushed(settings: &serde_json::Value, p: &Pomo) -> bool {
+    settings["azanInFocus"] == false && p.phase == Phase::Work && p.ends_at.is_some()
+}
+
+pub fn hush_azan(app: &AppHandle) -> bool {
+    let s = app.state::<crate::AppState>().config.lock().unwrap().widget_settings("productivity");
+    azan_hushed(&s, &load_pomo(app))
+}
+
 fn pomo_cfg(app: &AppHandle) -> PomoCfg {
     let v = app.state::<crate::AppState>().config.lock().unwrap().widget_settings("productivity");
     serde_json::from_value(v).unwrap_or_default()
@@ -420,6 +431,17 @@ mod tests {
         assert_eq!(streak(&h[..2], t), 0, "a missed day breaks it");
         assert_eq!(streak(&[day("2026-10-24", 0)], t), 0, "a day with no session does not count");
         assert_eq!(streak(&[], t), 0);
+    }
+
+    #[test]
+    fn azan_is_hushed_only_while_focusing_with_the_setting_off() {
+        let off = serde_json::json!({ "azanInFocus": false });
+        let focusing = Pomo { phase: Phase::Work, ends_at: Some(1), ..Default::default() };
+        assert!(azan_hushed(&off, &focusing));
+        assert!(!azan_hushed(&serde_json::json!({}), &focusing), "on by default");
+        assert!(!azan_hushed(&off, &Pomo { phase: Phase::Work, paused_ms: Some(5), ..Default::default() }), "paused");
+        assert!(!azan_hushed(&off, &Pomo { phase: Phase::Short, ends_at: Some(1), ..Default::default() }), "a break");
+        assert!(!azan_hushed(&off, &Pomo::default()), "idle");
     }
 
     #[test]

@@ -1,7 +1,8 @@
 //! Synced lyrics for whatever is playing.
 //!
 //! A local `.lrc` in `%APPDATA%\GlassBar\lyrics` always wins; otherwise LRCLIB
-//! (lrclib.net, free, no key). Windows' media API gives no file path for Spotify or browser
+//! (lrclib.net, free, no key), then NetEase Cloud Music, then Kugou (both free, no key, big
+//! catalogues of Western and Asian songs), until one has the song; else "not available". Windows' media API gives no file path for Spotify or browser
 //! playback, so there is nothing to look "next to" -- that folder is both the offline source
 //! and the fix when LRCLIB is wrong.
 //!
@@ -33,7 +34,7 @@ pub struct LyricLine {
 pub struct Lyrics {
     /// Timed lines, earliest first. Empty means this track has no synced lyrics.
     pub lines: Vec<LyricLine>,
-    /// "local" (a .lrc on this PC), "lrclib", or "none".
+    /// "local" (a .lrc on this PC), "lrclib", "netease", "kugou", "none" or "offline".
     pub source: String,
     pub fetched_at: i64,
 }
@@ -269,6 +270,98 @@ fn fetch(artist: &str, title: &str, album: &str, dur_s: i64) -> Result<Found, St
     Ok(best)
 }
 
+// ---------- more sources, asked when LRCLIB has nothing ----------
+
+/// Lowercase letters and digits only: "The Archer (Live)" and "the archer" compare as text.
+fn squash(s: &str) -> String { s.to_lowercase().chars().filter(|c| c.is_alphanumeric()).collect() }
+
+/// Is a candidate the song? Its title must be the song's (a few extra words, like "Remastered",
+/// are fine; a different song is not), and the length must agree when both are known.
+pub fn same_song(want_title: &str, title: &str, want_s: i64, dur_s: f64) -> bool {
+    let (w, t) = (squash(want_title), squash(title));
+    let titled = !w.is_empty() && (t == w || (t.starts_with(&w) && t.len() <= w.len() + 14));
+    let timed = want_s <= 0 || dur_s <= 0.0 || (dur_s - want_s as f64).abs() <= tolerance(want_s);
+    titled && timed
+}
+
+/// Credit lines some sources put first ("作词 : …", "Composed by: …") aren't lyrics.
+pub fn drop_credits(lines: Vec<LyricLine>) -> Vec<LyricLine> {
+    const CREDIT: [&str; 14] = ["作词", "作曲", "编曲", "制作", "出品", "原唱", "混音", "录音", "监制", "lyrics by", "composed by", "produced by", "written by", "arranged by"];
+    lines.into_iter().filter(|l| {
+        let t = l.text.to_lowercase();
+        let head = t.split([':', '：']).next().unwrap_or("");
+        !(t.contains([':', '：']) && CREDIT.iter().any(|c| head.contains(c)))
+    }).collect()
+}
+
+/// Both sources want a browser's User-Agent.
+fn json(url: &str) -> Result<Value, String> {
+    match crate::net::get_json_h(url, &[("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")])? {
+        (200, v) if !v.is_null() => Ok(v),
+        (200, _) => Err("bad response".into()),
+        (s, _) => Err(format!("HTTP {s}")),
+    }
+}
+
+fn lines_of(lrc: &str) -> Option<Vec<LyricLine>> {
+    let l = drop_credits(parse_lrc(lrc));
+    (l.iter().filter(|x| !x.text.trim().is_empty()).count() >= 3).then_some(l)
+}
+
+type Source = fn(&str, &str, i64) -> Result<Option<Vec<LyricLine>>, String>;
+
+/// NetEase Cloud Music: search, then the timed lyric of the best few matches.
+fn netease(artist: &str, title: &str, dur_s: i64) -> Result<Option<Vec<LyricLine>>, String> {
+    let v = json(&format!("https://music.163.com/api/search/get?s={}&type=1&limit=10", enc(&format!("{artist} {title}"))))?;
+    let wa = squash(artist);
+    let mut songs: Vec<(bool, f64, i64)> = v["result"]["songs"].as_array().into_iter().flatten().filter_map(|s| {
+        let d = s["duration"].as_f64().unwrap_or(0.0) / 1000.0;
+        if !same_song(title, s["name"].as_str()?, dur_s, d) { return None; }
+        let by = s["artists"].as_array().into_iter().flatten().any(|a| a["name"].as_str().is_some_and(|n| { let n = squash(n); !n.is_empty() && (wa.contains(&n) || n.contains(&wa)) }));
+        Some((by, (d - dur_s as f64).abs(), s["id"].as_i64()?))
+    }).collect();
+    // The singer's own recording first, then the closest length.
+    songs.sort_by(|a, b| b.0.cmp(&a.0).then(a.1.total_cmp(&b.1)));
+    for (_, _, id) in songs.into_iter().take(3) {
+        let l = json(&format!("https://music.163.com/api/song/lyric?id={id}&lv=1"))?;
+        if let Some(lines) = l["lrc"]["lyric"].as_str().and_then(lines_of) { return Ok(Some(lines)); }
+    }
+    Ok(None)
+}
+
+/// Kugou: its lyric search takes the length too; the lyric itself comes base64-encoded.
+fn kugou(artist: &str, title: &str, dur_s: i64) -> Result<Option<Vec<LyricLine>>, String> {
+    use base64::Engine;
+    let v = json(&format!("https://lyrics.kugou.com/search?ver=1&man=yes&client=pc&keyword={}&duration={}", enc(&format!("{artist} - {title}")), dur_s * 1000))?;
+    let mut cands: Vec<(f64, String, String)> = v["candidates"].as_array().into_iter().flatten().filter_map(|c| {
+        let d = c["duration"].as_f64().unwrap_or(0.0) / 1000.0;
+        same_song(title, c["song"].as_str()?, dur_s, d).then(|| ((d - dur_s as f64).abs(), c["id"].as_str().unwrap_or("").to_string(), c["accesskey"].as_str().unwrap_or("").to_string()))
+    }).collect();
+    cands.sort_by(|a, b| a.0.total_cmp(&b.0));
+    for (_, id, key) in cands.into_iter().take(2) {
+        let l = json(&format!("https://lyrics.kugou.com/download?ver=1&client=pc&id={}&accesskey={}&fmt=lrc&charset=utf8", enc(&id), enc(&key)))?;
+        let text = l["content"].as_str().and_then(|c| base64::engine::general_purpose::STANDARD.decode(c).ok()).map(|b| String::from_utf8_lossy(&b).into_owned());
+        if let Some(lines) = text.as_deref().and_then(lines_of) { return Ok(Some(lines)); }
+    }
+    Ok(None)
+}
+
+/// After LRCLIB: NetEase, then Kugou, with the cleaned-up song and singer. A source that
+/// can't be reached counts as not having it (logged): only LRCLIB being unreachable makes the
+/// whole lookup "offline" and asked again shortly.
+fn more(artist: &str, title: &str, dur_s: i64) -> Option<(&'static str, Vec<LyricLine>)> {
+    let (a, t) = clean(artist, title);
+    let sources: [(&'static str, Source); 2] = [("netease", netease), ("kugou", kugou)];
+    for (name, f) in sources {
+        match f(&a, &t, dur_s) {
+            Ok(Some(l)) => return Some((name, l)),
+            Ok(None) => {}
+            Err(e) => crate::applog::log(format!("lyrics: {name}: {e}")),
+        }
+    }
+    None
+}
+
 fn get(app: &AppHandle, title: &str, artist: &str, album: &str, duration_ms: i64, lookup: bool) -> Lyrics {
     if title.trim().is_empty() {
         return none();
@@ -294,7 +387,18 @@ fn get(app: &AppHandle, title: &str, artist: &str, album: &str, duration_ms: i64
         return cached.unwrap_or_else(none);
     }
 
-    match fetch(artist, title, album, duration_ms / 1000) {
+    let found = fetch(artist, title, album, duration_ms / 1000);
+    // LRCLIB has nothing for it (or only other lengths): the other sources, in order.
+    let other = match &found {
+        Ok(Found::Lines(_)) | Err(_) => None,
+        Ok(_) => more(artist, title, duration_ms / 1000),
+    };
+    if let Some((source, lines)) = other {
+        let r = Lyrics { lines, source: source.into(), fetched_at: now_ms() };
+        kv_set(&app.state::<Db>().lock(), &key, &serde_json::to_string(&r).unwrap());
+        return r;
+    }
+    match found {
         // Lyrics of another length only: maybe the player's length was wrong for a moment.
         // Not remembered, so the next ask (with the right length) tries again.
         Ok(Found::NoMatch) => cached.unwrap_or_else(none),
@@ -477,6 +581,22 @@ mod tests {
     }
 
     #[test]
+    fn other_sources_only_take_the_same_song() {
+        assert!(same_song("The Archer", "The Archer", 211, 211.2));
+        assert!(same_song("The Archer", "the archer (Remastered)", 211, 213.0));
+        assert!(!same_song("The Archer", "The Archer (Live From Paris)", 211, 260.0), "another length");
+        assert!(!same_song("The Archer", "Archers of Love", 211, 211.0), "another song");
+        assert!(!same_song("", "Anything", 0, 0.0));
+        assert!(same_song("Lover", "Lover", 0, 221.0), "a track of unknown length");
+    }
+
+    #[test]
+    fn credit_lines_are_not_lyrics() {
+        let l = drop_credits(parse_lrc("[00:00.00] 作词 : 大能人\n[00:01.00] 作曲 : X\n[00:02.00]Composed by: Y\n[00:11.57]First real line\n[00:14.00]Time: it goes\n"));
+        assert_eq!(at(&l), vec![(11_570, "First real line"), (14_000, "Time: it goes")]);
+    }
+
+    #[test]
     fn the_cache_key_ignores_case_and_stray_spaces() {
         assert_eq!(cache_key("Dave", "Sprinter"), cache_key("  dave ", "SPRINTER"));
         assert_ne!(cache_key("Dave", "Sprinter"), cache_key("Dave", "Starlight"));
@@ -501,6 +621,19 @@ fn lrclib_live() {
     for (a, t, d) in [("sombr", "back to friends", 189), ("Taylor Swift", "The Archer", 211), ("LordHuronVEVO", "The Night We Met (Official Video)", 208)] {
         let n = match fetch(a, t, "", d) { Ok(Found::Lines(l)) => format!("{} lines", l.len()), Ok(Found::Absent) => "absent".into(), Ok(Found::NoMatch) => "no match".into(), Err(e) => e };
         println!("{a} - {t}: {n}");
+    }
+}
+
+/// The other sources, live (network, read only): `cargo test -- --ignored other_sources_live --nocapture`.
+#[cfg(test)]
+#[test]
+#[ignore]
+fn other_sources_live() {
+    for (a, t, d) in [("Taylor Swift", "The Archer", 211), ("Jay Chou", "晴天", 269), ("Siti Nurhaliza", "Cindai", 293)] {
+        for (name, f) in [("netease", netease as Source), ("kugou", kugou as Source)] {
+            let r = match f(a, t, d) { Ok(Some(l)) => format!("{} lines, first: {:?}", l.len(), l.iter().find(|x| !x.text.is_empty()).map(|x| &x.text)), Ok(None) => "none".into(), Err(e) => e };
+            println!("{name}: {a} - {t}: {r}");
+        }
     }
 }
 

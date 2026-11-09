@@ -16,10 +16,13 @@
   import { adhanOf, chargerTone, chime, deviceTone, playAdzan, shutter, tick } from '../lib/sound';
   import { showMenu } from '../lib/menu';
   import { settingsOf, widgets } from '../widgets/registry';
+  import { pick, textsOf } from '../widgets/search-match';
+  import { listen } from '@tauri-apps/api/event';
   import { visibleOnDock } from '../widgets/layout';
   import { jumpTarget } from '../lib/notify';
   import { PARTS, partPanel } from '../widgets/productivity/parts';
   import { livePomo } from '../widgets/pomodoro/pomo.svelte';
+  import FocusMusic from '../widgets/pomodoro/FocusMusic.svelte';
   import { tickingNow } from '../lib/now.svelte';
   import FocusDock from './FocusDock.svelte';
   import { focusDock, focusShown } from './focusDock';
@@ -35,7 +38,18 @@
 
   // While dragging a widget in edit mode we show a local order, committed on drop.
   let order = $state<string[] | null>(null);
-  const shown = $derived(order ? order.map((id) => placed.find((w) => w.instance === id)!).filter(Boolean) : placed);
+  // GlassBar search filters the dock as you type (search-match.ts): only matching widgets
+  // stay, and Start & Search, where you type. Nothing matching (a sum, a web search) leaves
+  // the dock as it is; clearing or closing the search brings every widget back.
+  let searchQ = $state('');
+  const searchKeep = $derived.by(() => {
+    if (!searchQ.trim() || edit) return null;
+    const keep = pick(searchQ, placed.filter((w) => widgets[w.id] && w.id !== 'start'),
+      (w) => textsOf(w.id, widgets[w.id].name, widgets[w.id].description ?? '', w.settings));
+    return keep.length ? new Set([...keep.map((w) => w.instance), ...placed.filter((w) => w.id === 'start').map((w) => w.instance)]) : null;
+  });
+  const shown = $derived((order ? order.map((id) => placed.find((w) => w.instance === id)!).filter(Boolean) : placed)
+    .filter((w) => !searchKeep || searchKeep.has(w.instance)));
   // Pomodoro "Dim other dock widgets while focusing": every widget but Productivity fades.
   const pomo = livePomo();
   const focusDim = $derived(!!pomo.state?.cfg.dimOthers && pomo.running && pomo.state?.pomo.phase === 'work');
@@ -46,6 +60,10 @@
   // from the focus controls themselves); leaving it brings the focus view back after 700 ms,
   // but not while a panel or menu opened from the dock is still open. On by default
   // (Pomodoro settings: "Show focus across the dock").
+  // Focus music (Pomodoro settings): YouTube links as sound during a focus session, played
+  // by the main dock only (not the copies on other displays).
+  const pomoSet = $derived((profile().widgets.find((w) => w.id === 'productivity')?.settings ?? {}) as { music?: boolean; musicLinks?: string[] });
+  const inFocus = $derived(pomo.state?.pomo.phase === 'work' && (pomo.running || pomo.state?.pomo.pausedMs != null));
   const focusOn = $derived((profile().widgets.find((w) => w.id === 'productivity')?.settings as { focusDock?: boolean } | undefined)?.focusDock !== false);
   const fNow = tickingNow(() => focusOn && pomo.running);
   const focus = $derived(focusOn ? focusDock(pomo.state, fNow.now) : null);
@@ -226,7 +244,8 @@
       events.soundPlay((s) => (s.kind === 'azan' || s.kind === 'adhan' ? (setAdhanPlaying(true), playAdzan(s.kind === 'azan' ? s.src : adhanOf(s.voice).url, !s.short ? false : s.kind === 'azan' || adhanOf(s.voice).short, !!s.pauseMusic, { pause: ipc.mediaPausePlaying, resume: ipc.mediaResume }, s.volume ?? 1, () => setAdhanPlaying(false))) : s.kind === 'connect' || s.kind === 'disconnect' ? deviceTone(s.kind === 'connect', s.volume) : s.kind === 'plug' || s.kind === 'unplug' ? chargerTone(s.kind === 'plug', s.volume) : chime(s.volume))),
       events.chargerFlip((f) => showAlert({ kind: 'charger', ...f })),
       events.popupShow((i) => { panelOpen = i !== '__feedback'; }),
-      events.popupHide(() => { panelOpen = false; }),
+      events.popupHide(() => { panelOpen = false; searchQ = ''; }),
+      listen<string>('search:filter', (e) => { searchQ = e.payload; }),
       events.dockAlert(showAlert),
     ];
     return () => {
@@ -600,7 +619,8 @@
 <div class="surface bar dock" use:glass class:vertical class:edit class:flashing={!!alert} class:focusing={showFocus} onpointerdown={onBarDown} oncontextmenu={onContext}
      oncontextmenucapture={() => ipc.popupHoverHide()}
      onpointerenter={onEnter} onpointermove={focusMove} onpointerleave={focusLeave} data-size={bar.size} data-side={bar.sideWidth ?? 'regular'}>
-  <div class="handle start" onpointerdown={(e) => onHandleDown(e, -1)}></div>
+  <!-- Resize handles; none while "Fill the screen" fixes the length. -->
+  {#if !bar.fillScreen}<div class="handle start" onpointerdown={(e) => onHandleDown(e, -1)}></div>{/if}
 
   <div class="scrollbox">
   <div class="scroller" bind:this={scroller} class:fade-before={more.before > 0} class:fade-after={more.after > 0}>
@@ -648,6 +668,9 @@
 
   {#if showFocus && focus}
     <FocusDock f={focus} {vertical} />
+  {/if}
+  {#if isMainDock(win.label)}
+    <FocusMusic links={pomoSet.musicLinks ?? []} running={pomo.running} focus={inFocus} enabled={!!pomoSet.music} />
   {/if}
 
   {#if alert && view}
@@ -709,7 +732,13 @@
     </div>
   {/if}
 
-  <div class="handle end" onpointerdown={(e) => onHandleDown(e, 1)}></div>
+  {#if bar.showDesktop}
+    <!-- Show desktop, like the Windows taskbar's far-end strip: outside the scroller, so it
+         stays put while the widgets scroll (they pass under the fade before it). -->
+    <button class="desk" title="Show desktop" aria-label="Show desktop"
+            onpointerdown={(e) => e.stopPropagation()} onclick={() => ipc.showDesktop().catch(() => {})}></button>
+  {/if}
+  {#if !bar.fillScreen}<div class="handle end" onpointerdown={(e) => onHandleDown(e, 1)}></div>{/if}
 </div>
 
 <style>
@@ -885,6 +914,15 @@
   .vertical .edit-tools { flex-direction: column; }
   .done { background: var(--accent); color: var(--on-accent); }
 
+  /* Show desktop: a slim strip with a hairline before it, as on the Windows taskbar. */
+  .desk {
+    flex: none; width: 10px; align-self: stretch; margin-left: 2px; border-radius: calc(4px * var(--rs));
+    border-left: 1px solid var(--line-soft, rgba(127, 127, 127, 0.35));
+    transition: background 0.15s;
+  }
+  .vertical .desk { width: auto; height: 10px; margin: 2px 0 0; border-left: 0; border-top: 1px solid var(--line-soft, rgba(127, 127, 127, 0.35)); }
+  .desk:hover { background: var(--pill-hover); }
+  .desk:active { background: var(--pill-active, var(--pill-hover)); }
   .handle { flex: none; width: 6px; cursor: ew-resize; border-radius: calc(3px * var(--rs)); }
   .vertical .handle { width: auto; height: 6px; cursor: ns-resize; }
   .handle:hover { background: var(--pill-hover); }

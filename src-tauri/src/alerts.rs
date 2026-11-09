@@ -36,6 +36,13 @@ pub struct Note { pub id: i64, pub source: String, pub title: String, pub body: 
 /// Record an alert (with `data`, e.g. which timer); then banner/toast and `sound` as
 /// `delivery` says.
 pub fn notify_full(app: &AppHandle, source: &str, title: &str, body: &str, missed: bool, sound: serde_json::Value, data: serde_json::Value) {
+    notify_quiet(app, source, title, body, missed, sound, data, false);
+}
+
+/// `notify_full`, but `quiet` keeps it to the list (no banner, toast or sound), like Do Not
+/// Disturb does: e.g. a prayer during focus with "Azan during focus" off.
+#[allow(clippy::too_many_arguments)]
+pub fn notify_quiet(app: &AppHandle, source: &str, title: &str, body: &str, missed: bool, sound: serde_json::Value, data: serde_json::Value, quiet: bool) {
     let at = now_ms();
     let id = {
         let db = app.state::<Db>();
@@ -51,7 +58,7 @@ pub fn notify_full(app: &AppHandle, source: &str, title: &str, body: &str, misse
     };
     let _ = app.emit("alerts:changed", ());
     let (dnd, banners) = { let st = app.state::<AppState>(); let c = st.config.lock().unwrap(); (c.dnd, c.banners.clone()) };
-    let d = delivery(dnd, missed, &banners, source);
+    let d = delivery(dnd || quiet, missed, &banners, source);
     if d.toast { let _ = app.notification().builder().title(title).body(body).show(); }
     if d.banner {
         crate::bar::banner_push(app, Note { id, source: source.into(), title: title.into(), body: body.into(), at, data });

@@ -48,6 +48,10 @@ export interface BarCfg {
   allDisplays?: boolean;
   /** Scrolling the dock wraps around without end. */
   infiniteScroll?: boolean;
+  /** The dock spans each screen it is on (length and resize handles then unused). */
+  fillScreen?: boolean;
+  /** A "show desktop" strip at the dock's far end, fixed while the widgets scroll. */
+  showDesktop?: boolean;
 }
 export type SideWidth = 'slim' | 'regular' | 'wide';
 export const SIDE_PX: Record<SideWidth, number> = { slim: 56, regular: 72, wide: 96 };
@@ -116,7 +120,9 @@ export interface Note { id: number; text: string; color: string; pinned: boolean
 export type Phase = 'work' | 'short' | 'long';
 /** volume 0–100; goal = focus sessions a day; dimOthers dims the other dock widgets while focusing. */
 export interface PomoCfg { workMin: number; shortMin: number; longMin: number; every: number; autoStart: boolean; sound: boolean; volume: number; goal: number; dimOthers: boolean;
-  /** Show the focus session across the whole dock (hover the dock for the widgets). Default on. */ focusDock?: boolean }
+  /** Show the focus session across the whole dock (hover the dock for the widgets). Default on. */ focusDock?: boolean;
+  /** Play `musicLinks` (YouTube) as sound during focus sessions. */ music?: boolean; musicLinks?: string[];
+  /** false: no azan, prayer banner or dock alert while focusing (still listed). Default on. */ azanInFocus?: boolean }
 export interface FocusDay { day: string; sessions: number; minutes: number; longest: number }
 /** week = the last 7 days, oldest first (today last); streak in days; longest session in minutes. */
 export interface PomoState { pomo: { phase: Phase; done: number; endsAt: number | null; pausedMs: number | null; completed: Phase | null }; cfg: PomoCfg; label: string; today: FocusDay; week: FocusDay[]; streak: number; longest: number }
