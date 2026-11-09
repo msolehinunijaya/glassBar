@@ -9,6 +9,7 @@
 <script lang="ts">
   // GlassBar search: maths, units and currency answered as you type, matching apps, and
   // "Search Windows" / "Search the web" for anything else. ↑ ↓ move, Enter acts, Esc closes.
+  import { emit } from '@tauri-apps/api/event';
   import { ArrowRightLeft, Calculator, Check, Copy, Globe, History, Ruler, Search } from '@lucide/svelte';
   import { profile, updateWidgetSettings } from '../../lib/config.svelte';
   import { showMenu } from '../../lib/menu';
@@ -76,6 +77,9 @@
     return out;
   });
   $effect(() => { void q; sel = 0; });
+  // The dock filters its widgets to what you type (Bar.svelte); a sum or conversion doesn't.
+  $effect(() => { emit('search:filter', answer ? '' : q).catch(() => {}); });
+  $effect(() => () => { emit('search:filter', '').catch(() => {}); });
 
   async function act(r: Row) {
     if (r.kind === 'answer') {

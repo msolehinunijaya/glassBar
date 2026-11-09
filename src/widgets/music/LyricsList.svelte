@@ -89,7 +89,7 @@
   {#if !following && cur >= 0}
     <button class="back" onclick={backToNow}><ArrowDownToLine size={12} /> Back to now</button>
   {/if}
-  <p class="src dim">Lyrics: {source === 'local' ? 'local .lrc file' : 'LRCLIB'}</p>
+  <p class="src dim">Lyrics: {({ local: 'local .lrc file', netease: 'NetEase Cloud Music', kugou: 'Kugou' } as Record<string, string>)[source] ?? 'LRCLIB'}</p>
 </section>
 
 <style>

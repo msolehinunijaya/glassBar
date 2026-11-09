@@ -36,6 +36,15 @@ pub fn place(mon: Rect, edge: Edge, length: f64, thick: i32, gap: i32, inner: i3
     }
 }
 
+/// A full-length bar kept `gap` px from the screen at both ends too, so it sits like the
+/// rest of the dock does from its edge.
+pub fn inset_ends(r: Rect, edge: Edge, gap: i32) -> Rect {
+    match edge {
+        Edge::Top | Edge::Bottom => Rect { x: r.x + gap, w: (r.w - 2 * gap).max(1), ..r },
+        Edge::Left | Edge::Right => Rect { y: r.y + gap, h: (r.h - 2 * gap).max(1), ..r },
+    }
+}
+
 /// The bar lengthened along its edge by `along` px, staying centred, kept `gap` px inside
 /// the monitor at both ends. Magnification uses it when the spread icons don't fit.
 pub fn grown(r: Rect, edge: Edge, along: i32, mon: Rect, gap: i32) -> Rect {
@@ -137,7 +146,8 @@ pub(crate) fn rect_on(bar: &crate::config::BarCfg, mon: &tauri::Monitor, length:
     let s = mon.scale_factor();
     let thick = (bar.thickness() * s).round() as i32;
     let px = |v: f64| (v.clamp(0.0, 48.0) * s).round() as i32;
-    let (mut r, strip) = place(monitor_rect(&mon), bar.edge, length, thick, px(bar.gap), px(bar.gap_inner.unwrap_or(bar.gap)));
+    let (mut r, strip) = place(monitor_rect(&mon), bar.edge, if bar.fill_screen { 1.0 } else { length }, thick, px(bar.gap), px(bar.gap_inner.unwrap_or(bar.gap)));
+    if bar.fill_screen { r = inset_ends(r, bar.edge, px(bar.gap)); }
     if let Some(p) = bar.floating { r.x = p.x; r.y = p.y; }
     let r = grown(r, bar.edge, grow_of(label), monitor_rect(mon), px(bar.gap));
     (r, strip)
@@ -912,6 +922,14 @@ fn on_menu(app: &AppHandle, id: &str) {
 mod tests {
     use super::*;
     const MON: Rect = Rect { x: 0, y: 0, w: 1920, h: 1080 };
+
+    #[test]
+    fn full_length_bar_keeps_the_gap_at_both_ends() {
+        let (win, _) = place(MON, Edge::Bottom, 1.0, 48, 6, 6);
+        assert_eq!(inset_ends(win, Edge::Bottom, 6), Rect { x: MON.x + 6, w: MON.w - 12, ..win });
+        let (win, _) = place(MON, Edge::Left, 1.0, 48, 6, 6);
+        assert_eq!(inset_ends(win, Edge::Left, 6), Rect { y: MON.y + 6, h: MON.h - 12, ..win });
+    }
 
     #[test]
     fn grown_lengthens_along_the_edge_centred() {

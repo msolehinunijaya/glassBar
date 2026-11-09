@@ -183,8 +183,12 @@
           </div>
         </div>
         <p class="hint">How wide the bar is on the left or right edge ({bar.edge === 'left' || bar.edge === 'right' ? 'in use now' : 'used when you move it there'}). Wider shows labels next to the values.</p>
-        <div class="field"><span>Length <b class="val">{Math.round(lenNow * 100)}%</b></span>
-          <input type="range" min="0.2" max="1" step="0.01" value={lenNow} aria-label="Dock length"
+        <label class="field"><span>Fill the screen</span>
+          <input type="checkbox" checked={!!bar.fillScreen} onchange={(e) => setBar((b) => (b.fillScreen = e.currentTarget.checked))} />
+        </label>
+        <p class="hint">The dock spans the whole edge of each screen it is on, sized to that screen. Length can't be changed while this is on.</p>
+        <div class="field" class:off={bar.fillScreen}><span>Length <b class="val">{bar.fillScreen ? 'Full' : `${Math.round(lenNow * 100)}%`}</b></span>
+          <input type="range" min="0.2" max="1" step="0.01" value={bar.fillScreen ? 1 : lenNow} aria-label="Dock length" disabled={bar.fillScreen}
                  oninput={(e) => preview({ length: +e.currentTarget.value })} onchange={(e) => { const v = +e.currentTarget.value; commit((b) => (b.length = v)); }} />
         </div>
       </div>
@@ -210,6 +214,10 @@
           <input type="checkbox" checked={bar.reserveSpace} onchange={(e) => setBar((b) => (b.reserveSpace = e.currentTarget.checked))} />
         </label>
         <p class="hint">Maximized windows stop at the bar instead of covering it.</p>
+        <label class="field"><span>Show desktop button</span>
+          <input type="checkbox" checked={!!bar.showDesktop} onchange={(e) => setBar((b) => (b.showDesktop = e.currentTarget.checked))} />
+        </label>
+        <p class="hint">A slim button at the dock's far end, like the Windows taskbar's: click it to show the desktop, again to bring your windows back. It stays put while the widgets scroll.</p>
         <label class="field"><span>Infinite scroll</span>
           <input type="checkbox" checked={!!bar.infiniteScroll} onchange={(e) => setBar((b) => (b.infiniteScroll = e.currentTarget.checked))} />
         </label>
