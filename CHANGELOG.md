@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.6.16 — 2026-11-09
+
+### New
+- **Gmail widget** (by hxikal): unread mail from one or more Gmail accounts behind one dock icon, read right in the panel. Sign in with your Gmail address and a Google App Password (kept in Windows Credential Manager). Read-only: GlassBar never sends, deletes or marks mail read in Gmail.
+  - The panel opens on **All mail**, beside Gmail's own Primary, Promotions and Social tabs, and shows your last-known inbox at once while it checks for new mail.
+  - Emails show in **their own layout** (tables, colours, links). Scripts never run, links open in your browser, and remote pictures stay blocked until you click **Show images**, so senders can't see when you opened them. Pictures sent inside an email show, and a long one is read in full a moment later.
+  - Emails you open stay in the list, greyed, until they are read in Gmail.
+  - The dock icon's badge counts **today's unread email**; medium and large sizes also show the newest email. New mail arrives within seconds, with a banner.
+  - Remove an account from the panel's account menu.
+- **Fill the screen** in Settings › Bar: the dock spans the whole edge of each screen it is on, sized to that screen. The length slider and the dock's resize handles are off while it is on.
+- **Show desktop button** in Settings › Bar › Behaviour: a slim strip at the dock's far end, like the Windows taskbar's. Click it to show the desktop, again to bring your windows back. It stays put while the widgets scroll.
+- **Play music while focusing** in Pomodoro settings: add one or more YouTube links. They play as sound when a focus session starts, one after another and then from the top, pause and resume with the session, and stop for breaks. A link YouTube won't play is skipped. (YouTube may play its ads; they can't be skipped automatically.)
+- **Azan during focus** in Pomodoro settings (on by default). Turn it off to keep the azan, the prayer banner and the dock alert quiet while a focus session runs; the prayer is still listed in Notifications.
+- **GlassBar search filters the dock** as you type: only the widgets that match stay (by name, what they do, related words in English and Malay, and the apps pinned in App Launcher and Folders), with small typos forgiven when nothing matches exactly. Clearing or closing the search brings every widget back; sums and conversions leave the dock as it is.
+- **More lyrics sources**: when LRCLIB doesn't have a song, GlassBar asks NetEase Cloud Music, then Kugou, before saying lyrics aren't available.
+
+### Fixed
+- **No blank "GlassBar Popup" window at start** with the Liquid Glass theme.
+
 ## 0.6.15 — 2026-11-04
 
 ### New
