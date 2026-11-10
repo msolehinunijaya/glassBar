@@ -20,6 +20,8 @@ pub async fn bt_list(discover: bool) -> Res<Vec<crate::platform::BtDevice>> { bl
 #[tauri::command]
 pub async fn bt_pair(id: String) -> Res<()> { blocking(move || crate::platform::wireless().bt_pair(&id)).await? }
 #[tauri::command]
+pub async fn bt_connect(id: String, on: bool) -> Res<()> { blocking(move || crate::platform::wireless().bt_connect(&id, on)).await? }
+#[tauri::command]
 pub async fn bt_unpair(id: String) -> Res<()> { blocking(move || crate::platform::wireless().bt_unpair(&id)).await? }
 /// Native fallbacks: the Windows network flyout / Bluetooth settings.
 #[tauri::command]

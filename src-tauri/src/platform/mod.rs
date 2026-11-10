@@ -138,6 +138,11 @@ pub trait Shell: Send + Sync {
     fn no_animation(&self, _win: &tauri::WebviewWindow) {}
     /// Put a window back at the top of the always-on-top layer without activating it.
     fn raise_top(&self, _win: &tauri::WebviewWindow) {}
+    /// Put a window behind every other window (out of the always-on-top layer) without activating it.
+    fn send_back(&self, _win: &tauri::WebviewWindow) {}
+    /// The monitor (physical px) the foreground window fills as a full-screen app: a video,
+    /// game or F11 browser. Never a normal maximized window or the desktop.
+    fn fullscreen_monitor(&self) -> Option<Rect> { None }
     /// Native blur + rounded corners (or plain transparent window for CSS glass).
     /// Returns the material Windows really draws ("none" if none could be applied).
     fn style_window(&self, win: &tauri::WebviewWindow, glass: &Glass) -> &'static str;
@@ -362,6 +367,8 @@ pub trait Wireless: Send + Sync {
     fn bt_list(&self, discover: bool) -> Res<Vec<BtDevice>>;
     fn bt_pair(&self, id: &str) -> Res<()>;
     fn bt_unpair(&self, id: &str) -> Res<()>;
+    /// Connect (true) or disconnect a paired device; Err says why it can't.
+    fn bt_connect(&self, _id: &str, _on: bool) -> Res<()> { Err("Not supported on this system".into()) }
     /// Call `f` whenever Windows' network status changes (connect, disconnect, new network).
     fn watch_network(&self, f: Box<dyn Fn() + Send + Sync>);
 }

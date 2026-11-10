@@ -10,6 +10,7 @@
 //   main thread, so the menu can never close and GlassBar hangs for good. This is why
 //   separators are '-' here rather than PredefinedMenuItem objects made by the caller.
 import { Menu, type IconMenuItemOptions, type MenuItemOptions } from '@tauri-apps/api/menu';
+import { ipc } from './ipc';
 
 /** A plain item, a ticked item (`checked`), one with an icon (`icon`: PNG bytes), a submenu
  *  (`items`), or a separator ('-'). */
@@ -44,4 +45,12 @@ export function showMenu(items: Item[]): Promise<void> {
   const run = queue.then(() => open(items));
   queue = run.catch(() => {});
   return run;
+}
+
+/** "Run as administrator" (Windows asks first, with its UAC shield as the icon). Disabled for
+ *  Store apps: they start through their app identity, which Windows can't elevate. */
+let shield: Promise<number[] | null> | null = null;
+export async function adminItem(path: string, args = '', store = false, before?: () => void): Promise<Item> {
+  const icon = (await (shield ??= ipc.shieldIcon().catch(() => null))) ?? undefined;
+  return { text: 'Run as administrator', icon, enabled: !store, action: () => { before?.(); ipc.appLaunchAdmin(path, args).catch(() => {}); } };
 }

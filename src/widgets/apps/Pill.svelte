@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { showMenu, type Item } from '../../lib/menu';
+  import { adminItem, showMenu, type Item } from '../../lib/menu';
   import { onMount, untrack } from 'svelte';
   import { settleBounces, startBounce, type Bounces } from './bounce';
   import { updateWidgetSettings } from '../../lib/config.svelte';
@@ -327,6 +327,7 @@
     e.stopPropagation();
     const items: Item[] = [
       { text: 'New window', action: () => launch(g) },
+      await adminItem(g.path, g.pin?.args ?? '', !!g.aumid),
       g.pin
         ? { text: 'Unpin', action: () => setPins(settings.pinned.filter((p) => keyFor(p.path, p.aumid) !== g.key)) }
         : { text: 'Pin to bar', action: () => setPins([...settings.pinned, { path: g.path, aumid: g.aumid, ...(isWebApp(g.aumid) ? { name: g.name } : {}) }]) },

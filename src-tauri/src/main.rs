@@ -150,20 +150,15 @@ fn main() {
                 SystemEvent::Device(on) => widgets::sound::device_event(&a, on),
                 SystemEvent::Clipboard => widgets::clipboard::on_change(&a),
                 SystemEvent::WorkArea => bar::replace(&a),
-                // Step back from always-on-top while a game or video is fullscreen.
-                // Windows also sends this when the desktop itself is clicked (Explorer): not a
-                // real fullscreen app, so the dock must not drop behind other windows then.
-                SystemEvent::Fullscreen(on) => {
-                    let desktop = on && platform::shell().foreground_exe()
-                        .is_some_and(|e| e.to_lowercase().ends_with("\\explorer.exe"));
-                    for (l, w) in a.webview_windows() { if l == "bar" || l.starts_with("bar-") { let _ = w.set_always_on_top(!on || desktop); } }
-                    bar::set_fullscreen(on && !desktop);
-                }
+                // bar::watch_fullscreen handles full-screen apps for every dock (this notice
+                // only reaches a dock that reserves space, and also fires for the desktop).
+                SystemEvent::Fullscreen(_) => {}
             }));
             sync_autostart(h, &h.state::<AppState>().config.lock().unwrap().clone());
             bar::start_apply_worker(h);
             widgets::ocr::register_hotkey(h);
             bar::watch_autohide(h);
+            bar::watch_fullscreen(h);
             bar::watch_hover_panel(h);
             bar::sync_osd(h);
             backdrop::watch(h);
@@ -279,7 +274,7 @@ fn main() {
             widgets::ocr::ocr_snap_finish, widgets::screenshots::shots_list, widgets::clipboard::clip_list, widgets::clipboard::clip_copy, widgets::clipboard::clip_delete, widgets::clipboard::clip_pin, widgets::screenshots::shots_copy,
             widgets::screenshots::shots_delete, widgets::screenshots::shots_open, widgets::screenshots::shot_fullscreen, widgets::screenshots::shot_scroll_stop, widgets::quick::record_screen, widgets::mirror::mirror_save, widgets::ocr::ocr_history, widgets::ocr::ocr_history_delete, widgets::ocr::ocr_copy,
             widgets::quick::wifi_list, widgets::quick::wifi_connect, widgets::quick::wifi_disconnect,
-            widgets::quick::bt_list, widgets::quick::bt_pair, widgets::quick::bt_unpair, widgets::quick::open_settings_uri,
+            widgets::quick::bt_list, widgets::quick::bt_pair, widgets::quick::bt_unpair, widgets::quick::bt_connect, widgets::quick::open_settings_uri,
             bar::popup_fit, widgets::quick::tray_icons, widgets::quick::tray_click, widgets::quick::tray_refresh, widgets::sound::audio_meter, widgets::spectrum::audio_spectrum, widgets::spectrum::audio_spectrum_stream,
             widgets::quick::clock_system_12h, widgets::quick::lang_list, widgets::quick::lang_set, widgets::quick::windows_notifications, widgets::quick::show_desktop, widgets::quick::windows_search_text,
         ])
