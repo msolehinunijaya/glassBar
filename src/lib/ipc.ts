@@ -52,6 +52,8 @@ export interface BarCfg {
   fillScreen?: boolean;
   /** A "show desktop" strip at the dock's far end, fixed while the widgets scroll. */
   showDesktop?: boolean;
+  /** Dragging the dock or its ends does nothing. */
+  locked?: boolean;
 }
 export type SideWidth = 'slim' | 'regular' | 'wide';
 export const SIDE_PX: Record<SideWidth, number> = { slim: 56, regular: 72, wide: 96 };

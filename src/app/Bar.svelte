@@ -261,7 +261,7 @@
   let dragFrom = { x: 0, y: 0 };
 
   async function onBarDown(e: PointerEvent) {
-    if (e.button !== 0 || edit || (e.target as HTMLElement).closest('.slot, .handle, .edit-tools')) return;
+    if (e.button !== 0 || edit || bar.locked || (e.target as HTMLElement).closest('.slot, .handle, .edit-tools')) return;
     dragging = true;
     const p = await win.innerPosition();
     dragFrom = { x: p.x, y: p.y };
@@ -296,7 +296,7 @@
   // ---- Resize: drag either end to change the bar's length ----
   // Only the window resizes while dragging (bar_preview); config is saved once on release.
   function onHandleDown(e: PointerEvent, side: 1 | -1) {
-    if (e.button !== 0) return;
+    if (e.button !== 0 || bar.locked) return;
     const el = e.currentTarget as HTMLElement;
     el.setPointerCapture(e.pointerId);
     const start = vertical ? e.screenY : e.screenX;
@@ -359,7 +359,15 @@
     shown.length; vertical; infinite; // re-measure when widgets, the edge or the setting change
     measure();
     // Its first call (right after observe) also sets up infinite scroll.
-    const ro = new ResizeObserver(() => { measure(); revealSoon(); loop(); });
+    const ro = new ResizeObserver((es) => {
+      measure();
+      hold();
+      // Reveal only a hovered widget that itself changed size: any resize (a clock's text) used
+      // to scroll a stale-hovered widget back into view about once a second.
+      const h = scroller.querySelector(':scope > .slot:hover');
+      if (h && es.some((e) => e.target === h)) revealSoon();
+      loop();
+    });
     ro.observe(scroller);
     for (const s of scroller.children) ro.observe(s);
     scroller.addEventListener('scroll', measure, { passive: true });
@@ -367,6 +375,26 @@
     scroller.addEventListener('scrollend', loop, { passive: true });
     return () => { ro.disconnect(); scroller.removeEventListener('scroll', measure); scroller.removeEventListener('scrollend', loop); cancelAnimationFrame(measureRaf); clearTimeout(revealTimer); };
   });
+
+  // ---- The widget under the pointer stays put while others change size (an equalizer shrinking
+  // when the music goes quiet, a clock's text): the dock scrolls by just as much in the same
+  // frame, so a second click lands where the first did. Positions are kept in scroll content
+  // coordinates, so the user's own scrolling never counts as a shift.
+  // ponytail: needs room to scroll; a dock that fits (centred) still shifts.
+  let anchor: { el: HTMLElement; at: number } | null = null;
+  const contentPos = (el: HTMLElement) => vertical
+    ? el.getBoundingClientRect().top + scroller.scrollTop
+    : el.getBoundingClientRect().left + scroller.scrollLeft;
+  function anchorAt(e: PointerEvent) {
+    const el = (e.target as Element).closest<HTMLElement>('.scroller > .slot');
+    if (anchor?.el !== el) anchor = el ? { el, at: contentPos(el) } : null; // hold() keeps `at` current
+  }
+  function hold() {
+    if (!anchor || dragId || !anchor.el.isConnected) return;
+    const by = contentPos(anchor.el) - anchor.at;
+    if (by) { if (vertical) scroller.scrollTop += by; else scroller.scrollLeft += by; }
+    anchor.at = contentPos(anchor.el);
+  }
 
   // ---- Infinite scroll (bar settings): the row goes round, after the last widget the first
   // comes again. No copies of the widgets (their live timers and charts would run twice): the
@@ -401,6 +429,7 @@
       flushSync();
       const by = keep.getBoundingClientRect()[side] - at;
       if (vertical) scroller.scrollTop += by; else scroller.scrollLeft += by;
+      if (anchor) anchor.at = contentPos(anchor.el); // carried round on purpose: not a shift
     }
   }
 
@@ -474,6 +503,7 @@
         action: () => setBar((b) => { b.edge = e; b.floating = null; }),
       })) },
       { text: 'Auto-hide', checked: autoHide, action: () => setBar((b) => { b.autoHide = !autoHide; b.floating = null; }) },
+      { text: 'Lock the dock', checked: !!bar.locked, action: () => setBar((b) => (b.locked = !bar.locked)) },
       '-',
       { text: 'Settings…', action: () => ipc.openSettings() },
       '-',
@@ -616,14 +646,15 @@
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="surface bar dock" use:glass class:vertical class:edit class:flashing={!!alert} class:focusing={showFocus} onpointerdown={onBarDown} oncontextmenu={onContext}
+<div class="surface bar dock" use:glass class:vertical class:edit class:flashing={!!alert} class:focusing={showFocus} class:locked={!!bar.locked} onpointerdown={onBarDown} oncontextmenu={onContext}
      oncontextmenucapture={() => ipc.popupHoverHide()}
      onpointerenter={onEnter} onpointermove={focusMove} onpointerleave={focusLeave} data-size={bar.size} data-side={bar.sideWidth ?? 'regular'}>
   <!-- Resize handles; none while "Fill the screen" fixes the length. -->
   {#if !bar.fillScreen}<div class="handle start" onpointerdown={(e) => onHandleDown(e, -1)}></div>{/if}
 
   <div class="scrollbox">
-  <div class="scroller" bind:this={scroller} class:fade-before={more.before > 0} class:fade-after={more.after > 0}>
+  <div class="scroller" bind:this={scroller} class:fade-before={more.before > 0} class:fade-after={more.after > 0}
+       onpointermove={anchorAt} onpointerleave={() => (anchor = null)}>
     {#each shown as w, i (w.instance)}
       {@const m = widgets[w.id]}
       <!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -926,6 +957,7 @@
   .handle { flex: none; width: 6px; cursor: ew-resize; border-radius: calc(3px * var(--rs)); }
   .vertical .handle { width: auto; height: 6px; cursor: ns-resize; }
   .handle:hover { background: var(--pill-hover); }
+  .locked .handle { cursor: default; background: none; }
 
   .empty { align-self: center; padding: 0 12px; }
 </style>

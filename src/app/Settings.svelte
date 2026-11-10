@@ -222,6 +222,10 @@
           <input type="checkbox" checked={!!bar.infiniteScroll} onchange={(e) => setBar((b) => (b.infiniteScroll = e.currentTarget.checked))} />
         </label>
         <p class="hint">When the widgets don't all fit, scrolling the dock goes round and round: after the last widget the first comes again.</p>
+        <label class="field"><span>Lock the dock</span>
+          <input type="checkbox" checked={!!bar.locked} onchange={(e) => setBar((b) => (b.locked = e.currentTarget.checked))} />
+        </label>
+        <p class="hint">The dock stays where it is: dragging it or its ends does nothing. Position and Auto-hide still change it. Also in the dock's right-click menu.</p>
       </div>
       <h2>Windows taskbar</h2>
       <div class="group">

@@ -61,6 +61,8 @@ pub struct BarCfg {
     /// A "show desktop" strip at the dock's far end (right, or bottom on a side dock), like the
     /// Windows taskbar's; it stays put while the widgets scroll.
     pub show_desktop: bool,
+    /// Locked: dragging the dock or its ends does nothing (menu and Settings still place it).
+    pub locked: bool,
 }
 
 impl BarCfg {
@@ -78,7 +80,7 @@ impl Default for BarCfg {
         // Fresh install: GlassBar replaces the Windows taskbar. Quit, a crash or the tray's
         // "Restore Windows taskbar" bring it back.
         Self { edge: Edge::Top, monitor: None, length: 0.7, size: BarSize::Normal, floating: None,
-               reserve_space: true, native_taskbar: TaskbarMode::Hidden, auto_hide: false, side_width: "regular".into(), gap: 6.0, gap_inner: None, all_displays: false, infinite_scroll: false, fill_screen: false, show_desktop: false }
+               reserve_space: true, native_taskbar: TaskbarMode::Hidden, auto_hide: false, side_width: "regular".into(), gap: 6.0, gap_inner: None, all_displays: false, infinite_scroll: false, fill_screen: false, show_desktop: false, locked: false }
     }
 }
 
