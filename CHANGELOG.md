@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.6.17 — 2026-11-10
+
+### New
+- **Lock the dock** in Settings › Bar › Behaviour, and in the dock's right-click menu. While it is on, dragging the dock or its ends does nothing, so it stays where it is. Position and Auto-hide still move it.
+
+### Fixed
+- **The dock no longer slides under the pointer.** When a widget changes size (the equalizer shrinking when the music goes quiet, a clock's text), the widget under the pointer now stays where it is, so clicking an app icon again hits the same app. This needs widgets that don't all fit on the dock; a dock where everything fits is centred and can still shift.
+- **No more sudden jumps of the dock** about once a second while the pointer was on it: it now scrolls a widget into view only when that widget itself grew.
+
 ## 0.6.16 — 2026-11-09
 
 ### New
