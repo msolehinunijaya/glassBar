@@ -258,7 +258,7 @@ fn apply_now(app: &AppHandle) {
             // Auto-hide never reserves space: windows use the whole screen. Without the
             // AppBar no "fullscreen ended" notice can arrive, so make sure it stays on top.
             shell().appbar_remove();
-            let _ = win.set_always_on_top(true);
+            let _ = win.set_always_on_top(!fullscreen());
             if !app.state::<AppState>().revealed.load(Ordering::Relaxed) {
                 if let Some(mon) = bar_monitor(app, bar.monitor) { r = hidden_rect(r, bar.edge, monitor_rect(&mon), PEEK); }
             }
@@ -389,7 +389,8 @@ pub fn watch_autohide(app: &AppHandle) {
         loop {
             std::thread::sleep(Duration::from_millis(crate::autohide::TICK_MS as u64));
             let cfg = app.state::<AppState>().config.lock().unwrap().profile().bar.clone();
-            if !cfg.auto_hide || cfg.floating.is_some() { continue; }
+            // Never slide out over a full-screen video or game.
+            if !cfg.auto_hide || cfg.floating.is_some() || fullscreen() { continue; }
             let (Some((shown, _)), Some(mon), Some((x, y))) = (bar_rect(&app, &cfg, cfg.length), bar_monitor(&app, cfg.monitor), shell().cursor_pos()) else { continue };
             let st = app.state::<AppState>();
             let popup_open = app.get_webview_window("popup").and_then(|p| p.is_visible().ok()).unwrap_or(false);
@@ -443,6 +444,33 @@ static FULLSCREEN: AtomicBool = AtomicBool::new(false);
 pub fn set_fullscreen(on: bool) { FULLSCREEN.store(on, Ordering::Relaxed); }
 pub fn fullscreen() -> bool { FULLSCREEN.load(Ordering::Relaxed) }
 
+/// Send every dock on the monitor a full-screen app fills (video, game, F11 browser) behind
+/// it, and bring them back on top when it leaves. Polled: Windows' own notice only reaches a
+/// dock that reserves space, and only dropping always-on-top left the dock over the video.
+/// ponytail: one flag for all monitors (alerts pause everywhere); per-monitor if it matters.
+pub fn watch_fullscreen(app: &AppHandle) {
+    let app = app.clone();
+    let _ = std::thread::Builder::new().name("fullscreen".into()).spawn(move || {
+        let mut was = None;
+        loop {
+            std::thread::sleep(Duration::from_millis(250));
+            let now = shell().fullscreen_monitor();
+            if now == was { continue; }
+            was = now;
+            set_fullscreen(now.is_some());
+            crate::applog::log(if now.is_some() { "full-screen app in front: dock steps back" } else { "full-screen app gone: dock back on top" });
+            for (l, w) in app.webview_windows() {
+                if l != "bar" && !l.starts_with("bar-") { continue; }
+                let mid = w.outer_position().ok().zip(w.outer_size().ok())
+                    .map(|(p, s)| (p.x + s.width as i32 / 2, p.y + s.height as i32 / 2));
+                let covered = now.zip(mid).is_some_and(|(m, (x, y))| x >= m.x && y >= m.y && x < m.x + m.w && y < m.y + m.h);
+                if covered { let _ = w.set_always_on_top(false); shell().send_back(&w); }
+                else { let _ = w.set_always_on_top(true); shell().raise_top(&w); }
+            }
+        }
+    });
+}
+
 /// Pure: may a dock alert of this kind show now? Prayer time still shows over a full-screen app.
 pub fn alert_allowed(kind: &str, fullscreen: bool) -> bool { !fullscreen || kind == "prayer" }
 
@@ -474,7 +502,7 @@ static ALERT_HOLD: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::
 #[tauri::command]
 pub fn dock_alert_end(app: AppHandle) {
     if FULLSCREEN.load(Ordering::Relaxed) {
-        if let Some(w) = app.get_webview_window("bar") { let _ = w.set_always_on_top(false); }
+        if let Some(w) = app.get_webview_window("bar") { let _ = w.set_always_on_top(false); shell().send_back(&w); }
     }
     let mine = ALERT_HOLD.swap(0, Ordering::Relaxed);
     if mine != 0 { let _ = HOLD_UNTIL.compare_exchange(mine, 0, Ordering::Relaxed, Ordering::Relaxed); }

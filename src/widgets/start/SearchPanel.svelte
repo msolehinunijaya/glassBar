@@ -12,7 +12,7 @@
   import { emit } from '@tauri-apps/api/event';
   import { ArrowRightLeft, Calculator, Check, Copy, Globe, History, Ruler, Search } from '@lucide/svelte';
   import { profile, updateWidgetSettings } from '../../lib/config.svelte';
-  import { showMenu } from '../../lib/menu';
+  import { adminItem, showMenu } from '../../lib/menu';
   import FileIcon from '../downloads/FileIcon.svelte';
   import { iconOf } from '../folders/appIcons.svelte';
   import { withPin } from '../apps/groups';
@@ -104,7 +104,6 @@
     }
   }
   // Right-click an app: the same pin and folder changes as the dock's own menus make.
-  let shield: Promise<number[] | null> | null = null;
   const on = (id: string) => profile().widgets.find((w) => w.id === id && w.enabled !== false);
   async function appMenu(e: MouseEvent, app: InstalledApp) {
     e.preventDefault();
@@ -117,8 +116,7 @@
     // Store apps start through their app identity, which Windows can't elevate.
     const store = !!app.aumid;
     await showMenu([
-      { text: 'Run as administrator', icon: (await (shield ??= ipc.shieldIcon().catch(() => null))) ?? undefined, enabled: !store,
-        action: () => { close(); ipc.appLaunchAdmin(app.path, app.args).catch(() => {}); } },
+      await adminItem(app.path, app.args, store, close),
       pinned ? { text: 'Pin to App Launcher', action: () => updateWidgetSettings(launcher!.instance, { pinned }) }
         : { text: 'Pin to App Launcher', checked: !!launcher, enabled: false },
       list.length

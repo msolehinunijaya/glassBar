@@ -14,6 +14,37 @@ fn enumerator() -> windows::core::Result<IMMDeviceEnumerator> {
     unsafe { CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL) }
 }
 
+/// Connect (or disconnect) a paired Bluetooth headset or speaker, the way Windows' own Sound
+/// settings do: a one-shot reconnect/disconnect sent to its Bluetooth audio driver. `mac` is
+/// 12 lowercase hex digits. Err when no audio driver of that device was found (not an
+/// audio device, or Windows hasn't installed it).
+pub fn bt_audio_link(mac: &str, connect: bool) -> Res<()> {
+    use windows::Win32::Media::KernelStreaming::*;
+    let id = if connect { KSPROPERTY_ONESHOT_RECONNECT } else { KSPROPERTY_ONESHOT_DISCONNECT };
+    let all = unsafe { enumerator().and_then(|e| e.EnumAudioEndpoints(eAll, DEVICE_STATE(DEVICE_STATEMASK_ALL))) }.map_err(err)?;
+    let mut sent = 0;
+    for i in 0..unsafe { all.GetCount() }.map_err(err)? {
+        // endpoint -> its connector -> the driver part it plugs into: that part's device id names the Bluetooth address.
+        let part = (|| unsafe {
+            let topo: IDeviceTopology = all.Item(i)?.Activate(CLSCTX_ALL, None)?;
+            let part: IPart = topo.GetConnector(0)?.GetConnectedTo()?.cast()?;
+            let dev = part.GetTopologyObject()?.GetDeviceId()?.to_string()?.to_lowercase();
+            windows::core::Result::Ok(dev.contains(mac).then_some(part))
+        })();
+        let Ok(Some(part)) = part else { continue };
+        let ks = unsafe {
+            let mut ks: Option<IKsControl> = None;
+            part.Activate(CLSCTX_INPROC_SERVER.0, &IKsControl::IID, Some(&mut ks as *mut _ as *mut *mut c_void)).ok().and(ks)
+        };
+        let Some(ks) = ks else { continue };
+        let prop = KSIDENTIFIER { Anonymous: KSIDENTIFIER_0 { Anonymous: KSIDENTIFIER_0_0 { Set: KSPROPSETID_BtAudio, Id: id.0 as u32, Flags: KSPROPERTY_TYPE_GET } } };
+        let mut got = 0u32;
+        if unsafe { ks.KsProperty(&prop, std::mem::size_of::<KSIDENTIFIER>() as u32, std::ptr::null_mut(), 0, &mut got) }.is_ok() { sent += 1; }
+    }
+    if sent == 0 { return Err("NOT_AUDIO".into()); }
+    Ok(())
+}
+
 fn default_device() -> windows::core::Result<IMMDevice> {
     unsafe { enumerator()?.GetDefaultAudioEndpoint(eRender, eConsole) }
 }

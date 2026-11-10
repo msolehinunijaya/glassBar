@@ -1,7 +1,7 @@
 <script lang="ts">
   // Paired and nearby Bluetooth devices from Windows. Pairing runs Windows' own flow
-  // (its PIN/confirm dialog). Connecting a paired device has no public Windows API, so
-  // that goes to Windows Bluetooth settings rather than a button that only pretends.
+  // (its PIN/confirm dialog). Connect/Disconnect works for headphones and speakers (the
+  // only kind Windows lets apps connect); the result is checked, not assumed.
   import { Bluetooth, ChevronLeft, Headphones, Keyboard, RefreshCw, Settings2, Smartphone, Laptop } from '@lucide/svelte';
   import { ipc, type BtDevice, type RadioInfo } from '../../lib/ipc';
   import { levelTone } from './extras';
@@ -26,6 +26,23 @@
     try { await f(); msg = { id: d.id, text: ok, ok: true }; } catch (e) { msg = { id: d.id, text: String(e), ok: false }; }
     busy = null;
     await load(false);
+  }
+  // Ask Windows, then watch the device's state (up to 15 s) so the message says what really happened.
+  let linking = $state<{ id: string; on: boolean } | null>(null);
+  async function link(d: BtDevice, on: boolean) {
+    linking = { id: d.id, on }; msg = null;
+    try {
+      await ipc.btConnect(d.id, on);
+      let done = false;
+      for (let i = 0; i < 15 && !done; i++) {
+        await new Promise((r) => setTimeout(r, 1000));
+        await load(false);
+        done = devices.find((x) => x.id === d.id)?.connected === on;
+      }
+      msg = { id: d.id, ok: done, text: done ? (on ? 'Connected' : 'Disconnected')
+        : on ? "Couldn't connect. Is it switched on, nearby, and not connected to another device?" : "It's still connected. Try again." };
+    } catch (e) { msg = { id: d.id, text: String(e), ok: false }; }
+    linking = null;
   }
   const icon = (k: string) => (k === 'Audio' ? Headphones : k === 'Input' ? Keyboard : k === 'Phone' ? Smartphone : k === 'Computer' ? Laptop : Bluetooth);
   const paired = $derived(devices.filter((d) => d.paired));
@@ -56,7 +73,8 @@
         <Icon size={16} />
         <span class="name"><span class="ellipsis">{d.name}</span><span class="dim small">{d.connected ? 'Connected' : 'Paired'} · {d.kind}</span></span>
         {#if d.connected && d.battery != null}<span class="batt {levelTone(d.battery)}" title="Battery {d.battery}%"><span class="gauge"><i style:width="{d.battery}%"></i></span><b>{d.battery}%</b></span>{/if}
-        <button class="btn sm" onclick={() => ipc.openSettingsUri('ms-settings:bluetooth')} title="Windows has no public API for apps to connect or disconnect a device">{d.connected ? 'Disconnect…' : 'Connect…'}</button>
+        <button class="btn sm" class:primary={!d.connected} disabled={!!linking || busy === d.id} onclick={() => link(d, !d.connected)}>
+          {linking?.id === d.id ? (linking.on ? 'Connecting…' : 'Disconnecting…') : d.connected ? 'Disconnect' : 'Connect'}</button>
         <button class="btn sm" disabled={busy === d.id} onclick={() => act(d, () => ipc.btUnpair(d.id), 'Removed')}>{busy === d.id ? '…' : 'Remove'}</button>
         {#if msg?.id === d.id}<p class="small" class:err={!msg.ok}>{msg.text}</p>{/if}
       </div>

@@ -68,6 +68,7 @@ impl Wireless for WinWireless {
     fn bt_list(&self, discover: bool) -> Res<Vec<BtDevice>> { wireless::bt_list(discover) }
     fn bt_pair(&self, id: &str) -> Res<()> { wireless::bt_pair(id) }
     fn bt_unpair(&self, id: &str) -> Res<()> { wireless::bt_unpair(id) }
+    fn bt_connect(&self, id: &str, on: bool) -> Res<()> { wireless::bt_connect(id, on) }
     fn watch_network(&self, f: Box<dyn Fn() + Send + Sync>) { wireless::watch_network(f) }
 }
 impl Screen for WinScreen {
@@ -109,6 +110,17 @@ impl Shell for WinShell {
             unsafe { let _ = SetWindowPos(windows::Win32::Foundation::HWND(h.0), Some(HWND_TOPMOST), 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE); }
         }
     }
+    fn send_back(&self, win: &tauri::WebviewWindow) {
+        use windows::Win32::UI::WindowsAndMessaging::{SetWindowPos, HWND_BOTTOM, HWND_NOTOPMOST, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE};
+        if let Ok(h) = win.hwnd() {
+            let h = windows::Win32::Foundation::HWND(h.0);
+            unsafe {
+                let _ = SetWindowPos(h, Some(HWND_NOTOPMOST), 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+                let _ = SetWindowPos(h, Some(HWND_BOTTOM), 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+            }
+        }
+    }
+    fn fullscreen_monitor(&self) -> Option<Rect> { windows_list::fullscreen_monitor() }
     fn init(&self, dir: &std::path::Path, f: Box<dyn Fn(SystemEvent) + Send>) {
         appbar::set_state_dir(dir);
         system::start(f);

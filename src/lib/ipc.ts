@@ -534,6 +534,7 @@ export const ipc = {
   btList: (discover: boolean) => invoke<BtDevice[]>('bt_list', { discover }),
   btPair: (id: string) => invoke<void>('bt_pair', { id }),
   btUnpair: (id: string) => invoke<void>('bt_unpair', { id }),
+  btConnect: (id: string, on: boolean) => invoke<void>('bt_connect', { id, on }),
   openSettingsUri: (uri: string) => invoke<void>('open_settings_uri', { uri }),
   /** Keep the live output-level meter running ~3 s more (the music visualizer calls this every 2 s). */
   audioMeter: () => invoke<void>('audio_meter'),

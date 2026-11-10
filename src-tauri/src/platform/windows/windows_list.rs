@@ -1,5 +1,5 @@
 //! Top-level window list (what a taskbar shows), live updates, launch/focus, exe icons.
-use super::super::{AppWindow, Res};
+use super::super::{AppWindow, Rect, Res};
 use super::wide;
 use base64::Engine;
 use image::ImageEncoder;
@@ -38,6 +38,30 @@ pub fn foreground_exe() -> Option<String> {
     let w = unsafe { GetForegroundWindow() };
     if w.is_invalid() { return None; }
     Some(exe_path(pid_of(w))).filter(|p| !p.is_empty())
+}
+
+/// The monitor the foreground window fills as a full-screen app, if it does (Shell::fullscreen_monitor).
+pub fn fullscreen_monitor() -> Option<Rect> {
+    let w = unsafe { GetForegroundWindow() };
+    if w.is_invalid() || pid_of(w) == std::process::id() { return None; }
+    if matches!(class_of(w).as_str(), "Progman" | "WorkerW" | "Shell_TrayWnd" | "Shell_SecondaryTrayWnd") { return None; }
+    unsafe {
+        let mut r = windows::Win32::Foundation::RECT::default();
+        GetWindowRect(w, &mut r).ok()?;
+        let mut mi = MONITORINFO { cbSize: std::mem::size_of::<MONITORINFO>() as u32, ..Default::default() };
+        if !GetMonitorInfoW(MonitorFromWindow(w, MONITOR_DEFAULTTONEAREST), &mut mi).as_bool() { return None; }
+        let m = mi.rcMonitor;
+        let mon = Rect { x: m.left, y: m.top, w: m.right - m.left, h: m.bottom - m.top };
+        let titled = GetWindowLongPtrW(w, GWL_STYLE) as u32 & WS_CAPTION.0 == WS_CAPTION.0;
+        let win = Rect { x: r.left, y: r.top, w: r.right - r.left, h: r.bottom - r.top };
+        is_fullscreen(win, mon, IsZoomed(w).as_bool() && titled).then_some(mon)
+    }
+}
+
+/// Pure: a window covering its whole monitor is full screen, unless it is a normal maximized
+/// window (title bar), which hangs a few pixels past the screen when nothing reserves space.
+pub(crate) fn is_fullscreen(win: Rect, mon: Rect, maximized_with_title: bool) -> bool {
+    !maximized_with_title && win.x <= mon.x && win.y <= mon.y && win.x + win.w >= mon.x + mon.w && win.y + win.h >= mon.y + mon.h
 }
 
 pub(crate) fn exe_path(pid: u32) -> String {
@@ -382,6 +406,19 @@ pub(crate) fn hicon_data_url(icon: isize) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
+    #[test]
+    fn full_screen_means_covering_the_monitor_but_not_a_maximized_window() {
+        let mon = Rect { x: 0, y: 0, w: 1920, h: 1080 };
+        assert!(is_fullscreen(mon, mon, false), "F11 browser, video, game");
+        assert!(is_fullscreen(Rect { x: -1, y: -1, w: 1922, h: 1082 }, mon, false));
+        assert!(!is_fullscreen(Rect { x: -8, y: -8, w: 1936, h: 1096 }, mon, true), "maximized with a title bar");
+        assert!(!is_fullscreen(Rect { x: 0, y: 60, w: 1920, h: 1020 }, mon, false), "stops at the dock");
+        let right = Rect { x: 1920, y: 0, w: 2560, h: 1440 };
+        assert!(is_fullscreen(right, right, false), "second monitor");
+    }
+
     #[test]
     fn web_app_ids_are_told_apart_from_the_browser() {
         assert!(crate::platform::is_web_app_id("Chrome._crx_agimnkijcaahngcdmfeangaknmldooml"));

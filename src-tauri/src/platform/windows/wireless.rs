@@ -172,6 +172,16 @@ pub fn bt_pair(id: &str) -> Res<()> {
     }
 }
 
+/// Connect or disconnect a paired device. Windows only offers this for headsets and speakers;
+/// other devices (mouse, keyboard, phone) connect themselves when they are on and nearby.
+pub fn bt_connect(id: &str, on: bool) -> Res<()> {
+    let mac = super::btbattery::mac_from_winrt_id(id).ok_or("Unknown device")?;
+    super::audio::bt_audio_link(&mac, on).map_err(|e| if e == "NOT_AUDIO" {
+        if on { "Windows only lets apps connect headphones and speakers. Turn this device on near the PC: it connects by itself.".to_string() }
+        else { "Windows only lets apps disconnect headphones and speakers. Turn the device off, or use Bluetooth settings.".to_string() }
+    } else { e })
+}
+
 pub fn bt_unpair(id: &str) -> Res<()> {
     com_init();
     let info = DeviceInformation::CreateFromIdAsync(&HSTRING::from(id)).and_then(|o| o.join()).map_err(err)?;

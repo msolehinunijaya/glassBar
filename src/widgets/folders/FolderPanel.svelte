@@ -9,7 +9,7 @@
   import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
   import { ipc } from '../../lib/ipc';
   import { profile, updateWidgetSettings } from '../../lib/config.svelte';
-  import { showMenu } from '../../lib/menu';
+  import { adminItem, showMenu } from '../../lib/menu';
   import { nextWindow } from '../apps/groups';
   import type { Pin } from '../apps/index';
   import manifest, { type FoldersSettings } from './index';
@@ -51,12 +51,13 @@
       { text: 'Delete folder', action: () => settings && updateWidgetSettings(instance, { folders: settings.folders.filter((x) => x.id !== f.id) }) },
     ]);
   }
-  function menu(e: MouseEvent, p: Pin, i: number) {
+  async function menu(e: MouseEvent, p: Pin, i: number) {
     e.preventDefault();
     if (!folder) return;
     const f = folder;
     showMenu([
       { text: 'Open', action: () => launch(p) },
+      await adminItem(p.path, p.args ?? '', !!p.aumid, close),
       { text: 'Show in folder', action: () => ipc.downloadsReveal(p.path).catch(() => {}) },
       '-',
       ...(i > 0 ? [{ text: 'Move left', action: () => save(moveApp(f, pinId(p), i - 1)) }] : []),
