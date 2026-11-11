@@ -452,11 +452,25 @@ pub fn watch_fullscreen(app: &AppHandle) {
     let app = app.clone();
     let _ = std::thread::Builder::new().name("fullscreen".into()).spawn(move || {
         let mut was = None;
+        let mut healed = false;
         loop {
             std::thread::sleep(Duration::from_millis(250));
             let now = shell().fullscreen_monitor();
-            if now == was { continue; }
+            if now == was {
+                // Nothing full screen: every dock belongs on top. Something can knock one off
+                // (a step-back whose undo was lost, another app), and then Show desktop hides it.
+                if now.is_none() {
+                    for (l, w) in app.webview_windows() {
+                        if (l != "bar" && !l.starts_with("bar-")) || shell().is_topmost(&w) { continue; }
+                        if !healed { crate::applog::log(format!("{l} wasn't on top: put back")); healed = true; }
+                        let _ = w.set_always_on_top(true);
+                        shell().raise_top(&w);
+                    }
+                }
+                continue;
+            }
             was = now;
+            healed = false;
             set_fullscreen(now.is_some());
             crate::applog::log(if now.is_some() { "full-screen app in front: dock steps back" } else { "full-screen app gone: dock back on top" });
             for (l, w) in app.webview_windows() {

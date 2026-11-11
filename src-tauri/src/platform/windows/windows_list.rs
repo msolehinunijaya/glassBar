@@ -45,6 +45,10 @@ pub fn fullscreen_monitor() -> Option<Rect> {
     let w = unsafe { GetForegroundWindow() };
     if w.is_invalid() || pid_of(w) == std::process::id() { return None; }
     if matches!(class_of(w).as_str(), "Progman" | "WorkerW" | "Shell_TrayWnd" | "Shell_SecondaryTrayWnd") { return None; }
+    // Windows' own screens (Task View, Alt+Tab, the desktop) belong to Explorer and fill the
+    // monitor too, but they aren't full-screen apps: the dock stays on top of them.
+    let shell = unsafe { GetShellWindow() };
+    if !shell.is_invalid() && pid_of(shell) == pid_of(w) { return None; }
     unsafe {
         let mut r = windows::Win32::Foundation::RECT::default();
         GetWindowRect(w, &mut r).ok()?;

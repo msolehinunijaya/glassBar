@@ -133,6 +133,10 @@ impl Shell for WinShell {
         }
     }
     fn fullscreen_monitor(&self) -> Option<Rect> { windows_list::fullscreen_monitor() }
+    fn is_topmost(&self, win: &tauri::WebviewWindow) -> bool {
+        use windows::Win32::UI::WindowsAndMessaging::{GetWindowLongPtrW, GWL_EXSTYLE, WS_EX_TOPMOST};
+        win.hwnd().map(|h| unsafe { GetWindowLongPtrW(windows::Win32::Foundation::HWND(h.0), GWL_EXSTYLE) } as u32 & WS_EX_TOPMOST.0 != 0).unwrap_or(true)
+    }
     fn init(&self, dir: &std::path::Path, f: Box<dyn Fn(SystemEvent) + Send>) {
         appbar::set_state_dir(dir);
         system::start(f);
