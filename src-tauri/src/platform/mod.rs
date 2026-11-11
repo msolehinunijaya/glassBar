@@ -146,6 +146,8 @@ pub trait Shell: Send + Sync {
     /// The monitor (physical px) the foreground window fills as a full-screen app: a video,
     /// game or F11 browser. Never a normal maximized window or the desktop.
     fn fullscreen_monitor(&self) -> Option<Rect> { None }
+    /// Is the window in the always-on-top layer right now?
+    fn is_topmost(&self, _win: &tauri::WebviewWindow) -> bool { true }
     /// Native blur + rounded corners (or plain transparent window for CSS glass).
     /// Returns the material Windows really draws ("none" if none could be applied).
     fn style_window(&self, win: &tauri::WebviewWindow, glass: &Glass) -> &'static str;
