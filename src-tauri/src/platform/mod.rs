@@ -140,6 +140,9 @@ pub trait Shell: Send + Sync {
     fn raise_top(&self, _win: &tauri::WebviewWindow) {}
     /// Put a window behind every other window (out of the always-on-top layer) without activating it.
     fn send_back(&self, _win: &tauri::WebviewWindow) {}
+    /// Keep a window out of the window switchers (Task View, Alt+Tab): the dock, its panels,
+    /// banners and overlays aren't app windows. Skip-taskbar alone only removes the taskbar button.
+    fn tool_window(&self, _win: &tauri::WebviewWindow) {}
     /// The monitor (physical px) the foreground window fills as a full-screen app: a video,
     /// game or F11 browser. Never a normal maximized window or the desktop.
     fn fullscreen_monitor(&self) -> Option<Rect> { None }
@@ -272,8 +275,55 @@ pub trait Audio: Send + Sync {
     fn watch_mic(&self, f: Box<dyn Fn() + Send>);
     /// Apps using "microphone" or "webcam" right now (Windows' privacy store).
     fn using(&self, what: &str) -> Vec<UsingApp>;
-    /// An app started or stopped using the microphone or camera.
+    /// Something the Privacy Monitor shows changed: an app started or stopped using the
+    /// microphone, camera, location or screen capture, a privacy switch, or a camera or
+    /// microphone was plugged in, removed, turned on or off.
     fn watch_using(&self, f: Box<dyn Fn() + Send>);
+}
+
+/// One app's use of a privacy capability, from the OS's own record. `id`: the record's key
+/// (package family for Store apps); `until` 0 = still using it. Times in ms.
+#[derive(Serialize, Clone, Debug, Default, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct CapUse { pub id: String, pub name: String, pub exe: String, pub since: i64, pub until: i64 }
+
+/// What the OS says about one capability. `uses` None: its usage record couldn't be read.
+/// `frozen`: the OS moved that record somewhere apps can't read (Windows 11 keeps it in a
+/// protected database), so `uses` is history that no longer updates.
+/// Switches: Some(true) allowed, Some(false) denied, None not set. `policy`: forced by an
+/// administrator (group policy / MDM).
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Capability { pub uses: Option<Vec<CapUse>>, pub frozen: bool, pub user: Option<bool>, pub device: Option<bool>, pub desktop: Option<bool>, pub policy: Option<bool> }
+
+/// A camera or microphone. `id`: what selects it (audio endpoint id; the instance for a
+/// camera); `instance`: its device-node id, what turning it on or off acts on.
+#[derive(Serialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct PrivDevice { pub id: String, pub instance: String, pub name: String, pub enabled: bool, pub default: bool }
+
+/// The location service (Windows: lfsvc). `disabled`: set so it can't start.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Service { pub running: bool, pub disabled: bool }
+
+/// Everything the Privacy Monitor reads, raw. Device lists are Err when they couldn't be
+/// read; `location_service` Ok(None) = not installed. `running`: lower-case exe names.
+#[derive(Clone, Debug)]
+pub struct PrivacyFacts {
+    pub camera: Capability, pub mic: Capability, pub location: Capability, pub capture: Capability,
+    /// Apps using a camera / recording from a microphone right now, read live (Err: can't be).
+    pub camera_live: Result<Vec<CapUse>, String>, pub mic_live: Result<Vec<CapUse>, String>,
+    pub cameras: Result<Vec<PrivDevice>, String>, pub mics: Result<Vec<PrivDevice>, String>, pub mic_muted: Option<bool>,
+    pub location_service: Result<Option<Service>, String>, pub location_policy_off: bool,
+    pub running: Vec<String>,
+}
+
+pub trait Privacy: Send + Sync {
+    fn facts(&self) -> PrivacyFacts;
+    /// Turn a device on or off for every app. Needs admin: the OS asks first. Returns the
+    /// tool's exit code once it finished (3010 = applies after a restart).
+    fn set_device_enabled(&self, instance: &str, on: bool) -> Res<u32>;
+    /// Is that device on now? None: not connected.
+    fn device_enabled(&self, instance: &str) -> Option<bool>;
 }
 
 pub trait Media: Send + Sync {
@@ -496,3 +546,4 @@ pub fn files() -> &'static dyn Files { &win::WinFiles }
 pub fn tray() -> &'static dyn Tray { &win::WinTray }
 #[cfg(windows)]
 pub fn secrets() -> &'static dyn Secrets { &win::WinSecrets }
+pub fn privacy() -> &'static dyn Privacy { &win::WinPrivacy }

@@ -158,5 +158,14 @@
         background: var(--accent); color: var(--on-accent); }
   .run { position: absolute; left: 50%; bottom: 0; width: 5px; height: 3px; translate: -50% 0; border-radius: 2px; background: var(--accent); }
   .more .grid { font-size: 12px; font-weight: 600; color: var(--fg); }
+  /* A smaller preview on a normal or compact dock, so the tile and its dot fit the height. */
+  :global(.bar[data-size='normal']) .folder:not(.side) { padding: 2px; }
+  :global(.bar[data-size='normal']) .folder:not(.side) .grid { width: 30px; height: 30px; grid-template-columns: repeat(2, 11px); grid-auto-rows: 11px; }
+  :global(.bar[data-size='normal']) .folder:not(.side) :is(.grid img, .ph) { width: 11px; height: 11px; }
+  :global(.bar[data-size='compact']) .folder:not(.side) { padding: 1px; }
+  :global(.bar[data-size='compact']) .folder:not(.side) .grid { width: 24px; height: 24px; padding: 2px; grid-template-columns: repeat(2, 9px); grid-auto-rows: 9px; border-radius: calc(7px * var(--rs)); }
+  :global(.bar[data-size='compact']) .folder:not(.side) :is(.grid img, .ph) { width: 9px; height: 9px; }
+  :global(.bar[data-size='compact']) .folder:not(.side) .ph { font-size: 7px; }
+  :global(.bar[data-size='compact']) .more .grid { font-size: 10px; }
   .nm { max-width: 90px; font-size: 11.5px; font-weight: 500; }
 </style>

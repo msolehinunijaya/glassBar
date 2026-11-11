@@ -22,7 +22,7 @@
   });
 </script>
 
-<div class="pill" title="Screen time today">
+<div class="pill fit" title="Screen time today">
   <span class="stack">
     <Hourglass size={14} />
     <span class="t">{duration(today?.total ?? 0)}</span>

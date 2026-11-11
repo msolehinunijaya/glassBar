@@ -507,6 +507,47 @@ pub fn mic_state() -> Res<super::super::MicState> {
     Ok(super::super::MicState { muted, volume, devices })
 }
 
+/// Every microphone, also ones turned off (Sound settings' "Don't allow" or Device Manager).
+/// Each audio endpoint is its own device node: SWD\MMDEVAPI\<endpoint id>.
+pub fn capture_endpoints() -> Res<Vec<super::super::PrivDevice>> {
+    com_init();
+    let default_id = mic_device().map(|d| id_of(&d)).unwrap_or_default();
+    let mut out = Vec::new();
+    unsafe {
+        let all = enumerator().and_then(|e| e.EnumAudioEndpoints(eCapture, DEVICE_STATE(DEVICE_STATE_ACTIVE.0 | DEVICE_STATE_DISABLED.0))).map_err(err)?;
+        for i in 0..all.GetCount().map_err(err)? {
+            let d = all.Item(i).map_err(err)?;
+            let id = id_of(&d);
+            let enabled = d.GetState().map(|s| s == DEVICE_STATE_ACTIVE).unwrap_or(false);
+            out.push(super::super::PrivDevice { instance: format!(r"SWD\MMDEVAPI\{id}"), default: enabled && id == default_id, name: name_of(&d), enabled, id });
+        }
+    }
+    Ok(out)
+}
+
+/// Apps recording from any microphone right now: (process id, program path), from Core
+/// Audio's active capture sessions (what Windows' own microphone indicator follows).
+pub fn recording_now() -> Res<Vec<(u32, String)>> {
+    com_init();
+    let mut out: Vec<(u32, String)> = Vec::new();
+    unsafe {
+        let all = enumerator().and_then(|e| e.EnumAudioEndpoints(eCapture, DEVICE_STATE_ACTIVE)).map_err(err)?;
+        for i in 0..all.GetCount().map_err(err)? {
+            let Ok(d) = all.Item(i) else { continue };
+            let Ok(mgr) = d.Activate::<IAudioSessionManager2>(CLSCTX_ALL, None) else { continue };
+            let Ok(list) = mgr.GetSessionEnumerator() else { continue };
+            for j in 0..list.GetCount().unwrap_or(0) {
+                let Ok(c) = list.GetSession(j) else { continue };
+                if c.GetState().map(|s| s != AudioSessionStateActive).unwrap_or(true) { continue; }
+                let Ok(c2) = c.cast::<IAudioSessionControl2>() else { continue };
+                let pid = c2.GetProcessId().unwrap_or(0);
+                if pid != 0 && !out.iter().any(|x| x.0 == pid) { out.push((pid, exe_path(pid))); }
+            }
+        }
+    }
+    Ok(out)
+}
+
 pub fn mic_set_mute(m: bool) -> Res<()> { unsafe { mic_endpoint().and_then(|e| e.SetMute(m, &OURS)).map_err(err) } }
 pub fn mic_set_volume(v: f32) -> Res<()> { unsafe { mic_endpoint().and_then(|e| e.SetMasterVolumeLevelScalar(v.clamp(0.0, 1.0), &OURS)).map_err(err) } }
 

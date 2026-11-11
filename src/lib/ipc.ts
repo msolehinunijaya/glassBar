@@ -215,6 +215,18 @@ export interface MicState { muted: boolean; volume: number; devices: AudioDevice
 /** An app using the microphone or camera now (exe empty for Store apps). */
 export interface UsingApp { name: string; exe: string; since: number }
 export interface InUse { mic: UsingApp[]; cam: UsingApp[] }
+/** Privacy Monitor (Rust: widgets/privacy.rs). `verified` false: the app is running but
+ *  doesn't tell Windows when it uses this; `until` 0 = still using it; `window`: its window. */
+export interface PrivacyApp { id: string; name: string; exe: string; since: number; until: number; verified: boolean; window: number | null }
+/** A camera or microphone; `instance` is what turning it on or off acts on. */
+export interface PrivacyDevice { id: string; instance: string; name: string; enabled: boolean; default: boolean }
+export type PrivacyKey = 'camera' | 'mic' | 'location' | 'recording' | 'sharing';
+export type PrivacyState = 'active' | 'inactive' | 'blocked' | 'disabled' | 'unavailable' | 'unknown' | 'limited';
+export interface PrivacyResource {
+  key: PrivacyKey; state: PrivacyState; headline: string; reason: string; attention: boolean;
+  apps: PrivacyApp[]; recent: PrivacyApp[]; devices: PrivacyDevice[]; facts: [string, string][]; method: string;
+}
+export interface PrivacyReport { resources: PrivacyResource[]; checked: number; micMuted: boolean | null }
 export interface TrayIcon { id: string; tip: string; icon: string | null; exe: string; promoted: boolean; rev: number }
 export interface KeyboardLayout { id: number; code: string; name: string; locale: string; active: boolean }
 export interface DiskInfo { mount: string; label: string; total: number; available: number; removable: boolean; fs: string }
@@ -465,6 +477,11 @@ export const ipc = {
   micSetVolume: (volume: number) => invoke<void>('mic_set_volume', { volume }),
   micSetDefault: (id: string) => invoke<void>('mic_set_default', { id }),
   privacyInUse: () => invoke<InUse>('privacy_in_use'),
+  privacyReport: () => invoke<PrivacyReport>('privacy_report'),
+  /** Resolves with a message once Windows confirms the change; rejects with why not. */
+  privacySetDevice: (instance: string, enabled: boolean) => invoke<string>('privacy_set_device', { instance, enabled }),
+  privacyOpenTool: (tool: 'devmgmt.msc' | 'services.msc') => invoke<void>('privacy_open_tool', { tool }),
+  privacyNotify: (key: string, title: string, body: string) => invoke<void>('privacy_notify', { key, title, body }),
   holidaysGet: (force = false) => invoke<{ items: Holiday[]; fetchedAt: number; cached: boolean }>('holidays_get', { force }),
   devStatus: (root: string) => invoke<DevStatus>('devstack_status', { root }),
   devToggle: (root: string, id: string, start: boolean) => invoke<void>('devstack_toggle', { root, id, start }),

@@ -33,7 +33,7 @@
 </script>
 
 <div class="solatwrap" class:vertical class:joined={settings.tasbihOnDock}>
-<div class="pill solat {st?.phase ?? ''}" title={s.error || (st ? `${st.next.name} at ${at(st.next.at)}` : 'Waktu Solat')}>
+<div class="pill fit solat {st?.phase ?? ''}" title={s.error || (st ? `${st.next.name} at ${at(st.next.at)}` : 'Waktu Solat')}>
   {#if st && st.phase !== 'reached'}<span class="fill" style:transform="scaleX({st.progress})"></span>{/if}
   <Moon size={15} />
   {#if st?.phase === 'reached' && st.reached}

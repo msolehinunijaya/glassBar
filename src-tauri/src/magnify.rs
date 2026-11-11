@@ -29,6 +29,7 @@ fn window(app: &AppHandle) -> Option<WebviewWindow> {
     let _ = w.set_ignore_cursor_events(true);
     shell().style_window(&w, &Glass { native: false, dark: true, material: String::new(), radius: 0 });
     shell().no_animation(&w);
+    shell().tool_window(&w);
     Some(w)
 }
 

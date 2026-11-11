@@ -30,7 +30,7 @@
     {#if v}{@render ring()}<span class="side-v">{v.l.short}</span>{:else}<Hourglass size={18} /><span class="side-c">Add</span>{/if}
   </div>
 {:else}
-  <div class="pill cd" class:today={v?.l.state === 'today'} class:done={v?.l.state === 'done'} title={tip}>
+  <div class="pill fit cd" class:today={v?.l.state === 'today'} class:done={v?.l.state === 'done'} title={tip}>
     {#if v}
       {@render ring()}
       {#if size === 'small'}

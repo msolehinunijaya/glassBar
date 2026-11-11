@@ -41,7 +41,7 @@
     {/each}
   </div>
 {:else}
-  <div class="pill" title={tip}>
+  <div class="pill fit" title={tip}>
     <ClaudeMark size={26} />
     {#if rows.length}
       <div class="rows" class:one-row={oneRow} class:tight>

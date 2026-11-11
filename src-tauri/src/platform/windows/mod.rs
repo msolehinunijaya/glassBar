@@ -52,6 +52,12 @@ impl Secrets for WinSecrets {
     fn delete(&self, target: &str) -> Res<()> { secrets::delete(target) }
 }
 pub struct WinTray;
+pub struct WinPrivacy;
+impl Privacy for WinPrivacy {
+    fn facts(&self) -> PrivacyFacts { privacy::facts() }
+    fn set_device_enabled(&self, instance: &str, on: bool) -> Res<u32> { privacy::set_enabled(instance, on) }
+    fn device_enabled(&self, instance: &str) -> Option<bool> { privacy::node_enabled(instance) }
+}
 impl Tray for WinTray {
     fn start(&self, on_change: Box<dyn Fn() + Send>) { tray::start(on_change) }
     fn stop(&self) { tray::stop() }
@@ -109,6 +115,12 @@ impl Shell for WinShell {
         if let Ok(h) = win.hwnd() {
             unsafe { let _ = SetWindowPos(windows::Win32::Foundation::HWND(h.0), Some(HWND_TOPMOST), 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE); }
         }
+    }
+    fn tool_window(&self, win: &tauri::WebviewWindow) {
+        let Ok(h) = win.hwnd() else { return };
+        let h = h.0 as isize;
+        // The hook must be set from the thread that owns the window.
+        let _ = win.run_on_main_thread(move || tool_window(h));
     }
     fn send_back(&self, win: &tauri::WebviewWindow) {
         use windows::Win32::UI::WindowsAndMessaging::{SetWindowPos, HWND_BOTTOM, HWND_NOTOPMOST, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE};
@@ -329,4 +341,30 @@ impl Files for WinFiles {
     fn recycle_items(&self) -> Res<Vec<BinItem>> { files::recycle_items() }
     fn recycle_restore(&self, keys: &[String]) -> Res<u32> { files::recycle_restore(keys) }
     fn watch_recycle(&self, f: Box<dyn Fn() + Send>) { files::watch_recycle(f) }
+}
+
+/// A tool window (no APPWINDOW): Task View and Alt+Tab skip it. Tauri rewrites a window's
+/// extended style whenever its flags change (always-on-top when the dock steps behind a
+/// full-screen app, for one), so a hook keeps the flag on every later change too.
+fn tool_window(h: isize) {
+    use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
+    use windows::Win32::UI::Shell::{DefSubclassProc, SetWindowSubclass};
+    use windows::Win32::UI::WindowsAndMessaging::*;
+    fn fix(ex: u32) -> u32 { (ex | WS_EX_TOOLWINDOW.0) & !WS_EX_APPWINDOW.0 }
+    unsafe extern "system" fn keep(h: HWND, msg: u32, w: WPARAM, l: LPARAM, _id: usize, _data: usize) -> LRESULT {
+        if msg == WM_STYLECHANGING && w.0 as i32 == GWL_EXSTYLE.0 {
+            let s = unsafe { &mut *(l.0 as *mut STYLESTRUCT) };
+            s.styleNew = fix(s.styleNew);
+        }
+        unsafe { DefSubclassProc(h, msg, w, l) }
+    }
+    let h = HWND(h as *mut _);
+    unsafe {
+        let _ = SetWindowSubclass(h, Some(keep), 0x6C61_7373, 0); // "lass": GlassBar's id
+        let ex = GetWindowLongPtrW(h, GWL_EXSTYLE) as u32;
+        if fix(ex) != ex {
+            SetWindowLongPtrW(h, GWL_EXSTYLE, fix(ex) as isize);
+            let _ = SetWindowPos(h, None, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+        }
+    }
 }

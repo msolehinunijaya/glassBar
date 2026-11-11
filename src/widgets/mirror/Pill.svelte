@@ -10,7 +10,7 @@
 {#if vertical}
   <div class="side" title="Mirror"><Video size={18} class="dim" /><span class="side-c">Mirror</span></div>
 {:else}
-  <div class="pill mirror" class:small={size === 'small'} title="Mirror">
+  <div class="pill fit mirror" class:small={size === 'small'} title="Mirror">
     <Video size={size === 'small' ? 16 : 15} />
     {#if size !== 'small'}<span>Mirror</span>{/if}
   </div>

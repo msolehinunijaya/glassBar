@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.6.18 — 2026-11-11
+
+### New
+- **Privacy Monitor widget.** A shield on the dock: dimmed while nothing is detected, lit (green for the camera, orange for the microphone) while an app uses them, and a warning shield when something can't be checked. Its panel has a card each for Camera, Microphone, Location, Screen recording and Screen sharing: which app and since when, Windows' privacy switches, your cameras and microphones (turn one off or on, which asks for administrator permission and is checked afterwards; mute; pick the input device), recent activity, and shortcuts to the right Windows settings. Optional notifications when an app starts using the camera or microphone. GlassBar records nothing.
+  - Camera and microphone use is read live from Windows. Windows 11 keeps its record of location and screen-capture use where apps can't read it, so those cards say "can't be seen" instead of "not in use", and still show whether location is on, its permissions and its service. OBS, Zoom and similar apps are shown as running but not verified.
+- **Bluetooth Connect / Disconnect** for headphones and speakers right in the dock, with the result checked (Connecting… → Connected, or why not). Other kinds of device get a clear message instead of opening Settings.
+- **Run as administrator** in the right-click menu of App Launcher apps and App Folder apps.
+
+### Changed
+- **Widgets fit compact and normal docks.** App Launcher icons are a little smaller there, folder previews too, and widgets with two lines of text (clock, music, system monitor, prayer times, downloads, Gmail and more) shrink slightly, so nothing touches or crosses the edge of the dock. Large docks look as before.
+- **Dock icon size can't make an icon taller than the dock.** On compact and normal docks the setting is capped where icons would be cut off.
+
+### Fixed
+- **GlassBar no longer shows in Task View or Alt+Tab.** The dock and its panels aren't app windows; the Settings window still is.
+- **The dock steps behind full-screen apps** (YouTube full screen, F11 browser, games) and comes back on top when they leave. Before, it could stay drawn over the video.
+- **The microphone light in Quick Settings works again on recent Windows 11.** It read a record Windows no longer updates.
+
 ## 0.6.17 — 2026-11-10
 
 ### New

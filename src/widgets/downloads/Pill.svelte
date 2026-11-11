@@ -31,7 +31,7 @@
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="pill dl" class:pulse class:vertical onpointerenter={() => (fresh = false)}
+<div class="pill fit dl" class:pulse class:vertical onpointerenter={() => (fresh = false)}
      title={err || (latest ? `${latest.name} · ${fmtSize(latest.size)} · ${ago(latest.at)}` : 'No downloads')}>
   {#if latest}
     <button class="file" onpointerdown={down} onclick={(e) => run(e, () => ipc.downloadsOpen(latest.path))} aria-label="Open {latest.name}">

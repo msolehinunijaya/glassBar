@@ -26,7 +26,7 @@
   {/if}
 </div>
 {:else}
-<div class="pill ipu" class:coloured={!!band} style:--c={band?.color} style:--ink={ink} style:--ink-glass={glassInk}
+<div class="pill fit ipu" class:coloured={!!band} style:--c={band?.color} style:--ink={ink} style:--ink-glass={glassInk}
      title={ipu.r ? `${label(ipu.r)} ${ipu.r.value} · ${band?.name} · ${ipu.r.station?.name ?? ''}` : 'Air quality'}>
   {#if ipu.r}
     <Wind size={14} />
