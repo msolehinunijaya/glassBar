@@ -30,7 +30,7 @@
       + (important ? `\n${important} important` : ''));
 </script>
 
-<div class={vertical ? 'side' : 'pill'} {title}>
+<div class={vertical ? 'side' : 'pill fit'} {title}>
   <span class="ico">
     <MailIcon3D size={vertical ? 30 : 28} />
     {#if today}<b class="badge" class:imp={important} title="{today} new today">{badge(today)}</b>{/if}

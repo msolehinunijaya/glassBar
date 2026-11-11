@@ -20,6 +20,7 @@ pub mod mic;
 pub mod notes;
 pub mod ocr;
 pub mod ocr_text;
+pub mod privacy;
 pub mod quick;
 pub mod screenshots;
 pub mod screentime;

@@ -84,7 +84,7 @@
   }
 </script>
 
-<div class="pill capture-pill" class:vertical bind:this={row}>
+<div class="pill fit capture-pill" class:vertical bind:this={row}>
   {#if scrolling}
     <button class="stop" onpointerdown={(e) => e.stopPropagation()} onclick={stop} aria-label="Stop the scrolling screenshot and keep what's captured" title="Stop and keep what's captured">
       <Square size={12} fill="currentColor" />{#if !vertical}<span>Stop</span>{/if}

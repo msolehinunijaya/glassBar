@@ -36,6 +36,14 @@ pub fn aumid_for_path(path: &str) -> Option<String> {
     None
 }
 
+/// A Store app's name as Windows shows it ("Microsoft.ScreenSketch_8wekyb3d8bbwe" -> "Snipping Tool").
+pub fn display_name(family: &str) -> Option<String> {
+    super::com_init();
+    let pm = PackageManager::new().ok()?;
+    let pkg = pm.FindPackagesByUserSecurityIdPackageFamilyName(&HSTRING::new(), &HSTRING::from(family)).ok()?.into_iter().next()?;
+    pkg.DisplayName().ok().map(|s| s.to_string()).filter(|s| !s.is_empty() && !s.starts_with("ms-resource:"))
+}
+
 fn app_id(aumid: &str) -> &str { aumid.rsplit('!').next().unwrap_or("") }
 
 /// The `Executable` of the `<Application Id="…">` in an AppxManifest.xml. Attributes come in

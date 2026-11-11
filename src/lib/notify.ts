@@ -11,6 +11,7 @@ export const SOURCE_WIDGET: Record<string, { widget: string; part?: 'pomodoro' |
   bluetooth: { widget: 'quicksettings', label: 'Bluetooth battery' },
   countdown: { widget: 'countdown', label: 'Countdowns' },
   gmail: { widget: 'gmail', label: 'Gmail' },
+  privacy: { widget: 'privacy', label: 'Privacy Monitor' },
 };
 
 export type JumpTarget =

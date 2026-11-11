@@ -22,7 +22,7 @@
   const KIND = { day: 'Day', month: 'Month', year: 'Year' } as const;
 </script>
 
-<div class="pill prog" title="{label(now, settings.mode)}: {Math.floor(p.frac * 100)}% passed">
+<div class="pill fit prog" title="{label(now, settings.mode)}: {Math.floor(p.frac * 100)}% passed">
   <!-- Which period (Day / Month / Year) and how far through it, on the left; dots on the right. -->
   <span class="side">
     <span class="kind">{KIND[settings.mode]}</span>

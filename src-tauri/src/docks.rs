@@ -79,7 +79,8 @@ pub fn sync(app: &AppHandle) {
         let built = WebviewWindowBuilder::new(app, label, WebviewUrl::App("index.html".into()))
             .title("GlassBar").decorations(false).transparent(true).shadow(true)
             .always_on_top(true).skip_taskbar(true).resizable(false).focused(false).visible(false)
-            .build();
+            .build()
+            .inspect(|w| crate::platform::shell().tool_window(w));
         if let Err(e) = built { crate::applog::log(format!("dock on {label}: {e}")); }
     }
 }

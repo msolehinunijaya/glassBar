@@ -72,7 +72,7 @@
   {/if}
 </div>
 {:else}
-<div class="pill" title="System">
+<div class="pill fit" title="System">
   {#if settings.cpu}
     <span class="m" class:stack={graphs} transition:slide={t}>
       <span class="row"><span class="dim k">CPU</span>{Math.round(last?.cpu ?? 0)}%{#if settings.temp}<span class="dim">·</span><span class:hot={isHot(last?.cpuTemp, +settings.tempWarn)}>{fmtTemp(last?.cpuTemp, settings.tempUnit)}</span>{/if}</span>

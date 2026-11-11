@@ -159,7 +159,7 @@ async fn start(app: &AppHandle, purpose: &str) -> Result<(), String> {
             .resizable(false).shadow(false).visible(false).focused(true)
             .build().map_err(|e| e.to_string())
             // Appear and vanish at once: Windows' fade showed the overlay half-transparent.
-            .inspect(|w| crate::platform::shell().no_animation(w))?,
+            .inspect(|w| { crate::platform::shell().no_animation(w); crate::platform::shell().tool_window(w); })?,
     };
     win.set_position(PhysicalPosition::new(x, y)).map_err(|e| e.to_string())?;
     win.set_size(PhysicalSize::new(w as u32, h as u32)).map_err(|e| e.to_string())?;

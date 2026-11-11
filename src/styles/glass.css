@@ -99,8 +99,12 @@
 /* Auto-hidden bar: nothing moves while it's tucked away (Low and Normal; see lib/perf.svelte.ts). */
 :root[data-away]:not([data-perf='high']) * { animation-play-state: paused !important; }
 
-/* Dock icon size (bar and the Settings preview). */
-.dock :is(svg.lucide-icon, img) { zoom: var(--icon-k); }
+/* Dock icon size (bar and the Settings preview). A shorter dock caps it, so a big icon
+   size never makes an icon taller than its widget (App Launcher icons are 20 px on a
+   compact dock, 24 px on normal). */
+.dock :is(svg.lucide-icon, img) { zoom: min(var(--icon-k), var(--icon-max, 9)); }
+.dock:not(.vertical)[data-size='normal'] { --icon-max: 1.25; }
+.dock:not(.vertical)[data-size='compact'] { --icon-max: 1.15; }
 
 html, body, #app { margin: 0; height: 100%; background: transparent; color: var(--fg); overflow: hidden; }
 * { box-sizing: border-box; }
@@ -146,6 +150,12 @@ input, select, textarea { font: inherit; color: inherit; }
   white-space: nowrap;
 }
 .pill:hover { background: var(--pill-hover); }
+/* Widgets laid out for the large dock shrink their contents to fit the dock's height
+   (Settings › Bar › Size): add `fit` to the pill. The pill itself keeps the full height.
+   Top/bottom docks only: a side dock's width is set by Side width, not Size. */
+.bar:not(.vertical)[data-size='normal'] { --dock-fit: 0.92; }
+.bar:not(.vertical)[data-size='compact'] { --dock-fit: 0.8; }
+.pill.fit > * { zoom: var(--dock-fit, 1); }
 .pill:active { transform: scale(0.95); }
 
 .card {

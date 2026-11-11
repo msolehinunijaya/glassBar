@@ -62,7 +62,7 @@
 {:else}
 <div class="clockwrap" class:withwx={settings.showWeather} class:withhol={!!next}>
 {#if settings.showWeather}<WeatherPart {instance} colorful={settings.weatherColorful} vertical={false} />{/if}
-<div class="pill clock {settings.appearance}" class:stacked={show === 'both' && settings.layout === 'stacked'}
+<div class="pill fit clock {settings.appearance}" class:stacked={show === 'both' && settings.layout === 'stacked'}
      class:date-first={show === 'both' && settings.timeSide === 'right'}
      data-align={settings.stackAlign}
      onpointerenter={enter} onpointerleave={leave} role="timer" title={day}>

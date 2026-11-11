@@ -173,6 +173,9 @@ fn main() {
             platform::wireless().watch_network(Box::new(move || { let _ = n.emit("wifi:changed", ()); widgets::location::poke(); }));
             bar::build_tray(h)?;
             bar::apply(h);
+            for label in ["bar", "popup", "banner"] {
+                if let Some(w) = app.get_webview_window(label) { platform::shell().tool_window(&w); }
+            }
             if let Some(w) = app.get_webview_window("bar") { w.show()?; }
             // Windows settles the frameless window's frame on its first show, which changes
             // the size placed above; place it again so a fresh start matches every other time.
@@ -262,6 +265,7 @@ fn main() {
             widgets::quick::hotspot_get, widgets::quick::hotspot_set,
             widgets::awake::awake_get, widgets::awake::awake_set, widgets::awake::awake_off,
             widgets::mic::mic_state, widgets::mic::mic_set_mute, widgets::mic::mic_set_volume, widgets::mic::mic_set_default, widgets::mic::privacy_in_use,
+            widgets::privacy::privacy_report, widgets::privacy::privacy_set_device, widgets::privacy::privacy_notify, widgets::privacy::privacy_open_tool,
             widgets::quick::night_light_get, widgets::quick::night_light_set, widgets::quick::nearby_get, widgets::quick::nearby_set, widgets::quick::cast_get,
             widgets::water::water_today, widgets::water::water_add, widgets::water::water_remove, widgets::water::water_snooze,
             widgets::currency::fx_rates,

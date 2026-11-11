@@ -22,6 +22,7 @@
   .badge:hover { transform: scale(1.25); }
   .badge:active { transform: scale(0.9); }
   .badge:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-  img { width: var(--b); height: var(--b); object-fit: contain; }
+  /* A corner badge: stays its size whatever the dock icon size (it would stick out of the dock). */
+  img { width: var(--b); height: var(--b); object-fit: contain; zoom: 1 !important; }
   span { font-size: 9px; font-weight: 700; }
 </style>

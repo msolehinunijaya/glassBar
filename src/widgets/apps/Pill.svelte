@@ -127,7 +127,8 @@
     const t = await ipc.appBrowse().catch(() => null);
     if (t && !settings.pinned.some((p) => keyOf(p.path) === keyOf(t.path))) setPins([...settings.pinned, { path: t.path, args: t.args || undefined }]);
   }
-  const iconSize = $derived(size === 'small' ? 22 : 26);
+  // Smaller on a compact or normal dock (Settings › Bar › Size) so the icon and its dots fit.
+  const iconSize = $derived((size === 'small' ? 22 : 26) - (vertical ? 0 : ({ compact: 6, normal: 2 } as Record<string, number>)[profile().bar.size] ?? 0));
 
   // ---- Magnification (Mac-style). The enlarged icons are drawn by the magnifier window over
   // the dock (magnify.rs). Here the icons slide apart around the pointer -- the one under it
