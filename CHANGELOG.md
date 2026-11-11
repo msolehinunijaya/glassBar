@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.19 — 2026-11-11
+
+### Fixed
+- **The dock stays visible with Show desktop and Task View.** In 0.6.18, Task View and Alt+Tab were taken for a full-screen app, so the dock stepped back and didn't always come back on top; Show desktop then hid it. Windows' own screens no longer count as full screen, and the dock is put back on top whenever something knocks it off. It still steps behind real full-screen apps (videos, games, F11).
+
 ## 0.6.18 — 2026-11-11
 
 ### New
